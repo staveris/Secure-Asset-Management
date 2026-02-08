@@ -38,3 +38,8 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[userenv]
+
+[userenv.production]
+APP_BASE_URL = "https://nis2compliance.toolsoftech.eu"

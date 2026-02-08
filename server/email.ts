@@ -5,6 +5,9 @@ import { platformSettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export function getAppBaseUrl(): string {
+  if (process.env.APP_BASE_URL) {
+    return process.env.APP_BASE_URL.replace(/\/+$/, "");
+  }
   if (process.env.REPLIT_DOMAINS) {
     const domains = process.env.REPLIT_DOMAINS.split(",");
     return `https://${domains[0]}`;
