@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -18,14 +18,32 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ListTodo, Clock, CheckCircle2, Circle, Eye, Calendar } from "lucide-react";
+import { Plus, ListTodo, Clock, CheckCircle2, Circle, Eye, Calendar, Shield } from "lucide-react";
 import type { Task } from "@shared/schema";
+
+type EnrichedTask = Task & {
+  controlTitle?: string | null;
+  requirementCode?: string | null;
+  category?: string | null;
+};
+
+type ControlObjective = {
+  id: number;
+  title: string;
+  description: string;
+  requirementId: number;
+  requirementCode: string;
+  requirementTitle: string;
+  category: string;
+};
 
 const priorityColors: Record<string, string> = {
   CRITICAL: "destructive",
@@ -47,12 +65,28 @@ export default function Tasks() {
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
   const [dueDate, setDueDate] = useState("");
+  const [controlObjectiveId, setControlObjectiveId] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const { toast } = useToast();
 
-  const { data: tasks, isLoading } = useQuery<Task[]>({
+  const { data: tasks, isLoading } = useQuery<EnrichedTask[]>({
     queryKey: ["/api/tasks"],
   });
+
+  const { data: controlObjectives } = useQuery<ControlObjective[]>({
+    queryKey: ["/api/control-objectives"],
+  });
+
+  const groupedControls = useMemo(() => {
+    if (!controlObjectives) return {};
+    const grouped: Record<string, ControlObjective[]> = {};
+    for (const co of controlObjectives) {
+      const key = `${co.requirementCode} - ${co.category}`;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(co);
+    }
+    return grouped;
+  }, [controlObjectives]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -61,6 +95,7 @@ export default function Tasks() {
         description: description || null,
         priority,
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+        controlObjectiveId: parseInt(controlObjectiveId),
       });
     },
     onSuccess: () => {
@@ -70,6 +105,7 @@ export default function Tasks() {
       setDescription("");
       setPriority("MEDIUM");
       setDueDate("");
+      setControlObjectiveId("");
       toast({ title: "Task created" });
     },
     onError: (err: any) => {
@@ -112,7 +148,27 @@ export default function Tasks() {
             </DialogHeader>
             <div className="space-y-4 mt-2">
               <div className="space-y-2">
-                <Label>Title</Label>
+                <Label>NIS2 Control Objective <span className="text-red-500">*</span></Label>
+                <Select value={controlObjectiveId} onValueChange={setControlObjectiveId}>
+                  <SelectTrigger data-testid="select-task-control-objective">
+                    <SelectValue placeholder="Select a control objective..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {Object.entries(groupedControls).map(([group, controls]) => (
+                      <SelectGroup key={group}>
+                        <SelectLabel className="text-xs font-semibold text-muted-foreground">{group}</SelectLabel>
+                        {controls.map((co) => (
+                          <SelectItem key={co.id} value={String(co.id)}>
+                            {co.title}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Title <span className="text-red-500">*</span></Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -156,7 +212,7 @@ export default function Tasks() {
               </div>
               <Button
                 onClick={() => createMutation.mutate()}
-                disabled={!title || createMutation.isPending}
+                disabled={!title || !controlObjectiveId || createMutation.isPending}
                 className="w-full"
                 data-testid="button-submit-task"
               >
@@ -213,6 +269,14 @@ export default function Tasks() {
                       </p>
                       {task.description && (
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.description}</p>
+                      )}
+                      {task.controlTitle && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Shield className="w-3 h-3 text-primary shrink-0" />
+                          <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-control-${task.id}`}>
+                            {task.requirementCode ? `${task.requirementCode} — ` : ""}{task.controlTitle}
+                          </span>
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

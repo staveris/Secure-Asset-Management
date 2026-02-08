@@ -501,11 +501,45 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  app.get("/api/control-objectives", requireAuth, async (req, res) => {
+    try {
+      const controls = await storage.getAllControlObjectives();
+      const reqs = await storage.getAllRequirements();
+      const enriched = controls.map((c) => {
+        const req = reqs.find((r) => r.id === c.requirementId);
+        return {
+          id: c.id,
+          title: c.title,
+          description: c.description,
+          requirementId: c.requirementId,
+          requirementCode: req?.code || "",
+          requirementTitle: req?.title || "",
+          category: req?.category || "Uncategorized",
+        };
+      });
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/tasks", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const list = await storage.getTasksByTenant(user.tenantId);
-    res.json(list);
+    const controls = await storage.getAllControlObjectives();
+    const reqs = await storage.getAllRequirements();
+    const enriched = list.map((t) => {
+      const control = t.controlObjectiveId ? controls.find((c) => c.id === t.controlObjectiveId) : null;
+      const req = control ? reqs.find((r) => r.id === control.requirementId) : null;
+      return {
+        ...t,
+        controlTitle: control?.title || null,
+        requirementCode: req?.code || null,
+        category: req?.category || null,
+      };
+    });
+    res.json(enriched);
   });
 
   app.post("/api/tasks", requireAuth, requireWriteAccess, async (req, res) => {
@@ -514,6 +548,7 @@ export async function registerRoutes(
 
     const { title, description, priority, dueDate, controlObjectiveId } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required" });
+    if (!controlObjectiveId) return res.status(400).json({ message: "Control objective is required" });
 
     const task = await storage.createTask({
       tenantId: user.tenantId,
@@ -523,7 +558,7 @@ export async function registerRoutes(
       dueDate: dueDate ? new Date(dueDate) : null,
       status: "TODO",
       ownerUserId: user.id,
-      controlObjectiveId: controlObjectiveId || null,
+      controlObjectiveId,
     });
 
     await storage.createAuditLog({
