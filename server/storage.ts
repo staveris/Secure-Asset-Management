@@ -153,6 +153,10 @@ export interface IStorage {
 
   getDashboardData(tenantId: number): Promise<any>;
   getAdminDashboardData(): Promise<any>;
+
+  recalculateTenantStorageUsed(tenantId: number): Promise<void>;
+  getTenantStorageInfo(tenantId: number): Promise<{ storageQuotaBytes: number; storageUsedBytes: number; maxUsers: number; maxFileSizeBytes: number; userCount: number; evidenceCount: number }>;
+  updateTenantQuota(tenantId: number, data: { storageQuotaBytes?: number; maxUsers?: number; maxFileSizeBytes?: number }): Promise<Tenant | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -796,6 +800,36 @@ export class DatabaseStorage implements IStorage {
       evidenceCoverage: dashboard.evidenceCount,
       incidentsOpen: dashboard.openIncidents,
     });
+  }
+
+  async recalculateTenantStorageUsed(tenantId: number): Promise<void> {
+    const evidence = await this.getEvidenceByTenant(tenantId);
+    const totalBytes = evidence.reduce((sum, e) => sum + (e.size || 0), 0);
+    await db.update(tenants).set({ storageUsedBytes: totalBytes }).where(eq(tenants.id, tenantId));
+  }
+
+  async getTenantStorageInfo(tenantId: number): Promise<{ storageQuotaBytes: number; storageUsedBytes: number; maxUsers: number; maxFileSizeBytes: number; userCount: number; evidenceCount: number }> {
+    const tenant = await this.getTenant(tenantId);
+    if (!tenant) throw new Error("Tenant not found");
+    const users = await this.getUsersByTenant(tenantId);
+    const evidence = await this.getEvidenceByTenant(tenantId);
+    return {
+      storageQuotaBytes: tenant.storageQuotaBytes,
+      storageUsedBytes: tenant.storageUsedBytes,
+      maxUsers: tenant.maxUsers,
+      maxFileSizeBytes: tenant.maxFileSizeBytes,
+      userCount: users.length,
+      evidenceCount: evidence.length,
+    };
+  }
+
+  async updateTenantQuota(tenantId: number, data: { storageQuotaBytes?: number; maxUsers?: number; maxFileSizeBytes?: number }): Promise<Tenant | undefined> {
+    const updateData: any = {};
+    if (data.storageQuotaBytes !== undefined) updateData.storageQuotaBytes = data.storageQuotaBytes;
+    if (data.maxUsers !== undefined) updateData.maxUsers = data.maxUsers;
+    if (data.maxFileSizeBytes !== undefined) updateData.maxFileSizeBytes = data.maxFileSizeBytes;
+    const [tenant] = await db.update(tenants).set(updateData).where(eq(tenants.id, tenantId)).returning();
+    return tenant;
   }
 }
 

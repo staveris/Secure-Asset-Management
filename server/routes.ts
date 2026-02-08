@@ -35,7 +35,7 @@ const ALLOWED_MIME_TYPES = [
   "text/plain",
   "text/csv",
 ];
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 const uploadStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
@@ -576,6 +576,24 @@ export async function registerRoutes(
       const file = req.file;
       if (!file) return res.status(400).json({ message: "No file provided" });
 
+      const tenant = await storage.getTenant(user.tenantId);
+      if (!tenant) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "Tenant not found" });
+      }
+
+      if (file.size > tenant.maxFileSizeBytes) {
+        fs.unlinkSync(file.path);
+        const maxMB = (tenant.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
+        return res.status(413).json({ message: `File exceeds maximum size of ${maxMB} MB per file` });
+      }
+
+      if (tenant.storageUsedBytes + file.size > tenant.storageQuotaBytes) {
+        fs.unlinkSync(file.path);
+        const quotaGB = (tenant.storageQuotaBytes / (1024 * 1024 * 1024)).toFixed(1);
+        return res.status(413).json({ message: `Upload would exceed your storage quota of ${quotaGB} GB. Free up space or contact your administrator.` });
+      }
+
       const { relatedType, relatedId } = req.body;
       if (!relatedType || !relatedId) {
         fs.unlinkSync(file.path);
@@ -594,6 +612,8 @@ export async function registerRoutes(
         size: file.size,
         uploadedBy: user.id,
       });
+
+      await storage.recalculateTenantStorageUsed(user.tenantId);
 
       await storage.createAuditLog({
         tenantId: user.tenantId,
@@ -622,6 +642,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Cannot delete locked evidence. Request an unlock first." });
       }
       await storage.deleteEvidenceItem(id);
+      await storage.recalculateTenantStorageUsed(user.tenantId);
       await storage.createAuditLog({
         tenantId: user.tenantId,
         actorUserId: user.id,
@@ -872,6 +893,9 @@ export async function registerRoutes(
           ...t,
           userCount: users.length,
           complianceScore: dashData.complianceScore,
+          storageQuotaBytes: t.storageQuotaBytes,
+          storageUsedBytes: t.storageUsedBytes,
+          maxUsers: t.maxUsers,
         };
       })
     );
@@ -921,6 +945,85 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
       }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/storage-info", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      const info = await storage.getTenantStorageInfo(user.tenantId);
+      res.json(info);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  const quotaUpdateSchema = z.object({
+    storageQuotaGB: z.number().min(0.1).max(1000).optional(),
+    maxUsers: z.number().int().min(1).max(10000).optional(),
+    maxFileSizeMB: z.number().min(1).max(5120).optional(),
+  }).refine(d => d.storageQuotaGB !== undefined || d.maxUsers !== undefined || d.maxFileSizeMB !== undefined, {
+    message: "At least one quota field must be provided",
+  });
+
+  app.patch("/api/admin/tenants/:id/quota", requirePlatformAdmin, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.id);
+      if (isNaN(tenantId)) return res.status(400).json({ message: "Invalid tenant ID" });
+      const parsed = quotaUpdateSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid quota values" });
+      const { storageQuotaGB, maxUsers, maxFileSizeMB } = parsed.data;
+      const updateData: any = {};
+      if (storageQuotaGB !== undefined) updateData.storageQuotaBytes = Math.round(storageQuotaGB * 1024 * 1024 * 1024);
+      if (maxUsers !== undefined) updateData.maxUsers = maxUsers;
+      if (maxFileSizeMB !== undefined) updateData.maxFileSizeBytes = Math.round(maxFileSizeMB * 1024 * 1024);
+      const tenant = await storage.updateTenantQuota(tenantId, updateData);
+      if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+      await storage.createAuditLog({
+        tenantId: null,
+        actorUserId: (req as any).session?.userId || null,
+        action: "UPDATE_QUOTA",
+        entityType: "TENANT",
+        entityId: String(tenantId),
+        details: { storageQuotaGB, maxUsers, maxFileSizeMB },
+      });
+      res.json(tenant);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/admin/storage-overview", requirePlatformAdmin, async (req, res) => {
+    try {
+      const allTenants = await storage.getAllTenants();
+      const overview = await Promise.all(
+        allTenants.map(async (t) => {
+          const users = await storage.getUsersByTenant(t.id);
+          const evidence = await storage.getEvidenceByTenant(t.id);
+          return {
+            id: t.id,
+            name: t.name,
+            status: t.status,
+            storageQuotaBytes: t.storageQuotaBytes,
+            storageUsedBytes: t.storageUsedBytes,
+            maxUsers: t.maxUsers,
+            maxFileSizeBytes: t.maxFileSizeBytes,
+            userCount: users.length,
+            evidenceCount: evidence.length,
+          };
+        })
+      );
+      const totalQuota = allTenants.reduce((s, t) => s + t.storageQuotaBytes, 0);
+      const totalUsed = allTenants.reduce((s, t) => s + t.storageUsedBytes, 0);
+      const totalUsers = overview.reduce((s, t) => s + t.userCount, 0);
+      const totalEvidence = overview.reduce((s, t) => s + t.evidenceCount, 0);
+      res.json({
+        tenants: overview,
+        totals: { totalQuota, totalUsed, totalUsers, totalEvidence, tenantCount: allTenants.length },
+      });
+    } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
   });
@@ -1154,6 +1257,14 @@ export async function registerRoutes(
       const { email, role } = req.body;
       if (!email) return res.status(400).json({ message: "Email required" });
 
+      const tenant = await storage.getTenant(user.tenantId);
+      if (tenant) {
+        const tenantUsers = await storage.getUsersByTenant(user.tenantId);
+        if (tenantUsers.length >= tenant.maxUsers) {
+          return res.status(403).json({ message: `User limit reached (${tenant.maxUsers} users). Contact your administrator to increase the limit.` });
+        }
+      }
+
       const existing = await storage.getUserByEmail(email);
       if (existing) return res.status(400).json({ message: "User already exists" });
 
@@ -1181,8 +1292,8 @@ export async function registerRoutes(
       const baseUrl = getAppBaseUrl();
       const inviteLink = `${baseUrl}/invite/${token}`;
 
-      const tenant = await storage.getTenant(user.tenantId);
-      const tenantName = tenant?.name || "your organization";
+      const inviteTenant = await storage.getTenant(user.tenantId);
+      const tenantName = inviteTenant?.name || "your organization";
       const inviterName = user.fullName || user.email;
 
       const htmlBody = `

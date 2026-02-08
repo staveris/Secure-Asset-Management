@@ -25,6 +25,7 @@ import AdminTenants from "@/pages/admin-tenants";
 import AdminRequirements from "@/pages/admin-requirements";
 import AdminAuditLog from "@/pages/admin-audit-log";
 import AdminEmailSettings from "@/pages/admin-email-settings";
+import AdminStorage from "@/pages/admin-storage";
 import Onboarding from "@/pages/onboarding";
 import VerifyEmail from "@/pages/verify-email";
 import UsersPage from "@/pages/users";
@@ -36,6 +37,7 @@ function AdminRouter() {
     <Switch>
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/tenants" component={AdminTenants} />
+      <Route path="/admin/storage" component={AdminStorage} />
       <Route path="/admin/requirements" component={AdminRequirements} />
       <Route path="/admin/audit-log" component={AdminAuditLog} />
       <Route path="/admin/email-settings" component={AdminEmailSettings} />

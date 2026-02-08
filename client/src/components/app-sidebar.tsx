@@ -33,6 +33,7 @@ import {
   Users,
   Settings,
   Mail,
+  HardDrive,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -57,6 +58,7 @@ const tenantMenuItems = [
 const adminMenuItems = [
   { title: "Global Analytics", url: "/admin", icon: BarChart3 },
   { title: "Tenants", url: "/admin/tenants", icon: Building2 },
+  { title: "Storage & Quotas", url: "/admin/storage", icon: HardDrive },
   { title: "Requirements", url: "/admin/requirements", icon: BookOpen },
   { title: "Audit Log", url: "/admin/audit-log", icon: ScrollText },
   { title: "Email Settings", url: "/admin/email-settings", icon: Mail },

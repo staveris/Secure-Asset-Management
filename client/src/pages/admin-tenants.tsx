@@ -46,6 +46,9 @@ interface TenantInfo {
   createdAt: string;
   userCount: number;
   complianceScore: number;
+  storageQuotaBytes: number;
+  storageUsedBytes: number;
+  maxUsers: number;
 }
 
 const SECTORS = [

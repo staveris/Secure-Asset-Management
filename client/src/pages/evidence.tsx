@@ -39,7 +39,10 @@ import {
   Trash2,
   Link2,
   Search,
+  HardDrive,
+  Users,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import type { EvidenceItem } from "@shared/schema";
 
 function formatFileSize(bytes: number): string {
@@ -109,6 +112,19 @@ export default function Evidence() {
     queryKey: ["/api/evidence/linkable-entities"],
   });
 
+  interface StorageInfo {
+    storageQuotaBytes: number;
+    storageUsedBytes: number;
+    maxUsers: number;
+    maxFileSizeBytes: number;
+    userCount: number;
+    evidenceCount: number;
+  }
+
+  const { data: storageInfo } = useQuery<StorageInfo>({
+    queryKey: ["/api/storage-info"],
+  });
+
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       const res = await fetch("/api/evidence/upload", {
@@ -124,6 +140,7 @@ export default function Evidence() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/storage-info"] });
       toast({ title: "Evidence uploaded", description: "File has been uploaded successfully." });
       setOpen(false);
       setSelectedFile(null);
@@ -141,6 +158,7 @@ export default function Evidence() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/storage-info"] });
       toast({ title: "Evidence deleted", description: "The evidence item has been removed." });
       setDeleteDialogId(null);
     },
@@ -318,7 +336,7 @@ export default function Evidence() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between gap-2 mb-2">
@@ -346,7 +364,58 @@ export default function Evidence() {
             <div className="text-2xl font-bold" data-testid="text-pending-unlocks">{pendingUnlocks}</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-sm text-muted-foreground">Max File Size</span>
+              <Upload className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="text-2xl font-bold" data-testid="text-max-file-size">
+              {storageInfo ? `${(storageInfo.maxFileSizeBytes / (1024 * 1024)).toFixed(0)} MB` : "..."}
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {storageInfo && (
+        <Card data-testid="card-storage-capacity">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium text-sm">Storage Capacity</span>
+              </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  {storageInfo.userCount} / {storageInfo.maxUsers} users
+                </span>
+                <span>{storageInfo.evidenceCount} files</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Progress
+                value={storageInfo.storageQuotaBytes > 0 ? (storageInfo.storageUsedBytes / storageInfo.storageQuotaBytes) * 100 : 0}
+                className="h-2.5"
+                data-testid="progress-storage"
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span data-testid="text-storage-used">
+                  {formatFileSize(storageInfo.storageUsedBytes)} used
+                </span>
+                <span data-testid="text-storage-quota">
+                  {(storageInfo.storageQuotaBytes / (1024 * 1024 * 1024)).toFixed(1)} GB total
+                </span>
+              </div>
+              {storageInfo.storageQuotaBytes > 0 && storageInfo.storageUsedBytes / storageInfo.storageQuotaBytes > 0.85 && (
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                  Storage is almost full. Contact your administrator to increase your quota.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
