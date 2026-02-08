@@ -33,9 +33,14 @@ import {
   Shield,
   Filter,
   Search,
+  FileText,
+  Upload,
+  Lock,
+  Link2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
+import type { EvidenceItem } from "@shared/schema";
 
 interface AssessmentResponse {
   id: number;
@@ -119,6 +124,18 @@ export default function AssessmentDetail({ id }: { id: string }) {
   const { data, isLoading } = useQuery<AssessmentDetail>({
     queryKey: ["/api/assessments", id],
   });
+
+  const { data: evidenceItems } = useQuery<EvidenceItem[]>({
+    queryKey: ["/api/evidence"],
+  });
+
+  const getControlEvidence = (controlObjectiveId: number): EvidenceItem[] => {
+    if (!evidenceItems) return [];
+    return evidenceItems.filter(
+      e => (e.relatedType === "Control" && e.relatedId === controlObjectiveId) ||
+           (e.relatedType === "Assessment" && e.relatedId === parseInt(id))
+    );
+  };
 
   const updateMutation = useMutation({
     mutationFn: async (updates: {
@@ -467,6 +484,50 @@ export default function AssessmentDetail({ id }: { id: string }) {
                                 data-testid={`textarea-notes-${response.id}`}
                               />
                             </div>
+
+                            {(() => {
+                              const controlEvidence = getControlEvidence(response.controlObjectiveId);
+                              return (
+                                <div className="pl-10 space-y-2" data-testid={`evidence-section-${response.id}`}>
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <Label className="text-xs flex items-center gap-1.5">
+                                      <FileText className="w-3 h-3" />
+                                      Evidence ({controlEvidence.length})
+                                    </Label>
+                                    <Link href="/evidence">
+                                      <Button variant="ghost" size="sm" data-testid={`button-upload-evidence-${response.id}`}>
+                                        <Upload className="w-3 h-3 mr-1" />
+                                        Upload
+                                      </Button>
+                                    </Link>
+                                  </div>
+                                  {controlEvidence.length > 0 ? (
+                                    <div className="space-y-1.5">
+                                      {controlEvidence.map(ev => (
+                                        <div
+                                          key={ev.id}
+                                          className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
+                                          data-testid={`evidence-item-${response.id}-${ev.id}`}
+                                        >
+                                          <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                          <span className="font-medium truncate flex-1">{ev.filename}</span>
+                                          <Badge variant="outline" className="text-[10px] shrink-0">
+                                            {ev.relatedType}
+                                          </Badge>
+                                          {(ev as any).lockedAt && (
+                                            <Lock className="w-3 h-3 text-green-500 shrink-0" />
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
+                                      No evidence uploaded for this control yet. Upload evidence from the Evidence Vault.
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </CardContent>
                         </Card>
                       );

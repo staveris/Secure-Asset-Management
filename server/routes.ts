@@ -535,6 +535,53 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/evidence/:id", requireAuth, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      const evidence = await storage.getEvidenceByTenant(user.tenantId);
+      const item = evidence.find(e => e.id === id);
+      if (!item) return res.status(404).json({ message: "Evidence not found" });
+      if ((item as any).lockedAt) {
+        return res.status(403).json({ message: "Cannot delete locked evidence. Request an unlock first." });
+      }
+      await storage.deleteEvidenceItem(id);
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "DELETE",
+        entityType: "EVIDENCE",
+        entityId: String(id),
+        details: { filename: item.filename },
+      });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/evidence/linkable-entities", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      const [assessments, tasks, incidents, controls] = await Promise.all([
+        storage.getAssessmentsByTenant(user.tenantId),
+        storage.getTasksByTenant(user.tenantId),
+        storage.getIncidentsByTenant(user.tenantId),
+        storage.getControlsByTenant(user.tenantId),
+      ]);
+      res.json({
+        assessments: assessments.map(a => ({ id: a.id, label: a.name })),
+        tasks: tasks.map(t => ({ id: t.id, label: t.title })),
+        incidents: incidents.map(i => ({ id: i.id, label: i.title })),
+        controls: controls.map(c => ({ id: c.id, label: c.title })),
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/evidence/:id/download", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });

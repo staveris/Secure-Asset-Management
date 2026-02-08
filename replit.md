@@ -89,3 +89,7 @@ All routes prefixed with `/api/`:
 - 2026-02-08: Tenant management: add, suspend/reactivate, delete tenants with cascading data removal
 - 2026-02-08: Tenant status field (active/suspended) with login blocking for suspended tenants
 - 2026-02-08: Enhanced admin analytics: 8 KPI cards, compliance distribution, entity type breakdown, task status, role breakdown, sortable tenant overview table
+- 2026-02-08: Evidence delete functionality with locked-evidence protection and audit logging
+- 2026-02-08: Evidence upload linked to real entities (assessments, tasks, incidents, controls) via dropdown selection
+- 2026-02-08: Assessment detail page shows evidence per control with upload shortcut to Evidence Vault
+- 2026-02-08: Evidence search and type filtering in Evidence Vault

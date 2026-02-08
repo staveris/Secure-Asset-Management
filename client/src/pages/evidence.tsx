@@ -23,8 +23,22 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { FileBox, Upload, FileText, Calendar, Plus, Lock, Unlock, ShieldCheck } from "lucide-react";
+import {
+  FileBox,
+  Upload,
+  FileText,
+  Calendar,
+  Plus,
+  Lock,
+  Unlock,
+  ShieldCheck,
+  Trash2,
+  Link2,
+  Search,
+} from "lucide-react";
 import type { EvidenceItem } from "@shared/schema";
 
 function formatFileSize(bytes: number): string {
@@ -40,6 +54,18 @@ interface UnlockRequest {
   createdAt: string;
 }
 
+interface LinkableEntity {
+  id: number;
+  label: string;
+}
+
+interface LinkableEntities {
+  assessments: LinkableEntity[];
+  tasks: LinkableEntity[];
+  incidents: LinkableEntity[];
+  controls: LinkableEntity[];
+}
+
 export default function Evidence() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -51,6 +77,9 @@ export default function Evidence() {
   const [lockReason, setLockReason] = useState("");
   const [unlockDialogId, setUnlockDialogId] = useState<number | null>(null);
   const [unlockReason, setUnlockReason] = useState("");
+  const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
+  const [searchFilter, setSearchFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
 
   const isAdmin = user?.role === "TENANT_ADMIN" || user?.role === "PLATFORM_ADMIN";
 
@@ -60,6 +89,10 @@ export default function Evidence() {
 
   const { data: unlockRequests } = useQuery<UnlockRequest[]>({
     queryKey: ["/api/evidence/unlock-requests"],
+  });
+
+  const { data: linkableEntities } = useQuery<LinkableEntities>({
+    queryKey: ["/api/evidence/linkable-entities"],
   });
 
   const uploadMutation = useMutation({
@@ -85,6 +118,20 @@ export default function Evidence() {
     },
     onError: (error: Error) => {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/evidence/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      toast({ title: "Evidence deleted", description: "The evidence item has been removed." });
+      setDeleteDialogId(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -144,8 +191,35 @@ export default function Evidence() {
     uploadMutation.mutate(formData);
   };
 
+  const getEntityOptions = (): LinkableEntity[] => {
+    if (!linkableEntities || !relatedType) return [];
+    const key = relatedType.toLowerCase() + "s" as keyof LinkableEntities;
+    return linkableEntities[key] || [];
+  };
+
+  const getLinkedLabel = (type: string, id: number): string | null => {
+    if (!linkableEntities) return null;
+    const key = type.toLowerCase() + "s" as keyof LinkableEntities;
+    const list = linkableEntities[key];
+    if (!list) return null;
+    const entity = list.find(e => e.id === id);
+    return entity ? entity.label : null;
+  };
+
   const lockedCount = items?.filter(i => (i as any).lockedAt).length || 0;
   const pendingUnlocks = unlockRequests?.filter(r => r.status === "PENDING").length || 0;
+
+  const filteredItems = items?.filter(item => {
+    if (typeFilter !== "ALL" && item.relatedType !== typeFilter) return false;
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase();
+      const linkedLabel = getLinkedLabel(item.relatedType, item.relatedId);
+      return item.filename.toLowerCase().includes(q) ||
+        item.relatedType.toLowerCase().includes(q) ||
+        (linkedLabel && linkedLabel.toLowerCase().includes(q));
+    }
+    return true;
+  });
 
   return (
     <div className="p-6 space-y-6" data-testid="evidence-page">
@@ -154,7 +228,7 @@ export default function Evidence() {
           <h1 className="text-2xl font-bold tracking-tight">Evidence Vault</h1>
           <p className="text-muted-foreground mt-1">Manage compliance evidence and documentation</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setRelatedType(""); setRelatedId(""); setSelectedFile(null); } }}>
           <DialogTrigger asChild>
             <Button data-testid="button-upload-evidence">
               <Plus className="w-4 h-4 mr-2" />
@@ -164,6 +238,9 @@ export default function Evidence() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Upload Evidence</DialogTitle>
+              <DialogDescription>
+                Upload a file and link it to an existing assessment, task, incident, or control.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-2">
               <div className="space-y-2">
@@ -177,10 +254,10 @@ export default function Evidence() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="related-type">Related To</Label>
-                <Select value={relatedType} onValueChange={setRelatedType}>
+                <Label>Link To</Label>
+                <Select value={relatedType} onValueChange={(v) => { setRelatedType(v); setRelatedId(""); }}>
                   <SelectTrigger data-testid="select-related-type">
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Select entity type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Assessment">Assessment</SelectItem>
@@ -190,17 +267,29 @@ export default function Evidence() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="related-id">Related ID</Label>
-                <Input
-                  id="related-id"
-                  type="number"
-                  placeholder="Enter ID"
-                  value={relatedId}
-                  onChange={(e) => setRelatedId(e.target.value)}
-                  data-testid="input-related-id"
-                />
-              </div>
+              {relatedType && (
+                <div className="space-y-2">
+                  <Label>Select {relatedType}</Label>
+                  {getEntityOptions().length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">
+                      No {relatedType.toLowerCase()}s found. Create one first before uploading evidence.
+                    </p>
+                  ) : (
+                    <Select value={relatedId} onValueChange={setRelatedId}>
+                      <SelectTrigger data-testid="select-related-entity">
+                        <SelectValue placeholder={`Select ${relatedType.toLowerCase()}`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getEntityOptions().map(entity => (
+                          <SelectItem key={entity.id} value={String(entity.id)}>
+                            #{entity.id} - {entity.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              )}
               <Button
                 onClick={handleUpload}
                 disabled={!selectedFile || !relatedType || !relatedId || uploadMutation.isPending}
@@ -245,6 +334,31 @@ export default function Evidence() {
         </Card>
       </div>
 
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Search evidence..."
+            className="pl-9"
+            data-testid="input-search-evidence"
+          />
+        </div>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-[160px]" data-testid="select-type-filter">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Types</SelectItem>
+            <SelectItem value="Assessment">Assessment</SelectItem>
+            <SelectItem value="Task">Task</SelectItem>
+            <SelectItem value="Incident">Incident</SelectItem>
+            <SelectItem value="Control">Control</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {isAdmin && pendingUnlocks > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -278,10 +392,11 @@ export default function Evidence() {
         <div className="space-y-3">
           {[1, 2, 3].map((i) => <Card key={i}><CardContent className="p-4"><Skeleton className="h-12" /></CardContent></Card>)}
         </div>
-      ) : items && items.length > 0 ? (
+      ) : filteredItems && filteredItems.length > 0 ? (
         <div className="space-y-2">
-          {items.map((item) => {
+          {filteredItems.map((item) => {
             const isLocked = !!(item as any).lockedAt;
+            const linkedLabel = getLinkedLabel(item.relatedType, item.relatedId);
             return (
               <Card key={item.id} data-testid={`card-evidence-${item.id}`}>
                 <CardContent className="p-4">
@@ -297,12 +412,18 @@ export default function Evidence() {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground" data-testid={`text-fileinfo-${item.id}`}>
-                        {item.mimeType} {item.size ? `(${formatFileSize(item.size)})` : ""}
-                        {isLocked && (item as any).lockReason && (
-                          <span className="ml-2">- {(item as any).lockReason}</span>
-                        )}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                        <p className="text-xs text-muted-foreground" data-testid={`text-fileinfo-${item.id}`}>
+                          {item.mimeType} {item.size ? `(${formatFileSize(item.size)})` : ""}
+                        </p>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Link2 className="w-3 h-3" />
+                          <span data-testid={`text-linked-${item.id}`}>
+                            {item.relatedType} #{item.relatedId}
+                            {linkedLabel && ` - ${linkedLabel}`}
+                          </span>
+                        </span>
+                      </div>
                     </div>
                     <Badge variant="outline" className="text-xs shrink-0" data-testid={`badge-type-${item.id}`}>{item.relatedType}</Badge>
                     <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0" data-testid={`text-date-${item.id}`}>
@@ -310,46 +431,81 @@ export default function Evidence() {
                       {new Date(item.uploadedAt).toLocaleDateString()}
                     </span>
                     {!isLocked && (
-                      <Dialog open={lockDialogId === item.id} onOpenChange={(v) => { if (!v) setLockDialogId(null); }}>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setLockDialogId(item.id)}
-                            data-testid={`button-lock-${item.id}`}
-                          >
-                            <Lock className="w-3 h-3 mr-1" />
-                            Lock
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Lock Evidence</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4 pt-2">
-                            <p className="text-sm text-muted-foreground">
-                              Locking this evidence makes it immutable. It cannot be modified or deleted without an admin-approved unlock request.
-                            </p>
-                            <div className="space-y-2">
-                              <Label>Reason for Locking</Label>
-                              <Textarea
-                                placeholder="e.g., Verified and approved for audit"
-                                value={lockReason}
-                                onChange={(e) => setLockReason(e.target.value)}
-                                data-testid="input-lock-reason"
-                              />
-                            </div>
+                      <>
+                        <Dialog open={lockDialogId === item.id} onOpenChange={(v) => { if (!v) setLockDialogId(null); }}>
+                          <DialogTrigger asChild>
                             <Button
-                              onClick={() => lockMutation.mutate({ id: item.id, reason: lockReason || "Locked for verification" })}
-                              disabled={lockMutation.isPending}
-                              className="w-full"
-                              data-testid="button-confirm-lock"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setLockDialogId(item.id)}
+                              data-testid={`button-lock-${item.id}`}
                             >
-                              {lockMutation.isPending ? "Locking..." : "Lock Evidence"}
+                              <Lock className="w-3 h-3 mr-1" />
+                              Lock
                             </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Lock Evidence</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 pt-2">
+                              <p className="text-sm text-muted-foreground">
+                                Locking this evidence makes it immutable. It cannot be modified or deleted without an admin-approved unlock request.
+                              </p>
+                              <div className="space-y-2">
+                                <Label>Reason for Locking</Label>
+                                <Textarea
+                                  placeholder="e.g., Verified and approved for audit"
+                                  value={lockReason}
+                                  onChange={(e) => setLockReason(e.target.value)}
+                                  data-testid="input-lock-reason"
+                                />
+                              </div>
+                              <Button
+                                onClick={() => lockMutation.mutate({ id: item.id, reason: lockReason || "Locked for verification" })}
+                                disabled={lockMutation.isPending}
+                                className="w-full"
+                                data-testid="button-confirm-lock"
+                              >
+                                {lockMutation.isPending ? "Locking..." : "Lock Evidence"}
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        <Dialog open={deleteDialogId === item.id} onOpenChange={(v) => { if (!v) setDeleteDialogId(null); }}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setDeleteDialogId(item.id)}
+                              data-testid={`button-delete-evidence-${item.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Delete Evidence</DialogTitle>
+                              <DialogDescription>
+                                Are you sure you want to delete "{item.filename}"? This action cannot be undone.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => setDeleteDialogId(null)} data-testid="button-cancel-delete">
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onClick={() => deleteMutation.mutate(item.id)}
+                                disabled={deleteMutation.isPending}
+                                data-testid="button-confirm-delete-evidence"
+                              >
+                                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </>
                     )}
                     {isLocked && (
                       <Dialog open={unlockDialogId === item.id} onOpenChange={(v) => { if (!v) setUnlockDialogId(null); }}>
