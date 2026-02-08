@@ -13,7 +13,7 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
-import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail } from "./email";
+import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendGenericEmail } from "./email";
 import { platformSettings } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -1177,7 +1177,35 @@ export async function registerRoutes(
         details: { email, role },
       });
 
-      res.json({ invite, inviteLink: `/invite/${token}` });
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.REPL_SLUG
+          ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+          : "http://localhost:5000";
+      const inviteLink = `${baseUrl}/invite/${token}`;
+
+      const tenant = await storage.getTenant(user.tenantId);
+      const tenantName = tenant?.name || "your organization";
+      const inviterName = user.fullName || user.email;
+
+      const htmlBody = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #1a1a1a;">You've been invited to join ${tenantName}</h2>
+          <p>Hello,</p>
+          <p>${inviterName} has invited you to join <strong>${tenantName}</strong> on the NIS2 Readiness Platform as a <strong>${(role || "TENANT_USER").replace("_", " ")}</strong>.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${inviteLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Accept Invitation
+            </a>
+          </div>
+          <p style="color: #666; font-size: 14px;">This invitation expires in 7 days.</p>
+          <p style="color: #666; font-size: 12px;">If the button doesn't work, copy and paste this URL into your browser:<br/>${inviteLink}</p>
+        </div>
+      `;
+
+      const emailSent = await sendGenericEmail(email, `You're invited to join ${tenantName} - NIS2 Platform`, htmlBody);
+
+      res.json({ invite, inviteLink: `/invite/${token}`, emailSent });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
