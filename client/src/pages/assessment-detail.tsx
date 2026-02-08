@@ -38,6 +38,8 @@ import {
   Lock,
   Link2,
   Save,
+  Plus,
+  ListTodo,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
@@ -48,7 +50,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import type { EvidenceItem } from "@shared/schema";
+import type { EvidenceItem, Task } from "@shared/schema";
 
 interface AssessmentResponse {
   id: number;
@@ -74,6 +76,7 @@ interface AssessmentDetail {
   status: string;
   createdAt: string;
   responses: AssessmentResponse[];
+  tasks: Task[];
 }
 
 type GroupMode = "domain" | "category";
@@ -133,14 +136,48 @@ function ControlCard({
   response,
   assessmentId,
   controlEvidence,
+  controlTasks = [],
 }: {
   response: AssessmentResponse;
   assessmentId: string;
   controlEvidence: EvidenceItem[];
+  controlTasks?: Task[];
 }) {
   const { toast } = useToast();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
+  const [taskPriority, setTaskPriority] = useState("MEDIUM");
+
+  const parsedAssessmentId = parseInt(assessmentId);
+  const validAssessmentId = !isNaN(parsedAssessmentId) ? parsedAssessmentId : null;
+
+  const createTaskMutation = useMutation({
+    mutationFn: async () => {
+      if (!validAssessmentId) throw new Error("Invalid assessment");
+      await apiRequest("POST", "/api/tasks", {
+        title: taskTitle,
+        description: taskDescription || null,
+        priority: taskPriority,
+        controlObjectiveId: response.controlObjectiveId,
+        assessmentId: validAssessmentId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({ title: "Task created", description: `Task linked to "${response.controlTitle}".` });
+      setTaskOpen(false);
+      setTaskTitle("");
+      setTaskDescription("");
+      setTaskPriority("MEDIUM");
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -335,6 +372,116 @@ function ControlCard({
           </div>
         )}
 
+        <div className="pl-10 space-y-2" data-testid={`tasks-section-${response.id}`}>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <Label className="text-xs flex items-center gap-1.5">
+              <ListTodo className="w-3 h-3" />
+              Tasks ({controlTasks.length})
+            </Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTaskOpen(true)}
+              data-testid={`button-add-task-${response.id}`}
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Add Task
+            </Button>
+          </div>
+          {controlTasks.length > 0 ? (
+            <div className="space-y-1.5">
+              {controlTasks.map(task => {
+                const isDone = task.status === "DONE";
+                return (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
+                    data-testid={`task-item-${response.id}-${task.id}`}
+                  >
+                    {isDone ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                    ) : (
+                      <Circle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    )}
+                    <span className={`font-medium truncate flex-1 ${isDone ? "line-through text-muted-foreground" : ""}`}>
+                      {task.title}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] shrink-0">
+                      {task.priority}
+                    </Badge>
+                    <Badge variant={isDone ? "secondary" : "outline"} className="text-[10px] shrink-0">
+                      {task.status.replace("_", " ")}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
+              No tasks for this control yet.
+            </p>
+          )}
+          <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Task for Control</DialogTitle>
+                <DialogDescription>
+                  Create a task linked to "{response.controlTitle}" ({response.requirementCode}).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="p-3 rounded-md bg-muted/50 text-sm space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
+                    <span className="font-medium">{response.controlTitle}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Title <span className="text-red-500">*</span></Label>
+                  <Input
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    placeholder="Task title"
+                    data-testid={`input-task-title-${response.id}`}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    value={taskDescription}
+                    onChange={(e) => setTaskDescription(e.target.value)}
+                    placeholder="Task description"
+                    data-testid={`input-task-desc-${response.id}`}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Priority</Label>
+                  <Select value={taskPriority} onValueChange={setTaskPriority}>
+                    <SelectTrigger data-testid={`select-task-priority-${response.id}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LOW">Low</SelectItem>
+                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="HIGH">High</SelectItem>
+                      <SelectItem value="CRITICAL">Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={() => createTaskMutation.mutate()}
+                  disabled={!taskTitle || !validAssessmentId || createTaskMutation.isPending}
+                  className="w-full"
+                  data-testid={`button-submit-task-${response.id}`}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {createTaskMutation.isPending ? "Creating..." : "Create Task"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
         <div className="pl-10 space-y-2" data-testid={`evidence-section-${response.id}`}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="text-xs flex items-center gap-1.5">
@@ -433,6 +580,11 @@ export default function AssessmentDetail({ id }: { id: string }) {
   const { data: evidenceItems } = useQuery<EvidenceItem[]>({
     queryKey: ["/api/evidence"],
   });
+
+  const getControlTasks = (controlObjectiveId: number): Task[] => {
+    if (!data?.tasks) return [];
+    return data.tasks.filter(t => t.controlObjectiveId === controlObjectiveId);
+  };
 
   const getControlEvidence = (controlObjectiveId: number): EvidenceItem[] => {
     if (!evidenceItems) return [];
@@ -663,6 +815,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
                         response={response}
                         assessmentId={id}
                         controlEvidence={getControlEvidence(response.controlObjectiveId)}
+                        controlTasks={getControlTasks(response.controlObjectiveId)}
                       />
                     ))}
                   </div>

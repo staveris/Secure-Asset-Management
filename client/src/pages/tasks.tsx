@@ -24,15 +24,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ListTodo, Clock, CheckCircle2, Circle, Eye, Calendar, Shield } from "lucide-react";
+import { Plus, ListTodo, Clock, CheckCircle2, Circle, Eye, Calendar, Shield, ClipboardList } from "lucide-react";
 import type { Task } from "@shared/schema";
 
 type EnrichedTask = Task & {
   controlTitle?: string | null;
   requirementCode?: string | null;
   category?: string | null;
+  assessmentName?: string | null;
 };
 
 type ControlObjective = {
@@ -43,6 +44,13 @@ type ControlObjective = {
   requirementCode: string;
   requirementTitle: string;
   category: string;
+};
+
+type AssessmentSummary = {
+  id: number;
+  name: string;
+  status: string;
+  createdAt: string;
 };
 
 const priorityColors: Record<string, string> = {
@@ -66,6 +74,7 @@ export default function Tasks() {
   const [priority, setPriority] = useState("MEDIUM");
   const [dueDate, setDueDate] = useState("");
   const [controlObjectiveId, setControlObjectiveId] = useState("");
+  const [assessmentId, setAssessmentId] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const { toast } = useToast();
 
@@ -76,6 +85,15 @@ export default function Tasks() {
   const { data: controlObjectives } = useQuery<ControlObjective[]>({
     queryKey: ["/api/control-objectives"],
   });
+
+  const { data: assessments, isLoading: assessmentsLoading } = useQuery<AssessmentSummary[]>({
+    queryKey: ["/api/assessments"],
+  });
+
+  const activeAssessments = useMemo(() => {
+    if (!assessments) return [];
+    return assessments.filter(a => a.status !== "ARCHIVED");
+  }, [assessments]);
 
   const groupedControls = useMemo(() => {
     if (!controlObjectives) return {};
@@ -96,16 +114,19 @@ export default function Tasks() {
         priority,
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
         controlObjectiveId: parseInt(controlObjectiveId),
+        assessmentId: parseInt(assessmentId),
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments"] });
       setShowCreate(false);
       setTitle("");
       setDescription("");
       setPriority("MEDIUM");
       setDueDate("");
       setControlObjectiveId("");
+      setAssessmentId("");
       toast({ title: "Task created" });
     },
     onError: (err: any) => {
@@ -147,6 +168,25 @@ export default function Tasks() {
               <DialogTitle>Create Task</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-2">
+              <div className="space-y-2">
+                <Label>Assessment <span className="text-red-500">*</span></Label>
+                <Select value={assessmentId} onValueChange={setAssessmentId} disabled={assessmentsLoading}>
+                  <SelectTrigger data-testid="select-task-assessment">
+                    <SelectValue placeholder={assessmentsLoading ? "Loading assessments..." : "Select an assessment..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeAssessments.length === 0 ? (
+                      <div className="p-2 text-xs text-muted-foreground text-center">No assessments available. Create an assessment first.</div>
+                    ) : (
+                      activeAssessments.map((a) => (
+                        <SelectItem key={a.id} value={String(a.id)}>
+                          {a.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label>NIS2 Control Objective <span className="text-red-500">*</span></Label>
                 <Select value={controlObjectiveId} onValueChange={setControlObjectiveId}>
@@ -212,7 +252,7 @@ export default function Tasks() {
               </div>
               <Button
                 onClick={() => createMutation.mutate()}
-                disabled={!title || !controlObjectiveId || createMutation.isPending}
+                disabled={!title || !controlObjectiveId || !assessmentId || createMutation.isPending}
                 className="w-full"
                 data-testid="button-submit-task"
               >
@@ -270,14 +310,24 @@ export default function Tasks() {
                       {task.description && (
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.description}</p>
                       )}
-                      {task.controlTitle && (
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <Shield className="w-3 h-3 text-primary shrink-0" />
-                          <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-control-${task.id}`}>
-                            {task.requirementCode ? `${task.requirementCode} — ` : ""}{task.controlTitle}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        {task.controlTitle && (
+                          <div className="flex items-center gap-1.5">
+                            <Shield className="w-3 h-3 text-primary shrink-0" />
+                            <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-control-${task.id}`}>
+                              {task.requirementCode ? `${task.requirementCode} — ` : ""}{task.controlTitle}
+                            </span>
+                          </div>
+                        )}
+                        {task.assessmentName && (
+                          <div className="flex items-center gap-1.5">
+                            <ClipboardList className="w-3 h-3 text-blue-500 shrink-0" />
+                            <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-assessment-${task.id}`}>
+                              {task.assessmentName}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {task.dueDate && (

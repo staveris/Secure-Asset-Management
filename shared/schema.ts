@@ -229,6 +229,7 @@ export const tasks = pgTable("tasks", {
   tenantId: integer("tenant_id")
     .references(() => tenants.id)
     .notNull(),
+  assessmentId: integer("assessment_id").references(() => assessments.id),
   controlObjectiveId: integer("control_objective_id").references(
     () => controlObjectives.id,
   ),

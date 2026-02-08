@@ -110,6 +110,8 @@ export interface IStorage {
   createTask(data: InsertTask): Promise<Task>;
   getTask(id: number): Promise<Task | undefined>;
   getTasksByTenant(tenantId: number): Promise<Task[]>;
+  getTasksByAssessment(assessmentId: number): Promise<Task[]>;
+  getIncompleteTasksByTenant(tenantId: number): Promise<Task[]>;
   updateTask(id: number, data: Partial<InsertTask>): Promise<Task | undefined>;
 
   getEvidenceByTenant(tenantId: number): Promise<EvidenceItem[]>;
@@ -383,6 +385,16 @@ export class DatabaseStorage implements IStorage {
 
   async getTasksByTenant(tenantId: number): Promise<Task[]> {
     return db.select().from(tasks).where(eq(tasks.tenantId, tenantId)).orderBy(desc(tasks.createdAt));
+  }
+
+  async getTasksByAssessment(assessmentId: number): Promise<Task[]> {
+    return db.select().from(tasks).where(eq(tasks.assessmentId, assessmentId)).orderBy(desc(tasks.createdAt));
+  }
+
+  async getIncompleteTasksByTenant(tenantId: number): Promise<Task[]> {
+    return db.select().from(tasks).where(
+      and(eq(tasks.tenantId, tenantId), ne(tasks.status, "DONE"))
+    ).orderBy(desc(tasks.createdAt));
   }
 
   async updateTask(id: number, data: Partial<InsertTask>): Promise<Task | undefined> {

@@ -404,15 +404,25 @@ export async function registerRoutes(
         });
       }
 
+      const incompleteTasks = await storage.getIncompleteTasksByTenant(user.tenantId);
+      let carriedOver = 0;
+      for (const task of incompleteTasks) {
+        if (task.assessmentId && task.assessmentId !== assessment.id) {
+          await storage.updateTask(task.id, { assessmentId: assessment.id });
+          carriedOver++;
+        }
+      }
+
       await storage.createAuditLog({
         tenantId: user.tenantId,
         actorUserId: user.id,
         action: "CREATE",
         entityType: "ASSESSMENT",
         entityId: String(assessment.id),
+        details: carriedOver > 0 ? { carriedOverTasks: carriedOver } : undefined,
       });
 
-      res.json(assessment);
+      res.json({ ...assessment, carriedOverTasks: carriedOver });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -455,6 +465,8 @@ export async function registerRoutes(
       };
     });
 
+    const assessmentTasks = await storage.getTasksByAssessment(id);
+
     res.json({
       id: assessment.id,
       name: assessment.name,
@@ -462,6 +474,7 @@ export async function registerRoutes(
       status: assessment.status,
       createdAt: assessment.createdAt,
       responses: enrichedResponses,
+      tasks: assessmentTasks,
     });
   });
 
@@ -529,14 +542,17 @@ export async function registerRoutes(
     const list = await storage.getTasksByTenant(user.tenantId);
     const controls = await storage.getAllControlObjectives();
     const reqs = await storage.getAllRequirements();
+    const assessments = await storage.getAssessmentsByTenant(user.tenantId);
     const enriched = list.map((t) => {
       const control = t.controlObjectiveId ? controls.find((c) => c.id === t.controlObjectiveId) : null;
       const req = control ? reqs.find((r) => r.id === control.requirementId) : null;
+      const assessment = t.assessmentId ? assessments.find((a) => a.id === t.assessmentId) : null;
       return {
         ...t,
         controlTitle: control?.title || null,
         requirementCode: req?.code || null,
         category: req?.category || null,
+        assessmentName: assessment?.name || null,
       };
     });
     res.json(enriched);
@@ -546,9 +562,15 @@ export async function registerRoutes(
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
-    const { title, description, priority, dueDate, controlObjectiveId } = req.body;
+    const { title, description, priority, dueDate, controlObjectiveId, assessmentId } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required" });
     if (!controlObjectiveId) return res.status(400).json({ message: "Control objective is required" });
+    if (!assessmentId) return res.status(400).json({ message: "Assessment is required" });
+
+    const assessment = await storage.getAssessment(assessmentId);
+    if (!assessment || assessment.tenantId !== user.tenantId) {
+      return res.status(400).json({ message: "Invalid assessment" });
+    }
 
     const task = await storage.createTask({
       tenantId: user.tenantId,
@@ -559,6 +581,7 @@ export async function registerRoutes(
       status: "TODO",
       ownerUserId: user.id,
       controlObjectiveId,
+      assessmentId,
     });
 
     await storage.createAuditLog({
