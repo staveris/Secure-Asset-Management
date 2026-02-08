@@ -26,6 +26,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   isPlatformAdmin: boolean;
+  hasFullAccess: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -89,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [logoutMutation]);
 
   const isPlatformAdmin = user?.role === "PLATFORM_ADMIN";
+  const hasFullAccess = isPlatformAdmin || user?.role === "TENANT_ADMIN" || user?.fullAccessEnabled === true;
 
   return (
     <AuthContext.Provider
@@ -99,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         isPlatformAdmin,
+        hasFullAccess,
       }}
     >
       {children}

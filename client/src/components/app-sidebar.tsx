@@ -34,6 +34,7 @@ import {
   Settings,
   Mail,
   HardDrive,
+  Lock,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -43,16 +44,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const tenantMenuItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Assessments", url: "/assessments", icon: ClipboardCheck },
-  { title: "Tasks", url: "/tasks", icon: ListTodo },
-  { title: "Evidence", url: "/evidence", icon: FileBox },
-  { title: "Incidents", url: "/incidents", icon: AlertTriangle },
-  { title: "Suppliers", url: "/suppliers", icon: Truck },
-  { title: "Risks", url: "/risks", icon: Shield },
-  { title: "Reports", url: "/reports", icon: FileText },
-  { title: "Users", url: "/users", icon: Users },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, requiresFullAccess: false },
+  { title: "Assessments", url: "/assessments", icon: ClipboardCheck, requiresFullAccess: false },
+  { title: "Tasks", url: "/tasks", icon: ListTodo, requiresFullAccess: true },
+  { title: "Evidence", url: "/evidence", icon: FileBox, requiresFullAccess: true },
+  { title: "Incidents", url: "/incidents", icon: AlertTriangle, requiresFullAccess: true },
+  { title: "Suppliers", url: "/suppliers", icon: Truck, requiresFullAccess: true },
+  { title: "Risks", url: "/risks", icon: Shield, requiresFullAccess: true },
+  { title: "Reports", url: "/reports", icon: FileText, requiresFullAccess: true },
+  { title: "Users", url: "/users", icon: Users, requiresFullAccess: false },
+  { title: "Settings", url: "/settings", icon: Settings, requiresFullAccess: false },
 ];
 
 const adminMenuItems = [
@@ -67,7 +68,7 @@ const adminMenuItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user, logout, isPlatformAdmin } = useAuth();
+  const { user, logout, isPlatformAdmin, hasFullAccess } = useAuth();
 
   const initials = user?.fullName
     ?.split(" ")
@@ -95,23 +96,38 @@ export function AppSidebar() {
             <SidebarGroupLabel>Compliance</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {tenantMenuItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={
-                        item.url === "/"
-                          ? location === "/"
-                          : location.startsWith(item.url)
-                      }
-                    >
-                      <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
-                        <item.icon className="w-4 h-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {tenantMenuItems.map((item) => {
+                  const isLocked = item.requiresFullAccess && !hasFullAccess;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      {isLocked ? (
+                        <SidebarMenuButton
+                          className="opacity-50 cursor-not-allowed"
+                          data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}
+                          tooltip={`${item.title} - requires full access`}
+                        >
+                          <item.icon className="w-4 h-4" />
+                          <span>{item.title}</span>
+                          <Lock className="w-3 h-3 ml-auto text-muted-foreground" />
+                        </SidebarMenuButton>
+                      ) : (
+                        <SidebarMenuButton
+                          asChild
+                          isActive={
+                            item.url === "/"
+                              ? location === "/"
+                              : location.startsWith(item.url)
+                          }
+                        >
+                          <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
+                            <item.icon className="w-4 h-4" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

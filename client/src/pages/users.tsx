@@ -18,7 +18,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Users, UserPlus, Mail, Shield, Clock } from "lucide-react";
+import { Switch as SwitchUI } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Users, UserPlus, Mail, Shield, Clock, Lock, Unlock } from "lucide-react";
 
 interface TenantUser {
   id: number;
@@ -26,6 +28,7 @@ interface TenantUser {
   fullName: string;
   role: string;
   isActive: boolean;
+  fullAccessEnabled: boolean;
   createdAt: string;
   lastLoginAt: string | null;
 }
@@ -33,17 +36,17 @@ interface TenantUser {
 const ROLE_LABELS: Record<string, string> = {
   PLATFORM_ADMIN: "Platform Admin",
   TENANT_ADMIN: "Tenant Admin",
-  COMPLIANCE_LEAD: "Compliance Lead",
-  AUDITOR: "Auditor",
+  TENANT_MANAGER: "Manager",
   TENANT_USER: "User",
+  READONLY_AUDITOR: "Auditor",
 };
 
 const ROLE_VARIANTS: Record<string, string> = {
   PLATFORM_ADMIN: "destructive",
   TENANT_ADMIN: "default",
-  COMPLIANCE_LEAD: "secondary",
-  AUDITOR: "outline",
+  TENANT_MANAGER: "secondary",
   TENANT_USER: "outline",
+  READONLY_AUDITOR: "outline",
 };
 
 export default function UsersPage() {
@@ -84,6 +87,7 @@ export default function UsersPage() {
     onSuccess: () => {
       toast({ title: "User Updated" });
       queryClient.invalidateQueries({ queryKey: ["/api/tenant/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -157,8 +161,8 @@ export default function UsersPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="TENANT_USER">User</SelectItem>
-                      <SelectItem value="COMPLIANCE_LEAD">Compliance Lead</SelectItem>
-                      <SelectItem value="AUDITOR">Auditor</SelectItem>
+                      <SelectItem value="TENANT_MANAGER">Manager</SelectItem>
+                      <SelectItem value="READONLY_AUDITOR">Auditor</SelectItem>
                       <SelectItem value="TENANT_ADMIN">Tenant Admin</SelectItem>
                     </SelectContent>
                   </Select>
@@ -235,6 +239,9 @@ export default function UsersPage() {
                         <p className="text-sm font-medium" data-testid={`text-user-name-${u.id}`}>{u.fullName}</p>
                         {u.id === user?.id && <Badge variant="outline" className="text-xs">You</Badge>}
                         {!u.isActive && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                        {!u.fullAccessEnabled && u.role !== "TENANT_ADMIN" && u.role !== "PLATFORM_ADMIN" && (
+                          <Badge variant="secondary" className="text-xs">Restricted</Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
                         <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{u.email}</span>
@@ -251,14 +258,37 @@ export default function UsersPage() {
                     </Badge>
                     {isAdmin && u.id !== user?.id && (
                       <div className="flex items-center gap-2 shrink-0">
+                        {u.role !== "TENANT_ADMIN" && u.role !== "PLATFORM_ADMIN" && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1.5">
+                                {u.fullAccessEnabled ? (
+                                  <Unlock className="w-3.5 h-3.5 text-green-500" />
+                                ) : (
+                                  <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                                )}
+                                <SwitchUI
+                                  checked={u.fullAccessEnabled}
+                                  onCheckedChange={(checked) =>
+                                    updateUserMutation.mutate({ id: u.id, data: { fullAccessEnabled: checked } })
+                                  }
+                                  data-testid={`switch-full-access-${u.id}`}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {u.fullAccessEnabled ? "Full access enabled" : "Restricted - assessments only"}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                         <Select value={u.role} onValueChange={(v) => changeRole(u, v)}>
                           <SelectTrigger className="w-36" data-testid={`select-role-${u.id}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="TENANT_USER">User</SelectItem>
-                            <SelectItem value="COMPLIANCE_LEAD">Compliance Lead</SelectItem>
-                            <SelectItem value="AUDITOR">Auditor</SelectItem>
+                            <SelectItem value="TENANT_MANAGER">Manager</SelectItem>
+                            <SelectItem value="READONLY_AUDITOR">Auditor</SelectItem>
                             <SelectItem value="TENANT_ADMIN">Tenant Admin</SelectItem>
                           </SelectContent>
                         </Select>

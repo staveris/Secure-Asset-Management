@@ -102,3 +102,4 @@ All routes prefixed with `/api/`:
 - 2026-02-08: Country field made required during onboarding (frontend + backend validation)
 - 2026-02-08: Reports page redesigned: professional print layout with SVG gauges, gradient header, domain progress bars, recommendations section, operational summary
 - 2026-02-08: Email verification enforcement: new users must verify email before accessing platform; verification-pending gate page with resend and auto-refresh; PLATFORM_ADMIN bypasses gate
+- 2026-02-08: Restricted user access: new users (TENANT_USER, TENANT_MANAGER, READONLY_AUDITOR) default to assessments-only access; fullAccessEnabled toggle in User Management; sidebar shows locked items with Lock icon; RestrictedPage on protected routes; backend requireFullAccess middleware on tasks/evidence/incidents/suppliers/risks; PLATFORM_ADMIN and TENANT_ADMIN bypass restrictions

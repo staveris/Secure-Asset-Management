@@ -129,6 +129,7 @@ export const users = pgTable("users", {
   fullName: text("full_name").notNull(),
   role: userRoleEnum("role").notNull().default("TENANT_USER"),
   isActive: boolean("is_active").notNull().default(true),
+  fullAccessEnabled: boolean("full_access_enabled").notNull().default(false),
   emailVerified: boolean("email_verified").notNull().default(false),
   emailVerificationToken: text("email_verification_token"),
   emailVerificationExpires: timestamp("email_verification_expires"),

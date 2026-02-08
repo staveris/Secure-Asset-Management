@@ -97,6 +97,17 @@ async function requireWriteAccess(req: Request, res: Response, next: NextFunctio
   next();
 }
 
+async function requireFullAccess(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+  const user = await storage.getUser(req.session.userId);
+  if (!user) return res.status(401).json({ message: "Unauthorized" });
+  if (user.role === "PLATFORM_ADMIN" || user.role === "TENANT_ADMIN") return next();
+  if (!user.fullAccessEnabled) {
+    return res.status(403).json({ message: "Full access not enabled. Contact your administrator to unlock all features." });
+  }
+  next();
+}
+
 async function getAuthUser(req: Request) {
   if (!req.session.userId) return null;
   return storage.getUser(req.session.userId);
@@ -345,6 +356,7 @@ export async function registerRoutes(
       tenantEntityType: tenant?.entityType || null,
       tenantCountry: tenant?.country || null,
       isActive: user.isActive,
+      fullAccessEnabled: user.fullAccessEnabled,
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
     });
@@ -536,7 +548,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/tasks", requireAuth, async (req, res) => {
+  app.get("/api/tasks", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const list = await storage.getTasksByTenant(user.tenantId);
@@ -558,7 +570,7 @@ export async function registerRoutes(
     res.json(enriched);
   });
 
-  app.post("/api/tasks", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/tasks", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -595,7 +607,7 @@ export async function registerRoutes(
     res.json(task);
   });
 
-  app.patch("/api/tasks/:id", requireAuth, requireWriteAccess, async (req, res) => {
+  app.patch("/api/tasks/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
 
@@ -619,14 +631,14 @@ export async function registerRoutes(
     res.json(updated);
   });
 
-  app.get("/api/evidence", requireAuth, async (req, res) => {
+  app.get("/api/evidence", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const list = await storage.getEvidenceByTenant(user.tenantId);
     res.json(list);
   });
 
-  app.post("/api/evidence/upload", requireAuth, requireWriteAccess, upload.single("file"), async (req, res) => {
+  app.post("/api/evidence/upload", requireAuth, requireWriteAccess, requireFullAccess, upload.single("file"), async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -688,7 +700,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/evidence/:id", requireAuth, requireWriteAccess, async (req, res) => {
+  app.delete("/api/evidence/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
@@ -743,14 +755,14 @@ export async function registerRoutes(
     res.status(501).json({ message: "File download requires object storage configuration" });
   });
 
-  app.get("/api/incidents", requireAuth, async (req, res) => {
+  app.get("/api/incidents", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const list = await storage.getIncidentsByTenant(user.tenantId);
     res.json(list);
   });
 
-  app.post("/api/incidents", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/incidents", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -788,7 +800,7 @@ export async function registerRoutes(
     res.json(incident);
   });
 
-  app.patch("/api/incidents/:id", requireAuth, requireWriteAccess, async (req, res) => {
+  app.patch("/api/incidents/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
 
@@ -812,14 +824,14 @@ export async function registerRoutes(
     res.json(updated);
   });
 
-  app.get("/api/suppliers", requireAuth, async (req, res) => {
+  app.get("/api/suppliers", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const list = await storage.getSuppliersByTenant(user.tenantId);
     res.json(list);
   });
 
-  app.post("/api/suppliers", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/suppliers", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -845,14 +857,14 @@ export async function registerRoutes(
     res.json(supplier);
   });
 
-  app.get("/api/risks", requireAuth, async (req, res) => {
+  app.get("/api/risks", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const list = await storage.getRisksByTenant(user.tenantId);
     res.json(list);
   });
 
-  app.post("/api/risks", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/risks", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -880,7 +892,7 @@ export async function registerRoutes(
     res.json(risk);
   });
 
-  app.get("/api/incidents/:id/notifications", requireAuth, async (req, res) => {
+  app.get("/api/incidents/:id/notifications", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
 
@@ -894,7 +906,7 @@ export async function registerRoutes(
     res.json(notifications);
   });
 
-  app.post("/api/incidents/:id/notifications", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/incidents/:id/notifications", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
 
@@ -1266,7 +1278,7 @@ export async function registerRoutes(
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const tenantUsers = await storage.getUsersByTenant(user.tenantId);
     res.json(tenantUsers.map(u => ({
-      id: u.id, email: u.email, fullName: u.fullName, role: u.role, isActive: u.isActive, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt,
+      id: u.id, email: u.email, fullName: u.fullName, role: u.role, isActive: u.isActive, fullAccessEnabled: u.fullAccessEnabled, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt,
     })));
   });
 
@@ -1284,11 +1296,12 @@ export async function registerRoutes(
         return res.status(404).json({ message: "User not found" });
       }
 
-      const { role, isActive, fullName } = req.body;
+      const { role, isActive, fullName, fullAccessEnabled } = req.body;
       const updates: any = {};
       if (role !== undefined) updates.role = role;
       if (isActive !== undefined) updates.isActive = isActive;
       if (fullName !== undefined) updates.fullName = fullName;
+      if (fullAccessEnabled !== undefined) updates.fullAccessEnabled = fullAccessEnabled;
 
       const updated = await storage.updateUser(targetId, updates);
 

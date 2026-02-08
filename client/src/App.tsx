@@ -32,6 +32,35 @@ import VerificationPending from "@/pages/verification-pending";
 import UsersPage from "@/pages/users";
 import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
+import { Card, CardContent } from "@/components/ui/card";
+import { Lock } from "lucide-react";
+
+function RestrictedPage() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh] p-6" data-testid="restricted-page">
+      <Card className="max-w-md w-full">
+        <CardContent className="pt-6 text-center space-y-4">
+          <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center" data-testid="icon-restricted-lock">
+            <Lock className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <h2 className="text-lg font-semibold" data-testid="text-restricted-title">Access Restricted</h2>
+          <p className="text-sm text-muted-foreground" data-testid="text-restricted-message">
+            This feature is not yet available for your account. Your administrator needs to enable full platform access before you can use this section.
+          </p>
+          <p className="text-xs text-muted-foreground" data-testid="text-restricted-contact">
+            Contact your tenant administrator to request access.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function WithFullAccess({ component: Component }: { component: React.ComponentType }) {
+  const { hasFullAccess } = useAuth();
+  if (!hasFullAccess) return <RestrictedPage />;
+  return <Component />;
+}
 
 function AdminRouter() {
   return (
@@ -56,12 +85,12 @@ function TenantRouter() {
       <Route path="/assessments/:id">
         {(params) => <AssessmentDetail id={params.id} />}
       </Route>
-      <Route path="/tasks" component={Tasks} />
-      <Route path="/evidence" component={Evidence} />
-      <Route path="/incidents" component={Incidents} />
-      <Route path="/suppliers" component={Suppliers} />
-      <Route path="/risks" component={Risks} />
-      <Route path="/reports" component={Reports} />
+      <Route path="/tasks">{() => <WithFullAccess component={Tasks} />}</Route>
+      <Route path="/evidence">{() => <WithFullAccess component={Evidence} />}</Route>
+      <Route path="/incidents">{() => <WithFullAccess component={Incidents} />}</Route>
+      <Route path="/suppliers">{() => <WithFullAccess component={Suppliers} />}</Route>
+      <Route path="/risks">{() => <WithFullAccess component={Risks} />}</Route>
+      <Route path="/reports">{() => <WithFullAccess component={Reports} />}</Route>
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/users" component={UsersPage} />
       <Route path="/settings" component={SettingsPage} />
