@@ -16,7 +16,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { Building2, Users, Target, ListTodo, AlertTriangle, FileCheck, Download } from "lucide-react";
+import { Building2, Users, Target, ListTodo, AlertTriangle, FileCheck, Download, ShieldAlert } from "lucide-react";
 
 interface AdminDashboardData {
   totalTenants: number;
@@ -37,6 +37,24 @@ interface AdminDashboardData {
   sectorBreakdown: { sector: string; count: number }[];
 }
 
+const K_ANONYMITY_THRESHOLD = 5;
+
+function applyKAnonymity(data: { sector: string; count: number }[]): { sector: string; count: number }[] {
+  const safe: { sector: string; count: number }[] = [];
+  let otherCount = 0;
+  for (const item of data) {
+    if (item.count >= K_ANONYMITY_THRESHOLD) {
+      safe.push(item);
+    } else {
+      otherCount += item.count;
+    }
+  }
+  if (otherCount > 0) {
+    safe.push({ sector: "Other (aggregated)", count: otherCount });
+  }
+  return safe;
+}
+
 export default function AdminDashboard() {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
@@ -54,7 +72,7 @@ export default function AdminDashboard() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "nis2-platform-export.csv";
+      link.download = `nis2-platform-export-${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -89,9 +107,12 @@ export default function AdminDashboard() {
     { label: "Evidence Items", value: data.evidenceCount, icon: FileCheck, color: "text-teal-600 dark:text-teal-400" },
   ];
 
+  const safeSectorBreakdown = applyKAnonymity(data.sectorBreakdown);
+  const hasAggregation = safeSectorBreakdown.some(s => s.sector === "Other (aggregated)");
+
   return (
     <div className="p-6 space-y-6" data-testid="admin-dashboard-page">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Platform Analytics</h1>
           <p className="text-muted-foreground mt-1">Aggregated compliance metrics across all tenants</p>
@@ -114,7 +135,9 @@ export default function AdminDashboard() {
                 <span className="text-sm text-muted-foreground">{kpi.label}</span>
                 <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
               </div>
-              <div className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</div>
+              <div className={`text-2xl font-bold ${kpi.color}`} data-testid={`text-admin-${kpi.label.toLowerCase().replace(/\s/g, "-")}`}>
+                {kpi.value}
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -149,13 +172,21 @@ export default function AdminDashboard() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <h3 className="font-semibold">Tenants by Sector</h3>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <div>
+              <h3 className="font-semibold">Tenants by Sector</h3>
+              {hasAggregation && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                  <ShieldAlert className="w-3 h-3" />
+                  k-anonymity applied (threshold: {K_ANONYMITY_THRESHOLD})
+                </p>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.sectorBreakdown}>
+                <BarChart data={safeSectorBreakdown}>
                   <XAxis dataKey="sector" fontSize={11} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis fontSize={11} />
                   <Tooltip />
@@ -168,9 +199,12 @@ export default function AdminDashboard() {
       </div>
 
       <Card>
-        <CardHeader className="pb-2">
-          <h3 className="font-semibold">Tenant Overview</h3>
-          <p className="text-xs text-muted-foreground">Individual tenant compliance status</p>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+          <div>
+            <h3 className="font-semibold">Tenant Overview</h3>
+            <p className="text-xs text-muted-foreground">Individual tenant compliance status</p>
+          </div>
+          <Badge variant="outline" className="text-xs">{data.tenantSummaries.length} tenants</Badge>
         </CardHeader>
         <CardContent>
           {data.tenantSummaries.length > 0 ? (

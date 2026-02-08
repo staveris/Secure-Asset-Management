@@ -302,6 +302,8 @@ export async function registerRoutes(
         requirementCode: req?.code || "",
         requirementTitle: req?.title || "",
         category: req?.category || "Uncategorized",
+        domain: (control as any)?.domain || "Governance",
+        weight: (control as any)?.weight || 1,
         implementationStatus: r.implementationStatus,
         maturityLevel: r.maturityLevel,
         evidenceConfidence: r.evidenceConfidence,

@@ -1,4 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -13,20 +15,19 @@ import {
   PieChart,
   Pie,
   Cell,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  Radar,
+  LineChart,
+  Line,
+  CartesianGrid,
 } from "recharts";
 import {
   ClipboardCheck,
   ListTodo,
   AlertTriangle,
-  Shield,
   TrendingUp,
   Clock,
   FileCheck,
   Target,
+  BarChart3,
 } from "lucide-react";
 
 interface DashboardData {
@@ -43,12 +44,36 @@ interface DashboardData {
   recentTasks: { id: number; title: string; status: string; priority: string; dueDate: string | null }[];
 }
 
-const STATUS_COLORS = ["#6b7280", "#3b82f6", "#22c55e", "#8b5cf6"];
+interface Snapshot {
+  id: number;
+  date: string;
+  compliancePct: number;
+  verifiedPct: number;
+  maturityAvg: number;
+  overdueTasks: number;
+  evidenceCoverage: number;
+  incidentsOpen: number;
+}
 
 export default function Dashboard() {
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard"],
   });
+
+  const { data: snapshots } = useQuery<Snapshot[]>({
+    queryKey: ["/api/snapshots"],
+  });
+
+  const recomputeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/snapshots/recompute");
+      return await res.json();
+    },
+  });
+
+  useEffect(() => {
+    recomputeMutation.mutate();
+  }, []);
 
   if (isLoading) {
     return (
@@ -111,6 +136,27 @@ export default function Dashboard() {
     LOW: "outline",
   };
 
+  const trendData = (snapshots || []).slice(-30).map(s => ({
+    date: new Date(s.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    compliance: s.compliancePct,
+    maturity: Math.round(s.maturityAvg * 20),
+    evidence: s.evidenceCoverage,
+  }));
+
+  const domainHeatmap = data.categoryScores.map(cs => {
+    let level = "bg-red-500/20 text-red-700 dark:text-red-300";
+    if (cs.score >= 80) level = "bg-green-500/20 text-green-700 dark:text-green-300";
+    else if (cs.score >= 60) level = "bg-blue-500/20 text-blue-700 dark:text-blue-300";
+    else if (cs.score >= 40) level = "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300";
+    else if (cs.score >= 20) level = "bg-orange-500/20 text-orange-700 dark:text-orange-300";
+    return { ...cs, level };
+  });
+
+  const gapControls = [...data.categoryScores]
+    .filter(c => c.score < 100)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 5);
+
   return (
     <div className="p-6 space-y-6" data-testid="dashboard-page">
       <div>
@@ -134,6 +180,32 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {trendData.length > 1 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <div>
+              <h3 className="font-semibold">Compliance Trend</h3>
+              <p className="text-xs text-muted-foreground">Score progression over time</p>
+            </div>
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="h-48" data-testid="chart-trend">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" fontSize={11} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis domain={[0, 100]} fontSize={11} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="compliance" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Compliance %" />
+                  <Line type="monotone" dataKey="maturity" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={false} name="Maturity (scaled)" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
@@ -179,20 +251,22 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <div>
-              <h3 className="font-semibold">Compliance by Category</h3>
-              <p className="text-xs text-muted-foreground">NIS2 article categories</p>
+              <h3 className="font-semibold">Domain Heatmap</h3>
+              <p className="text-xs text-muted-foreground">Compliance by NIS2 domain</p>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.categoryScores} layout="vertical" margin={{ left: 0, right: 16 }}>
-                  <XAxis type="number" domain={[0, 100]} fontSize={11} />
-                  <YAxis type="category" dataKey="category" width={120} fontSize={11} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                  <Tooltip />
-                  <Bar dataKey="score" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={18} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="grid grid-cols-2 gap-2" data-testid="domain-heatmap">
+              {domainHeatmap.map(d => (
+                <div
+                  key={d.category}
+                  className={`rounded-md p-3 ${d.level}`}
+                  data-testid={`heatmap-${d.category.toLowerCase().replace(/\s/g, "-")}`}
+                >
+                  <p className="text-xs font-medium truncate">{d.category}</p>
+                  <p className="text-lg font-bold">{d.score}%</p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -238,37 +312,58 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <h3 className="font-semibold">Quick Stats</h3>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-muted-foreground">Controls Implemented</span>
-                <span className="font-medium">{data.implementedControls}/{data.totalControls}</span>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <h3 className="font-semibold">Quick Stats</h3>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Controls Implemented</span>
+                  <span className="font-medium">{data.implementedControls}/{data.totalControls}</span>
+                </div>
+                <Progress value={data.totalControls > 0 ? (data.implementedControls / data.totalControls) * 100 : 0} className="h-2" />
               </div>
-              <Progress value={data.totalControls > 0 ? (data.implementedControls / data.totalControls) * 100 : 0} className="h-2" />
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-muted-foreground">Evidence Coverage</span>
-                <span className="font-medium">{data.evidenceCount} items</span>
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Evidence Coverage</span>
+                  <span className="font-medium">{data.evidenceCount} items</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <FileCheck className="w-3.5 h-3.5" />
+                  <span>{data.evidenceCount > 0 ? "Evidence collected" : "No evidence uploaded yet"}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <FileCheck className="w-3.5 h-3.5" />
-                <span>{data.evidenceCount > 0 ? "Evidence collected" : "No evidence uploaded yet"}</span>
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Maturity Target</span>
+                  <span className="font-medium">{data.maturityAverage.toFixed(1)} / 5.0</span>
+                </div>
+                <Progress value={(data.maturityAverage / 5) * 100} className="h-2" />
               </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-muted-foreground">Maturity Target</span>
-                <span className="font-medium">{data.maturityAverage.toFixed(1)} / 5.0</span>
-              </div>
-              <Progress value={(data.maturityAverage / 5) * 100} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {gapControls.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <h3 className="font-semibold">Top Gaps</h3>
+                <p className="text-xs text-muted-foreground">Categories needing most attention</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2" data-testid="top-gaps">
+                  {gapControls.map(g => (
+                    <div key={g.category} className="flex items-center justify-between gap-2" data-testid={`gap-${g.category}`}>
+                      <span className="text-sm text-muted-foreground truncate">{g.category}</span>
+                      <Badge variant={g.score < 30 ? "destructive" : "secondary"} className="text-xs shrink-0">{g.score}%</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -40,6 +40,8 @@ interface AssessmentDetail {
     requirementCode: string;
     requirementTitle: string;
     category: string;
+    domain?: string;
+    weight?: number;
     implementationStatus: string;
     maturityLevel: number;
     evidenceConfidence: string;
@@ -47,6 +49,8 @@ interface AssessmentDetail {
     guidance: string | null;
   }[];
 }
+
+type GroupMode = "category" | "domain";
 
 const statusIcons: Record<string, any> = {
   NOT_STARTED: Circle,
@@ -65,6 +69,7 @@ const statusColors: Record<string, string> = {
 export default function AssessmentDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [groupMode, setGroupMode] = useState<GroupMode>("domain");
 
   const { data, isLoading } = useQuery<AssessmentDetail>({
     queryKey: ["/api/assessments", id],
@@ -102,10 +107,12 @@ export default function AssessmentDetail({ id }: { id: string }) {
 
   if (!data) return null;
 
+  const groupKey = groupMode === "domain" ? "domain" : "category";
   const grouped = data.responses.reduce(
     (acc, r) => {
-      if (!acc[r.category]) acc[r.category] = [];
-      acc[r.category].push(r);
+      const key = (r as any)[groupKey] || r.category || "Ungrouped";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(r);
       return acc;
     },
     {} as Record<string, typeof data.responses>,
@@ -135,7 +142,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 flex-wrap">
               <div>
                 <p className="text-xs text-muted-foreground">Completion</p>
                 <p className="text-lg font-bold">{completionPct}%</p>
@@ -145,8 +152,20 @@ export default function AssessmentDetail({ id }: { id: string }) {
                 <p className="text-lg font-bold">{implemented}/{totalResponses}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Categories</p>
+                <p className="text-xs text-muted-foreground">Groups</p>
                 <p className="text-lg font-bold">{Object.keys(grouped).length}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Group By</p>
+                <Select value={groupMode} onValueChange={(v) => setGroupMode(v as GroupMode)}>
+                  <SelectTrigger className="w-32" data-testid="select-group-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="domain">Domain</SelectItem>
+                    <SelectItem value="category">Category</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <Progress value={completionPct} className="w-48 h-2" />

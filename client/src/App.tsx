@@ -25,6 +25,7 @@ import AdminTenants from "@/pages/admin-tenants";
 import AdminRequirements from "@/pages/admin-requirements";
 import AdminAuditLog from "@/pages/admin-audit-log";
 import Onboarding from "@/pages/onboarding";
+import UsersPage from "@/pages/users";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedRouter() {
@@ -46,6 +47,7 @@ function AuthenticatedRouter() {
       <Route path="/admin/requirements" component={AdminRequirements} />
       <Route path="/admin/audit-log" component={AdminAuditLog} />
       <Route path="/onboarding" component={Onboarding} />
+      <Route path="/users" component={UsersPage} />
       <Route component={NotFound} />
     </Switch>
   );
