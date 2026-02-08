@@ -949,11 +949,18 @@ export async function registerRoutes(
         return res.json({ provider: null, fromAddress: null, configured: false });
       }
       const config = JSON.parse(settings.value);
+      const isGmailOrSmtp = config.provider === "gmail" || config.provider === "smtp";
       res.json({
         provider: config.provider || null,
         fromAddress: config.fromAddress || null,
         hasApiKey: !!config.apiKey,
-        configured: !!(config.provider && config.apiKey && config.fromAddress),
+        hasSmtpPass: !!config.smtpPass,
+        smtpUser: config.smtpUser || null,
+        smtpHost: config.smtpHost || null,
+        smtpPort: config.smtpPort || null,
+        configured: isGmailOrSmtp
+          ? !!(config.provider && config.smtpUser && config.smtpPass)
+          : !!(config.provider && config.apiKey && config.fromAddress),
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -962,17 +969,23 @@ export async function registerRoutes(
 
   app.put("/api/admin/email-settings", requirePlatformAdmin, async (req, res) => {
     try {
-      const { provider, apiKey, fromAddress } = req.body;
+      const { provider, apiKey, fromAddress, smtpUser, smtpPass, smtpHost, smtpPort } = req.body;
       const existing = await db.select().from(platformSettings).where(eq(platformSettings.key, "email_config"));
-      let existingApiKey = "";
+      let prev: any = {};
       if (existing.length > 0) {
-        try {
-          const prev = JSON.parse(existing[0].value);
-          existingApiKey = prev.apiKey || "";
-        } catch {}
+        try { prev = JSON.parse(existing[0].value); } catch {}
       }
-      const finalApiKey = apiKey || existingApiKey;
-      const config = JSON.stringify({ provider, apiKey: finalApiKey, fromAddress });
+      const finalApiKey = apiKey || prev.apiKey || "";
+      const finalSmtpPass = smtpPass || prev.smtpPass || "";
+      const config = JSON.stringify({
+        provider,
+        apiKey: finalApiKey,
+        fromAddress,
+        smtpUser,
+        smtpPass: finalSmtpPass,
+        smtpHost,
+        smtpPort: smtpPort ? Number(smtpPort) : undefined,
+      });
       if (existing.length > 0) {
         await db.update(platformSettings).set({ value: config }).where(eq(platformSettings.key, "email_config"));
       } else {

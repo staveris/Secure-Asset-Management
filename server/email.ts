@@ -1,13 +1,18 @@
 import crypto from "crypto";
+import nodemailer from "nodemailer";
 import { db } from "./db";
 import { platformSettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 interface EmailConfig {
   provider: string;
-  apiKey: string;
+  apiKey?: string;
   fromEmail: string;
   fromName: string;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpHost?: string;
+  smtpPort?: number;
 }
 
 async function getEmailConfig(): Promise<EmailConfig | null> {
@@ -15,7 +20,33 @@ async function getEmailConfig(): Promise<EmailConfig | null> {
     const [configRow] = await db.select().from(platformSettings).where(eq(platformSettings.key, "email_config"));
     if (!configRow) return null;
     const config = JSON.parse(configRow.value);
-    if (!config.provider || !config.apiKey || !config.fromAddress) return null;
+    if (!config.provider) return null;
+
+    if (config.provider === "gmail") {
+      if (!config.smtpUser || !config.smtpPass) return null;
+      return {
+        provider: "gmail",
+        smtpUser: config.smtpUser,
+        smtpPass: config.smtpPass,
+        fromEmail: config.fromAddress || config.smtpUser,
+        fromName: config.fromName || "NIS2 Platform",
+      };
+    }
+
+    if (config.provider === "smtp") {
+      if (!config.smtpHost || !config.smtpUser || !config.smtpPass) return null;
+      return {
+        provider: "smtp",
+        smtpHost: config.smtpHost,
+        smtpPort: config.smtpPort || 587,
+        smtpUser: config.smtpUser,
+        smtpPass: config.smtpPass,
+        fromEmail: config.fromAddress || config.smtpUser,
+        fromName: config.fromName || "NIS2 Platform",
+      };
+    }
+
+    if (!config.apiKey || !config.fromAddress) return null;
     return {
       provider: config.provider,
       apiKey: config.apiKey,
@@ -25,6 +56,84 @@ async function getEmailConfig(): Promise<EmailConfig | null> {
   } catch {
     return null;
   }
+}
+
+async function sendViaSMTP(
+  config: EmailConfig,
+  toEmail: string,
+  subject: string,
+  htmlBody: string,
+): Promise<boolean> {
+  const transportConfig: any = config.provider === "gmail"
+    ? {
+        service: "gmail",
+        auth: { user: config.smtpUser, pass: config.smtpPass },
+      }
+    : {
+        host: config.smtpHost,
+        port: config.smtpPort || 587,
+        secure: config.smtpPort === 465,
+        auth: { user: config.smtpUser, pass: config.smtpPass },
+      };
+
+  const transporter = nodemailer.createTransport(transportConfig);
+  await transporter.sendMail({
+    from: `"${config.fromName}" <${config.fromEmail}>`,
+    to: toEmail,
+    subject,
+    html: htmlBody,
+  });
+  return true;
+}
+
+async function sendViaAPI(
+  config: EmailConfig,
+  toEmail: string,
+  subject: string,
+  htmlBody: string,
+): Promise<boolean> {
+  if (config.provider === "sendgrid") {
+    const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: toEmail }] }],
+        from: { email: config.fromEmail, name: config.fromName },
+        subject,
+        content: [{ type: "text/html", value: htmlBody }],
+      }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`[Email] SendGrid error: ${response.status} ${text}`);
+      return false;
+    }
+    return true;
+  } else if (config.provider === "resend") {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `${config.fromName} <${config.fromEmail}>`,
+        to: [toEmail],
+        subject,
+        html: htmlBody,
+      }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`[Email] Resend error: ${response.status} ${text}`);
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 export function generateVerificationToken(): string {
@@ -72,58 +181,14 @@ export async function sendVerificationEmail(
   `;
 
   try {
-    if (config.provider === "sendgrid") {
-      const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${config.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: toEmail }] }],
-          from: { email: config.fromEmail, name: config.fromName },
-          subject: "Verify your email - NIS2 Platform",
-          content: [
-            { type: "text/html", value: htmlBody },
-          ],
-        }),
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        console.error(`[Email] SendGrid error: ${response.status} ${text}`);
-        return false;
-      }
-      return true;
-    } else if (config.provider === "resend") {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${config.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: `${config.fromName} <${config.fromEmail}>`,
-          to: [toEmail],
-          subject: "Verify your email - NIS2 Platform",
-          html: htmlBody,
-        }),
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        console.error(`[Email] Resend error: ${response.status} ${text}`);
-        return false;
-      }
-      return true;
-    } else if (config.provider === "smtp") {
-      console.log(`[Email] SMTP not yet implemented. Verification link: ${verifyUrl}`);
-      return false;
+    if (config.provider === "gmail" || config.provider === "smtp") {
+      return await sendViaSMTP(config, toEmail, "Verify your email - NIS2 Platform", htmlBody);
     }
+    return await sendViaAPI(config, toEmail, "Verify your email - NIS2 Platform", htmlBody);
   } catch (err) {
     console.error(`[Email] Send error:`, err);
     return false;
   }
-
-  return false;
 }
 
 export async function sendGenericEmail(
@@ -138,37 +203,10 @@ export async function sendGenericEmail(
   }
 
   try {
-    if (config.provider === "sendgrid") {
-      const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${config.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: toEmail }] }],
-          from: { email: config.fromEmail, name: config.fromName },
-          subject,
-          content: [{ type: "text/html", value: htmlBody }],
-        }),
-      });
-      return response.ok;
-    } else if (config.provider === "resend") {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${config.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: `${config.fromName} <${config.fromEmail}>`,
-          to: [toEmail],
-          subject,
-          html: htmlBody,
-        }),
-      });
-      return response.ok;
+    if (config.provider === "gmail" || config.provider === "smtp") {
+      return await sendViaSMTP(config, toEmail, subject, htmlBody);
     }
+    return await sendViaAPI(config, toEmail, subject, htmlBody);
   } catch (err) {
     console.error(`[Email] Send error:`, err);
   }

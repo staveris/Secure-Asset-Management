@@ -14,6 +14,10 @@ import { Mail, Save, CheckCircle, AlertTriangle } from "lucide-react";
 interface EmailSettings {
   provider: string | null;
   hasApiKey?: boolean;
+  hasSmtpPass?: boolean;
+  smtpUser?: string | null;
+  smtpHost?: string | null;
+  smtpPort?: number | null;
   fromAddress: string | null;
   configured: boolean;
 }
@@ -27,21 +31,46 @@ export default function AdminEmailSettings() {
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [fromAddress, setFromAddress] = useState("");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("");
 
   useEffect(() => {
     if (settings) {
       setProvider(settings.provider || "");
       setFromAddress(settings.fromAddress || "");
+      setSmtpUser(settings.smtpUser || "");
+      setSmtpHost(settings.smtpHost || "");
+      setSmtpPort(settings.smtpPort ? String(settings.smtpPort) : "");
       setApiKey("");
+      setSmtpPass("");
     }
   }, [settings]);
+
+  const isSmtpProvider = provider === "gmail" || provider === "smtp";
+
+  const canSave = (() => {
+    if (!provider) return false;
+    if (provider === "gmail") {
+      return !!(smtpUser && (smtpPass || settings?.hasSmtpPass));
+    }
+    if (provider === "smtp") {
+      return !!(smtpHost && smtpUser && (smtpPass || settings?.hasSmtpPass));
+    }
+    return !!((apiKey || settings?.hasApiKey) && fromAddress);
+  })();
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("PUT", "/api/admin/email-settings", {
         provider,
-        apiKey,
-        fromAddress,
+        apiKey: isSmtpProvider ? undefined : apiKey,
+        fromAddress: isSmtpProvider ? (fromAddress || smtpUser) : fromAddress,
+        smtpUser: isSmtpProvider ? smtpUser : undefined,
+        smtpPass: isSmtpProvider ? smtpPass : undefined,
+        smtpHost: provider === "smtp" ? smtpHost : undefined,
+        smtpPort: provider === "smtp" ? smtpPort : undefined,
       });
     },
     onSuccess: () => {
@@ -97,49 +126,178 @@ export default function AdminEmailSettings() {
                 <SelectValue placeholder="Select a provider..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sendgrid">SendGrid</SelectItem>
-                <SelectItem value="resend">Resend</SelectItem>
+                <SelectItem value="gmail">Gmail (SMTP)</SelectItem>
+                <SelectItem value="sendgrid">SendGrid (API)</SelectItem>
+                <SelectItem value="resend">Resend (API)</SelectItem>
+                <SelectItem value="smtp">Custom SMTP</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="apiKey">API Key</Label>
-            <Input
-              id="apiKey"
-              type="password"
-              placeholder={settings?.hasApiKey ? "Leave blank to keep existing key" : "Enter your API key..."}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              data-testid="input-api-key"
-            />
-            <p className="text-xs text-muted-foreground">
-              {provider === "sendgrid" && "Get your API key from SendGrid Dashboard > Settings > API Keys"}
-              {provider === "resend" && "Get your API key from resend.com/api-keys"}
-              {!provider && "Select a provider first"}
-              {settings?.hasApiKey && " (existing key is stored securely)"}
-            </p>
-          </div>
+          {provider === "gmail" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="smtpUser">Gmail Address</Label>
+                <Input
+                  id="smtpUser"
+                  type="email"
+                  placeholder="yourname@gmail.com"
+                  value={smtpUser}
+                  onChange={(e) => setSmtpUser(e.target.value)}
+                  data-testid="input-smtp-user"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The Gmail account that will be used to send emails
+                </p>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="fromAddress">From Email Address</Label>
-            <Input
-              id="fromAddress"
-              type="email"
-              placeholder="noreply@yourdomain.com"
-              value={fromAddress}
-              onChange={(e) => setFromAddress(e.target.value)}
-              data-testid="input-from-address"
-            />
-            <p className="text-xs text-muted-foreground">
-              The sender email address for outgoing emails. Must be verified with your email provider.
-            </p>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="smtpPass">App Password</Label>
+                <Input
+                  id="smtpPass"
+                  type="password"
+                  placeholder={settings?.hasSmtpPass ? "Leave blank to keep existing password" : "Enter your Gmail App Password..."}
+                  value={smtpPass}
+                  onChange={(e) => setSmtpPass(e.target.value)}
+                  data-testid="input-smtp-pass"
+                />
+                <p className="text-xs text-muted-foreground">
+                  You must use a Gmail App Password, not your regular Google password. Go to Google Account &rarr; Security &rarr; 2-Step Verification &rarr; App passwords to generate one.
+                  {settings?.hasSmtpPass && " (existing password is stored securely)"}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fromAddress">From Name Display (optional)</Label>
+                <Input
+                  id="fromAddress"
+                  type="text"
+                  placeholder="NIS2 Platform"
+                  value={fromAddress}
+                  onChange={(e) => setFromAddress(e.target.value)}
+                  data-testid="input-from-address"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional display name shown in the "From" field. The sender address will be your Gmail address.
+                </p>
+              </div>
+            </>
+          )}
+
+          {provider === "smtp" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="smtpHost">SMTP Host</Label>
+                <Input
+                  id="smtpHost"
+                  type="text"
+                  placeholder="smtp.example.com"
+                  value={smtpHost}
+                  onChange={(e) => setSmtpHost(e.target.value)}
+                  data-testid="input-smtp-host"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="smtpPort">SMTP Port</Label>
+                <Input
+                  id="smtpPort"
+                  type="number"
+                  placeholder="587"
+                  value={smtpPort}
+                  onChange={(e) => setSmtpPort(e.target.value)}
+                  data-testid="input-smtp-port"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Common ports: 587 (TLS/STARTTLS), 465 (SSL), 25 (unencrypted)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="smtpUser">SMTP Username</Label>
+                <Input
+                  id="smtpUser"
+                  type="text"
+                  placeholder="user@example.com"
+                  value={smtpUser}
+                  onChange={(e) => setSmtpUser(e.target.value)}
+                  data-testid="input-smtp-user"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="smtpPass">SMTP Password</Label>
+                <Input
+                  id="smtpPass"
+                  type="password"
+                  placeholder={settings?.hasSmtpPass ? "Leave blank to keep existing password" : "Enter SMTP password..."}
+                  value={smtpPass}
+                  onChange={(e) => setSmtpPass(e.target.value)}
+                  data-testid="input-smtp-pass"
+                />
+                {settings?.hasSmtpPass && (
+                  <p className="text-xs text-muted-foreground">(existing password is stored securely)</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fromAddress">From Email Address</Label>
+                <Input
+                  id="fromAddress"
+                  type="email"
+                  placeholder="noreply@yourdomain.com"
+                  value={fromAddress}
+                  onChange={(e) => setFromAddress(e.target.value)}
+                  data-testid="input-from-address"
+                />
+              </div>
+            </>
+          )}
+
+          {(provider === "sendgrid" || provider === "resend") && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="apiKey">API Key</Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  placeholder={settings?.hasApiKey ? "Leave blank to keep existing key" : "Enter your API key..."}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  data-testid="input-api-key"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {provider === "sendgrid" && "Get your API key from SendGrid Dashboard > Settings > API Keys"}
+                  {provider === "resend" && "Get your API key from resend.com/api-keys"}
+                  {settings?.hasApiKey && " (existing key is stored securely)"}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fromAddress">From Email Address</Label>
+                <Input
+                  id="fromAddress"
+                  type="email"
+                  placeholder="noreply@yourdomain.com"
+                  value={fromAddress}
+                  onChange={(e) => setFromAddress(e.target.value)}
+                  data-testid="input-from-address"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The sender email address for outgoing emails. Must be verified with your email provider.
+                </p>
+              </div>
+            </>
+          )}
+
+          {!provider && (
+            <p className="text-sm text-muted-foreground py-4">Select an email provider above to configure settings.</p>
+          )}
 
           <div className="flex items-center justify-end pt-2">
             <Button
               onClick={() => saveMutation.mutate()}
-              disabled={!provider || (!apiKey && !settings?.hasApiKey) || !fromAddress || saveMutation.isPending}
+              disabled={!canSave || saveMutation.isPending}
               data-testid="button-save-email-settings"
             >
               <Save className="w-4 h-4 mr-2" />
@@ -162,6 +320,18 @@ export default function AdminEmailSettings() {
               <li>Incident notification alerts (coming soon)</li>
             </ul>
             <p>If no email provider is configured, verification links will be logged to the server console for development purposes.</p>
+            {provider === "gmail" && (
+              <div className="mt-4 p-3 rounded-md bg-muted">
+                <p className="font-medium text-foreground mb-1">Gmail Setup Steps:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Enable 2-Step Verification on your Google Account</li>
+                  <li>Go to Google Account &rarr; Security &rarr; 2-Step Verification</li>
+                  <li>Scroll to "App passwords" at the bottom</li>
+                  <li>Create a new app password (select "Mail" and your device)</li>
+                  <li>Copy the 16-character password and paste it above</li>
+                </ol>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
