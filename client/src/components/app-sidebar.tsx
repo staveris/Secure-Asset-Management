@@ -60,6 +60,7 @@ const adminMenuItems = [
   { title: "Requirements", url: "/admin/requirements", icon: BookOpen },
   { title: "Audit Log", url: "/admin/audit-log", icon: ScrollText },
   { title: "Email Settings", url: "/admin/email-settings", icon: Mail },
+  { title: "Account Settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {

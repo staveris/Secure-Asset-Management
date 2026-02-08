@@ -4,6 +4,17 @@ import { db } from "./db";
 import { platformSettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+export function getAppBaseUrl(): string {
+  if (process.env.REPLIT_DOMAINS) {
+    const domains = process.env.REPLIT_DOMAINS.split(",");
+    return `https://${domains[0]}`;
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
+  return "http://localhost:5000";
+}
+
 interface EmailConfig {
   provider: string;
   apiKey?: string;
@@ -157,12 +168,7 @@ export async function sendVerificationEmail(
     return false;
   }
 
-  const baseUrl = process.env.REPLIT_DEV_DOMAIN
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : process.env.REPL_SLUG
-      ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-      : "http://localhost:5000";
-
+  const baseUrl = getAppBaseUrl();
   const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
 
   const htmlBody = `

@@ -64,6 +64,7 @@ export default function AuthPage() {
 
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
   const [regName, setRegName] = useState("");
   const [regCompany, setRegCompany] = useState("");
 
@@ -91,10 +92,16 @@ export default function AuthPage() {
     /[0-9]/.test(regPassword) &&
     /[^A-Za-z0-9]/.test(regPassword);
 
+  const passwordsMatch = regPassword === regConfirmPassword && regConfirmPassword.length > 0;
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isPasswordValid) {
       toast({ title: "Weak password", description: "Please meet all password requirements", variant: "destructive" });
+      return;
+    }
+    if (!passwordsMatch) {
+      toast({ title: "Passwords don't match", description: "Please make sure both passwords are identical", variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -236,6 +243,28 @@ export default function AuthPage() {
                     <PasswordStrength password={regPassword} />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="reg-confirm-password">Confirm Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="reg-confirm-password"
+                        type="password"
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                        placeholder="Re-enter your password"
+                        className="pl-10"
+                        required
+                        data-testid="input-reg-confirm-password"
+                      />
+                    </div>
+                    {regConfirmPassword && !passwordsMatch && (
+                      <p className="text-sm text-destructive" data-testid="text-password-mismatch">Passwords do not match</p>
+                    )}
+                    {passwordsMatch && (
+                      <p className="text-sm text-green-600" data-testid="text-password-match">Passwords match</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="reg-company">Company Name</Label>
                     <div className="relative">
                       <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -251,7 +280,7 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={loading || !isPasswordValid} data-testid="button-register">
+                  <Button type="submit" className="w-full" disabled={loading || !isPasswordValid || !passwordsMatch} data-testid="button-register">
                     {loading ? "Creating account..." : "Create account"}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>

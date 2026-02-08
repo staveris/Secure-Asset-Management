@@ -13,6 +13,7 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
+import { getAppBaseUrl } from "./email";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendGenericEmail } from "./email";
 import { platformSettings } from "@shared/schema";
 import { db } from "./db";
@@ -1177,11 +1178,7 @@ export async function registerRoutes(
         details: { email, role },
       });
 
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-        : process.env.REPL_SLUG
-          ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-          : "http://localhost:5000";
+      const baseUrl = getAppBaseUrl();
       const inviteLink = `${baseUrl}/invite/${token}`;
 
       const tenant = await storage.getTenant(user.tenantId);
