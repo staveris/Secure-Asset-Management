@@ -28,6 +28,7 @@ import AdminEmailSettings from "@/pages/admin-email-settings";
 import AdminStorage from "@/pages/admin-storage";
 import Onboarding from "@/pages/onboarding";
 import VerifyEmail from "@/pages/verify-email";
+import VerificationPending from "@/pages/verification-pending";
 import UsersPage from "@/pages/users";
 import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
@@ -89,6 +90,10 @@ function AppContent() {
 
   if (!user) {
     return <AuthPage />;
+  }
+
+  if (!user.emailVerified && user.role !== "PLATFORM_ADMIN") {
+    return <VerificationPending />;
   }
 
   const style = {

@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, Loader2, Mail } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
 
 export default function VerifyEmail() {
   const [, navigate] = useLocation();
@@ -24,6 +25,7 @@ export default function VerifyEmail() {
         if (res.ok) {
           setStatus("success");
           setMessage(data.message || "Email verified successfully!");
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
         } else {
           setStatus("error");
           setMessage(data.message || "Verification failed.");
