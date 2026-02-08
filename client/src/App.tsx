@@ -34,7 +34,7 @@ import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Lock, Mail, Phone } from "lucide-react";
+import { Lock, Mail } from "lucide-react";
 import { CookieConsent } from "@/components/cookie-consent";
 import { DemoBanner } from "@/components/demo-banner";
 
@@ -55,10 +55,6 @@ function RestrictedPage() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Mail className="w-4 h-4 shrink-0" />
               <a href="mailto:info@toolsoftech.eu" className="underline" data-testid="link-restricted-email">info@toolsoftech.eu</a>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Phone className="w-4 h-4 shrink-0" />
-              <span data-testid="text-restricted-phone">+30 210 1234 567</span>
             </div>
           </div>
           <Button asChild data-testid="button-restricted-contact">

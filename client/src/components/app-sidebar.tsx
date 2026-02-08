@@ -44,7 +44,6 @@ import {
   Mail,
   HardDrive,
   Lock,
-  Phone,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -214,10 +213,6 @@ export function AppSidebar() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Mail className="w-4 h-4 shrink-0" />
                 <a href="mailto:info@toolsoftech.eu" className="underline" data-testid="link-contact-email">info@toolsoftech.eu</a>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="w-4 h-4 shrink-0" />
-                <span data-testid="text-contact-phone">+30 210 1234 567</span>
               </div>
             </div>
           </div>
