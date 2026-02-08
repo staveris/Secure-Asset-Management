@@ -33,7 +33,10 @@ import UsersPage from "@/pages/users";
 import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import { Card, CardContent } from "@/components/ui/card";
-import { Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Lock, Mail, Phone } from "lucide-react";
+import { CookieConsent } from "@/components/cookie-consent";
+import { DemoBanner } from "@/components/demo-banner";
 
 function RestrictedPage() {
   return (
@@ -43,13 +46,24 @@ function RestrictedPage() {
           <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center" data-testid="icon-restricted-lock">
             <Lock className="w-6 h-6 text-muted-foreground" />
           </div>
-          <h2 className="text-lg font-semibold" data-testid="text-restricted-title">Access Restricted</h2>
+          <h2 className="text-lg font-semibold" data-testid="text-restricted-title">Feature Not Available in Demo</h2>
           <p className="text-sm text-muted-foreground" data-testid="text-restricted-message">
-            This feature is not yet available for your account. Your administrator needs to enable full platform access before you can use this section.
+            This feature is not included in the demo version. To unlock the full NIS2 compliance platform with all modules, please contact us.
           </p>
-          <p className="text-xs text-muted-foreground" data-testid="text-restricted-contact">
-            Contact your tenant administrator to request access.
-          </p>
+          <div className="rounded-md bg-muted p-4 space-y-2 text-left">
+            <p className="text-sm font-semibold" data-testid="text-restricted-company">Tools of Tech P.C.</p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Mail className="w-4 h-4 shrink-0" />
+              <a href="mailto:info@toolsoftech.eu" className="underline" data-testid="link-restricted-email">info@toolsoftech.eu</a>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Phone className="w-4 h-4 shrink-0" />
+              <span data-testid="text-restricted-phone">+30 210 1234 567</span>
+            </div>
+          </div>
+          <Button asChild data-testid="button-restricted-contact">
+            <a href="mailto:info@toolsoftech.eu">Contact Us</a>
+          </Button>
         </CardContent>
       </Card>
     </div>
@@ -135,6 +149,7 @@ function AppContent() {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
+          <DemoBanner />
           <header className="flex items-center justify-between gap-2 p-2 border-b sticky top-0 z-50 bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <ThemeToggle />
@@ -156,6 +171,7 @@ function App() {
           <AuthProvider>
             <AppContent />
           </AuthProvider>
+          <CookieConsent />
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>

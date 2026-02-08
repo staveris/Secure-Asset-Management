@@ -104,3 +104,7 @@ All routes prefixed with `/api/`:
 - 2026-02-08: Email verification enforcement: new users must verify email before accessing platform; verification-pending gate page with resend and auto-refresh; PLATFORM_ADMIN bypasses gate
 - 2026-02-08: Restricted user access: new users (TENANT_USER, TENANT_MANAGER, READONLY_AUDITOR) default to assessments-only access; fullAccessEnabled toggle in User Management; sidebar shows locked items with Lock icon; RestrictedPage on protected routes; backend requireFullAccess middleware on tasks/evidence/incidents/suppliers/risks; PLATFORM_ADMIN bypasses restrictions
 - 2026-02-08: Access hierarchy: Platform Admin grants access to Tenant Admins via admin tenants page; Tenant Admins grant access to their own users via user management; admin tenant page has expandable user list with per-user access toggles
+- 2026-02-08: GDPR Cookie Consent banner: appears on first visit (login and authenticated pages), Accept All / Essential Only options, persists in localStorage
+- 2026-02-08: Contact popup for locked features: clicking locked sidebar items opens dialog with Tools of Tech P.C. contact info (email, phone)
+- 2026-02-08: Demo mode banner: restricted users see persistent top banner indicating they are using the Demo Version with contact link
+- 2026-02-08: RestrictedPage updated: shows "Feature Not Available in Demo" with Tools of Tech P.C. contact details and mailto CTA

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import {
@@ -15,6 +16,14 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   LayoutDashboard,
   ClipboardCheck,
@@ -35,6 +44,7 @@ import {
   Mail,
   HardDrive,
   Lock,
+  Phone,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -69,6 +79,8 @@ const adminMenuItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout, isPlatformAdmin, hasFullAccess } = useAuth();
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [clickedFeature, setClickedFeature] = useState("");
 
   const initials = user?.fullName
     ?.split(" ")
@@ -76,6 +88,11 @@ export function AppSidebar() {
     .join("")
     .toUpperCase()
     .slice(0, 2) || "U";
+
+  const handleLockedClick = (featureName: string) => {
+    setClickedFeature(featureName);
+    setContactDialogOpen(true);
+  };
 
   return (
     <Sidebar>
@@ -102,9 +119,10 @@ export function AppSidebar() {
                     <SidebarMenuItem key={item.title}>
                       {isLocked ? (
                         <SidebarMenuButton
-                          className="opacity-50 cursor-not-allowed"
+                          className="opacity-50 cursor-pointer"
                           data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}
                           tooltip={`${item.title} - requires full access`}
+                          onClick={() => handleLockedClick(item.title)}
                         >
                           <item.icon className="w-4 h-4" />
                           <span>{item.title}</span>
@@ -178,6 +196,41 @@ export function AppSidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarFooter>
+
+      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
+        <DialogContent data-testid="dialog-contact-upgrade">
+          <DialogHeader>
+            <DialogTitle data-testid="text-contact-dialog-title">
+              Upgrade to Full Access
+            </DialogTitle>
+            <DialogDescription data-testid="text-contact-dialog-description">
+              The <span className="font-medium text-foreground">{clickedFeature}</span> module is not available in the demo version.
+              To unlock the full NIS2 compliance platform, please contact us.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="rounded-md bg-muted p-4 space-y-2">
+              <p className="text-sm font-semibold" data-testid="text-contact-company">Tools of Tech P.C.</p>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Mail className="w-4 h-4 shrink-0" />
+                <a href="mailto:info@toolsoftech.eu" className="underline" data-testid="link-contact-email">info@toolsoftech.eu</a>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Phone className="w-4 h-4 shrink-0" />
+                <span data-testid="text-contact-phone">+30 210 1234 567</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setContactDialogOpen(false)} data-testid="button-contact-close">
+              Close
+            </Button>
+            <Button asChild data-testid="button-contact-email-link">
+              <a href="mailto:info@toolsoftech.eu">Contact Us</a>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sidebar>
   );
 }
