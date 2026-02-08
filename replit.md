@@ -101,3 +101,4 @@ All routes prefixed with `/api/`:
 - 2026-02-08: Storage quota system: 10 GB per tenant, 100 MB max file, 10 users per tenant, admin Storage & Quotas page
 - 2026-02-08: Country field made required during onboarding (frontend + backend validation)
 - 2026-02-08: Reports page redesigned: professional print layout with SVG gauges, gradient header, domain progress bars, recommendations section, operational summary
+- 2026-02-08: Email verification enforcement: new users must verify email before accessing platform; verification-pending gate page with resend and auto-refresh; PLATFORM_ADMIN bypasses gate
