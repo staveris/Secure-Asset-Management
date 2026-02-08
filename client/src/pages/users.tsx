@@ -239,7 +239,7 @@ export default function UsersPage() {
                         <p className="text-sm font-medium" data-testid={`text-user-name-${u.id}`}>{u.fullName}</p>
                         {u.id === user?.id && <Badge variant="outline" className="text-xs">You</Badge>}
                         {!u.isActive && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
-                        {!u.fullAccessEnabled && u.role !== "TENANT_ADMIN" && u.role !== "PLATFORM_ADMIN" && (
+                        {!u.fullAccessEnabled && u.role !== "PLATFORM_ADMIN" && (
                           <Badge variant="secondary" className="text-xs">Restricted</Badge>
                         )}
                       </div>

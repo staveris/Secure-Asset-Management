@@ -101,7 +101,7 @@ async function requireFullAccess(req: Request, res: Response, next: NextFunction
   if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
   const user = await storage.getUser(req.session.userId);
   if (!user) return res.status(401).json({ message: "Unauthorized" });
-  if (user.role === "PLATFORM_ADMIN" || user.role === "TENANT_ADMIN") return next();
+  if (user.role === "PLATFORM_ADMIN") return next();
   if (!user.fullAccessEnabled) {
     return res.status(403).json({ message: "Full access not enabled. Contact your administrator to unlock all features." });
   }
@@ -1104,6 +1104,41 @@ export async function registerRoutes(
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
     await storage.deleteTenant(tenantId);
     res.json({ message: "Tenant deleted successfully" });
+  });
+
+  app.get("/api/admin/tenants/:id/users", requirePlatformAdmin, async (req, res) => {
+    const tenantId = parseInt(req.params.id);
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+    const users = await storage.getUsersByTenant(tenantId);
+    res.json(users.map(u => ({
+      id: u.id, email: u.email, fullName: u.fullName, role: u.role,
+      isActive: u.isActive, fullAccessEnabled: u.fullAccessEnabled,
+      createdAt: u.createdAt, lastLoginAt: u.lastLoginAt,
+    })));
+  });
+
+  app.patch("/api/admin/tenants/:tenantId/users/:userId", requirePlatformAdmin, async (req, res) => {
+    const tenantId = parseInt(req.params.tenantId);
+    const userId = parseInt(req.params.userId);
+    const targetUser = await storage.getUser(userId);
+    if (!targetUser || targetUser.tenantId !== tenantId) {
+      return res.status(404).json({ message: "User not found in this tenant" });
+    }
+    const { fullAccessEnabled } = req.body;
+    const updates: any = {};
+    if (fullAccessEnabled !== undefined) updates.fullAccessEnabled = fullAccessEnabled;
+    const updated = await storage.updateUser(userId, updates);
+    const adminUser = await getAuthUser(req);
+    await storage.createAuditLog({
+      tenantId,
+      actorUserId: adminUser!.id,
+      action: "UPDATE_USER_ACCESS",
+      entityType: "USER",
+      entityId: String(userId),
+      details: JSON.stringify({ fullAccessEnabled }),
+    });
+    res.json(updated);
   });
 
   app.get("/api/admin/requirements", requirePlatformAdmin, async (req, res) => {

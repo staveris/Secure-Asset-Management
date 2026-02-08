@@ -34,7 +34,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search } from "lucide-react";
+import { Switch as SwitchUI } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail } from "lucide-react";
 
 interface TenantInfo {
   id: number;
@@ -51,6 +54,17 @@ interface TenantInfo {
   maxUsers: number;
 }
 
+interface TenantUser {
+  id: number;
+  email: string;
+  fullName: string;
+  role: string;
+  isActive: boolean;
+  fullAccessEnabled: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
 const SECTORS = [
   "energy", "transport", "banking", "financial_market", "health",
   "drinking_water", "waste_water", "digital_infrastructure", "ict_services",
@@ -65,9 +79,29 @@ export default function AdminTenants() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<TenantInfo | null>(null);
   const [newTenant, setNewTenant] = useState({ name: "", sector: "energy", entityType: "essential", country: "" });
+  const [expandedTenant, setExpandedTenant] = useState<number | null>(null);
 
   const { data: tenants, isLoading } = useQuery<TenantInfo[]>({
     queryKey: ["/api/admin/tenants"],
+  });
+
+  const { data: tenantUsers, isLoading: usersLoading } = useQuery<TenantUser[]>({
+    queryKey: [`/api/admin/tenants/${expandedTenant}/users`],
+    enabled: !!expandedTenant,
+  });
+
+  const updateUserAccessMutation = useMutation({
+    mutationFn: async ({ tenantId, userId, fullAccessEnabled }: { tenantId: number; userId: number; fullAccessEnabled: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/tenants/${tenantId}/users/${userId}`, { fullAccessEnabled });
+      return await res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/tenants/${vars.tenantId}/users`] });
+      toast({ title: "User access updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update user access", variant: "destructive" });
+    },
   });
 
   const createMutation = useMutation({
@@ -305,6 +339,15 @@ export default function AdminTenants() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setExpandedTenant(expandedTenant === tenant.id ? null : tenant.id)}
+                      data-testid={`button-expand-users-${tenant.id}`}
+                      title="Manage user access"
+                    >
+                      {expandedTenant === tenant.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </Button>
                     {tenant.status === "active" ? (
                       <Button
                         size="icon"
@@ -339,6 +382,59 @@ export default function AdminTenants() {
                     </Button>
                   </div>
                 </div>
+                {expandedTenant === tenant.id && (
+                  <div className="mt-4 pt-4 border-t space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">User Access Management</p>
+                    {usersLoading ? (
+                      <div className="space-y-2">
+                        {[1, 2].map(i => <Skeleton key={i} className="h-10" />)}
+                      </div>
+                    ) : tenantUsers && tenantUsers.length > 0 ? (
+                      tenantUsers.map(u => {
+                        const initials = u.fullName?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) || "U";
+                        return (
+                          <div key={u.id} className="flex items-center gap-3 p-2 rounded-md bg-muted/30" data-testid={`admin-user-row-${u.id}`}>
+                            <Avatar className="w-7 h-7">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate" data-testid={`admin-text-user-name-${u.id}`}>{u.fullName}</p>
+                              <p className="text-xs text-muted-foreground truncate">{u.email} · {u.role.replace(/_/g, " ")}</p>
+                            </div>
+                            {!u.fullAccessEnabled && (
+                              <Badge variant="secondary" className="text-xs shrink-0">Restricted</Badge>
+                            )}
+                            {u.role !== "PLATFORM_ADMIN" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {u.fullAccessEnabled ? (
+                                      <Unlock className="w-3.5 h-3.5 text-green-500" />
+                                    ) : (
+                                      <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                                    )}
+                                    <SwitchUI
+                                      checked={u.fullAccessEnabled}
+                                      onCheckedChange={(checked) =>
+                                        updateUserAccessMutation.mutate({ tenantId: tenant.id, userId: u.id, fullAccessEnabled: checked })
+                                      }
+                                      data-testid={`admin-switch-full-access-${u.id}`}
+                                    />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {u.fullAccessEnabled ? "Full access enabled" : "Restricted - assessments only"}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">No users in this tenant</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

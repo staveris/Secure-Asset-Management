@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [logoutMutation]);
 
   const isPlatformAdmin = user?.role === "PLATFORM_ADMIN";
-  const hasFullAccess = isPlatformAdmin || user?.role === "TENANT_ADMIN" || user?.fullAccessEnabled === true;
+  const hasFullAccess = isPlatformAdmin || user?.fullAccessEnabled === true;
 
   return (
     <AuthContext.Provider
