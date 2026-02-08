@@ -40,7 +40,14 @@ import {
   Save,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import type { EvidenceItem } from "@shared/schema";
 
 interface AssessmentResponse {
@@ -132,6 +139,38 @@ function ControlCard({
   controlEvidence: EvidenceItem[];
 }) {
   const { toast } = useToast();
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("relatedType", "Control");
+      formData.append("relatedId", String(response.controlObjectiveId));
+      const res = await fetch("/api/evidence/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const text = (await res.text()) || res.statusText;
+        throw new Error(`${res.status}: ${text}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
+      toast({ title: "Evidence uploaded", description: `File linked to control "${response.controlTitle}" in this assessment.` });
+      setUploadOpen(false);
+      setSelectedFile(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const [edits, setEdits] = useState<LocalEdits>({
     implementationStatus: response.implementationStatus,
     maturityLevel: response.maturityLevel,
@@ -302,12 +341,15 @@ function ControlCard({
               <FileText className="w-3 h-3" />
               Evidence ({controlEvidence.length})
             </Label>
-            <Link href={`/evidence?linkType=Control&linkId=${response.controlObjectiveId}`}>
-              <Button variant="ghost" size="sm" data-testid={`button-upload-evidence-${response.id}`}>
-                <Upload className="w-3 h-3 mr-1" />
-                Upload
-              </Button>
-            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setUploadOpen(true)}
+              data-testid={`button-upload-evidence-${response.id}`}
+            >
+              <Upload className="w-3 h-3 mr-1" />
+              Upload
+            </Button>
           </div>
           {controlEvidence.length > 0 ? (
             <div className="space-y-1.5">
@@ -330,9 +372,47 @@ function ControlCard({
             </div>
           ) : (
             <p className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
-              No evidence uploaded for this control yet. Upload evidence from the Evidence Vault.
+              No evidence uploaded for this control yet.
             </p>
           )}
+          <Dialog open={uploadOpen} onOpenChange={(v) => { setUploadOpen(v); if (!v) setSelectedFile(null); }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Upload Evidence for Control</DialogTitle>
+                <DialogDescription>
+                  Upload a file to link as evidence for "{response.controlTitle}" ({response.requirementCode}).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="p-3 rounded-md bg-muted/50 text-sm space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
+                    <span className="font-medium">{response.controlTitle}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">This evidence will be linked to this specific control.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`evidence-file-${response.id}`}>Select File</Label>
+                  <Input
+                    id={`evidence-file-${response.id}`}
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.txt,.csv"
+                    data-testid={`input-evidence-file-${response.id}`}
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                </div>
+                <Button
+                  onClick={() => selectedFile && uploadMutation.mutate(selectedFile)}
+                  disabled={!selectedFile || uploadMutation.isPending}
+                  className="w-full"
+                  data-testid={`button-submit-evidence-${response.id}`}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {uploadMutation.isPending ? "Uploading..." : "Upload Evidence"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
     </Card>
