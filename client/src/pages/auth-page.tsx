@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight, Building2, Lock, Mail, User, Check, X, Shield, FileCheck, AlertTriangle, BarChart3, Globe, CheckCircle2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ArrowRight, Building2, Lock, Mail, User, Check, X, Shield, FileCheck, AlertTriangle, BarChart3, Globe, CheckCircle2, Ban } from "lucide-react";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
 import faviconLogo from "@assets/browser_1770569283054.png";
 
@@ -88,6 +89,7 @@ export default function AuthPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
   const { login, register, user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -113,7 +115,11 @@ export default function AuthPage() {
       await login(loginEmail, loginPassword);
       navigate("/");
     } catch (err: any) {
-      toast({ title: "Login failed", description: err.message, variant: "destructive" });
+      if (err.message?.toLowerCase().includes("suspended")) {
+        setShowSuspendedDialog(true);
+      } else {
+        toast({ title: "Login failed", description: err.message, variant: "destructive" });
+      }
     } finally {
       setLoading(false);
     }
@@ -542,6 +548,41 @@ export default function AuthPage() {
           </p>
         </div>
       </div>
+
+      <Dialog open={showSuspendedDialog} onOpenChange={setShowSuspendedDialog}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-suspended">
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-2">
+              <Ban className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <DialogTitle className="text-center" data-testid="text-suspended-title">Account Suspended</DialogTitle>
+            <DialogDescription className="text-center" data-testid="text-suspended-description">
+              Your organization's access has been suspended. You are unable to log in at this time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md bg-muted p-4 text-center space-y-2" data-testid="suspended-contact-info">
+            <p className="text-sm text-muted-foreground">
+              For more information or to restore access, please contact the administrator:
+            </p>
+            <a
+              href="mailto:info@toolsoftech.eu"
+              className="text-sm font-medium text-primary hover:underline"
+              data-testid="link-suspended-email"
+            >
+              info@toolsoftech.eu
+            </a>
+          </div>
+          <DialogFooter className="sm:justify-center">
+            <Button
+              variant="outline"
+              onClick={() => setShowSuspendedDialog(false)}
+              data-testid="button-suspended-close"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
