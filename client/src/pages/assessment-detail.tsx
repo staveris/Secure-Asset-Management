@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import {
   Upload,
   Lock,
   Link2,
+  Save,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLocation, Link } from "wouter";
@@ -114,6 +115,230 @@ function StatCard({ label, value, subtitle, icon: Icon, color }: {
   );
 }
 
+interface LocalEdits {
+  implementationStatus: string;
+  maturityLevel: number;
+  evidenceConfidence: string;
+  notes: string;
+}
+
+function ControlCard({
+  response,
+  assessmentId,
+  controlEvidence,
+}: {
+  response: AssessmentResponse;
+  assessmentId: string;
+  controlEvidence: EvidenceItem[];
+}) {
+  const { toast } = useToast();
+  const [edits, setEdits] = useState<LocalEdits>({
+    implementationStatus: response.implementationStatus,
+    maturityLevel: response.maturityLevel,
+    evidenceConfidence: response.evidenceConfidence,
+    notes: response.notes || "",
+  });
+
+  useEffect(() => {
+    setEdits({
+      implementationStatus: response.implementationStatus,
+      maturityLevel: response.maturityLevel,
+      evidenceConfidence: response.evidenceConfidence,
+      notes: response.notes || "",
+    });
+  }, [response.implementationStatus, response.maturityLevel, response.evidenceConfidence, response.notes]);
+
+  const hasChanges =
+    edits.implementationStatus !== response.implementationStatus ||
+    edits.maturityLevel !== response.maturityLevel ||
+    edits.evidenceConfidence !== response.evidenceConfidence ||
+    edits.notes !== (response.notes || "");
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload: any = { responseId: response.id };
+      if (edits.implementationStatus !== response.implementationStatus)
+        payload.implementationStatus = edits.implementationStatus;
+      if (edits.maturityLevel !== response.maturityLevel)
+        payload.maturityLevel = edits.maturityLevel;
+      if (edits.evidenceConfidence !== response.evidenceConfidence)
+        payload.evidenceConfidence = edits.evidenceConfidence;
+      if (edits.notes !== (response.notes || ""))
+        payload.notes = edits.notes;
+      await apiRequest("PATCH", `/api/assessment-responses/${response.id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments"] });
+      toast({ title: "Saved", description: "Control response updated successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error saving", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const config = statusConfig[edits.implementationStatus] || statusConfig.NOT_STARTED;
+  const StatusIcon = config.icon;
+
+  return (
+    <Card data-testid={`control-card-${response.id}`}>
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className={`p-1.5 rounded-md ${config.bg} shrink-0 mt-0.5`}>
+            <StatusIcon className={`w-4 h-4 ${config.color}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
+              <span className="text-sm font-medium">{response.controlTitle}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">{response.controlDescription}</p>
+            {response.guidance && (
+              <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md italic">
+                {response.guidance}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-10">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Implementation Status</Label>
+            <Select
+              value={edits.implementationStatus}
+              onValueChange={(val) => setEdits(prev => ({ ...prev, implementationStatus: val }))}
+            >
+              <SelectTrigger data-testid={`select-status-${response.id}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NOT_STARTED">Not Started</SelectItem>
+                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                <SelectItem value="IMPLEMENTED">Implemented</SelectItem>
+                <SelectItem value="VERIFIED">Verified</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center justify-between">
+              <span>Maturity Level</span>
+              <span className="font-medium">{edits.maturityLevel}/5 - {maturityLabels[edits.maturityLevel]}</span>
+            </Label>
+            <div className="flex gap-1 pt-1" data-testid={`maturity-buttons-${response.id}`}>
+              {[0, 1, 2, 3, 4, 5].map((level) => {
+                const isActive = edits.maturityLevel === level;
+                const isFilled = level <= edits.maturityLevel && level > 0;
+                const fillColor = level >= 4 ? "bg-green-500 text-white" : level >= 3 ? "bg-blue-500 text-white" : level >= 2 ? "bg-yellow-500 text-white" : level >= 1 ? "bg-orange-500 text-white" : "";
+                return (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setEdits(prev => ({ ...prev, maturityLevel: level }))}
+                    className={`flex-1 h-8 rounded-md text-xs font-medium border transition-all ${
+                      isActive
+                        ? `${fillColor || "bg-muted"} ring-2 ring-offset-1 ring-primary/50`
+                        : isFilled
+                          ? `${fillColor} opacity-70`
+                          : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                    }`}
+                    data-testid={`button-maturity-${response.id}-${level}`}
+                  >
+                    {level}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
+              <span>None</span>
+              <span>Optimized</span>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Evidence Confidence</Label>
+            <Select
+              value={edits.evidenceConfidence}
+              onValueChange={(val) => setEdits(prev => ({ ...prev, evidenceConfidence: val }))}
+            >
+              <SelectTrigger data-testid={`select-confidence-${response.id}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NONE">None</SelectItem>
+                <SelectItem value="LOW">Low</SelectItem>
+                <SelectItem value="MEDIUM">Medium</SelectItem>
+                <SelectItem value="HIGH">High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="pl-10">
+          <Label className="text-xs">Notes</Label>
+          <Textarea
+            value={edits.notes}
+            onChange={(e) => setEdits(prev => ({ ...prev, notes: e.target.value }))}
+            placeholder="Add implementation notes..."
+            className="mt-1.5 text-sm"
+            data-testid={`textarea-notes-${response.id}`}
+          />
+        </div>
+
+        {hasChanges && (
+          <div className="pl-10">
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              data-testid={`button-save-${response.id}`}
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              {saveMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        )}
+
+        <div className="pl-10 space-y-2" data-testid={`evidence-section-${response.id}`}>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <Label className="text-xs flex items-center gap-1.5">
+              <FileText className="w-3 h-3" />
+              Evidence ({controlEvidence.length})
+            </Label>
+            <Link href="/evidence">
+              <Button variant="ghost" size="sm" data-testid={`button-upload-evidence-${response.id}`}>
+                <Upload className="w-3 h-3 mr-1" />
+                Upload
+              </Button>
+            </Link>
+          </div>
+          {controlEvidence.length > 0 ? (
+            <div className="space-y-1.5">
+              {controlEvidence.map(ev => (
+                <div
+                  key={ev.id}
+                  className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
+                  data-testid={`evidence-item-${response.id}-${ev.id}`}
+                >
+                  <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="font-medium truncate flex-1">{ev.filename}</span>
+                  <Badge variant="outline" className="text-[10px] shrink-0">
+                    {ev.relatedType}
+                  </Badge>
+                  {(ev as any).lockedAt && (
+                    <Lock className="w-3 h-3 text-green-500 shrink-0" />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
+              No evidence uploaded for this control yet. Upload evidence from the Evidence Vault.
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AssessmentDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -136,25 +361,6 @@ export default function AssessmentDetail({ id }: { id: string }) {
            (e.relatedType === "Assessment" && e.relatedId === parseInt(id))
     );
   };
-
-  const updateMutation = useMutation({
-    mutationFn: async (updates: {
-      responseId: number;
-      implementationStatus?: string;
-      maturityLevel?: number;
-      evidenceConfidence?: string;
-      notes?: string;
-    }) => {
-      await apiRequest("PATCH", `/api/assessment-responses/${updates.responseId}`, updates);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/assessments", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/assessments"] });
-    },
-    onError: (err: any) => {
-      toast({ title: "Error saving", description: err.message, variant: "destructive" });
-    },
-  });
 
   const stats = useMemo(() => {
     if (!data) return null;
@@ -371,167 +577,14 @@ export default function AssessmentDetail({ id }: { id: string }) {
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-3 pb-2">
-                    {responses.map((response) => {
-                      const config = statusConfig[response.implementationStatus] || statusConfig.NOT_STARTED;
-                      const StatusIcon = config.icon;
-                      return (
-                        <Card key={response.id} data-testid={`control-card-${response.id}`}>
-                          <CardContent className="p-4 space-y-4">
-                            <div className="flex items-start gap-3">
-                              <div className={`p-1.5 rounded-md ${config.bg} shrink-0 mt-0.5`}>
-                                <StatusIcon className={`w-4 h-4 ${config.color}`} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
-                                  <span className="text-sm font-medium">{response.controlTitle}</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">{response.controlDescription}</p>
-                                {response.guidance && (
-                                  <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md italic">
-                                    {response.guidance}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-10">
-                              <div className="space-y-1.5">
-                                <Label className="text-xs">Implementation Status</Label>
-                                <Select
-                                  value={response.implementationStatus}
-                                  onValueChange={(val) =>
-                                    updateMutation.mutate({ responseId: response.id, implementationStatus: val })
-                                  }
-                                >
-                                  <SelectTrigger data-testid={`select-status-${response.id}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="NOT_STARTED">Not Started</SelectItem>
-                                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                                    <SelectItem value="IMPLEMENTED">Implemented</SelectItem>
-                                    <SelectItem value="VERIFIED">Verified</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs flex items-center justify-between">
-                                  <span>Maturity Level</span>
-                                  <span className="font-medium">{response.maturityLevel}/5 - {maturityLabels[response.maturityLevel]}</span>
-                                </Label>
-                                <div className="flex gap-1 pt-1" data-testid={`maturity-buttons-${response.id}`}>
-                                  {[0, 1, 2, 3, 4, 5].map((level) => {
-                                    const isActive = response.maturityLevel === level;
-                                    const isFilled = level <= response.maturityLevel && level > 0;
-                                    const fillColor = level >= 4 ? "bg-green-500 text-white" : level >= 3 ? "bg-blue-500 text-white" : level >= 2 ? "bg-yellow-500 text-white" : level >= 1 ? "bg-orange-500 text-white" : "";
-                                    return (
-                                      <button
-                                        key={level}
-                                        type="button"
-                                        onClick={() => updateMutation.mutate({ responseId: response.id, maturityLevel: level })}
-                                        className={`flex-1 h-8 rounded-md text-xs font-medium border transition-all ${
-                                          isActive
-                                            ? `${fillColor || "bg-muted"} ring-2 ring-offset-1 ring-primary/50`
-                                            : isFilled
-                                              ? `${fillColor} opacity-70`
-                                              : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                                        }`}
-                                        data-testid={`button-maturity-${response.id}-${level}`}
-                                      >
-                                        {level}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                                <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
-                                  <span>None</span>
-                                  <span>Optimized</span>
-                                </div>
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs">Evidence Confidence</Label>
-                                <Select
-                                  value={response.evidenceConfidence}
-                                  onValueChange={(val) =>
-                                    updateMutation.mutate({ responseId: response.id, evidenceConfidence: val })
-                                  }
-                                >
-                                  <SelectTrigger data-testid={`select-confidence-${response.id}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="NONE">None</SelectItem>
-                                    <SelectItem value="LOW">Low</SelectItem>
-                                    <SelectItem value="MEDIUM">Medium</SelectItem>
-                                    <SelectItem value="HIGH">High</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-
-                            <div className="pl-10">
-                              <Label className="text-xs">Notes</Label>
-                              <Textarea
-                                defaultValue={response.notes || ""}
-                                placeholder="Add implementation notes..."
-                                className="mt-1.5 text-sm"
-                                onBlur={(e) => {
-                                  if (e.target.value !== (response.notes || "")) {
-                                    updateMutation.mutate({ responseId: response.id, notes: e.target.value });
-                                  }
-                                }}
-                                data-testid={`textarea-notes-${response.id}`}
-                              />
-                            </div>
-
-                            {(() => {
-                              const controlEvidence = getControlEvidence(response.controlObjectiveId);
-                              return (
-                                <div className="pl-10 space-y-2" data-testid={`evidence-section-${response.id}`}>
-                                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                                    <Label className="text-xs flex items-center gap-1.5">
-                                      <FileText className="w-3 h-3" />
-                                      Evidence ({controlEvidence.length})
-                                    </Label>
-                                    <Link href="/evidence">
-                                      <Button variant="ghost" size="sm" data-testid={`button-upload-evidence-${response.id}`}>
-                                        <Upload className="w-3 h-3 mr-1" />
-                                        Upload
-                                      </Button>
-                                    </Link>
-                                  </div>
-                                  {controlEvidence.length > 0 ? (
-                                    <div className="space-y-1.5">
-                                      {controlEvidence.map(ev => (
-                                        <div
-                                          key={ev.id}
-                                          className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
-                                          data-testid={`evidence-item-${response.id}-${ev.id}`}
-                                        >
-                                          <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                          <span className="font-medium truncate flex-1">{ev.filename}</span>
-                                          <Badge variant="outline" className="text-[10px] shrink-0">
-                                            {ev.relatedType}
-                                          </Badge>
-                                          {(ev as any).lockedAt && (
-                                            <Lock className="w-3 h-3 text-green-500 shrink-0" />
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
-                                      No evidence uploaded for this control yet. Upload evidence from the Evidence Vault.
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                    {responses.map((response) => (
+                      <ControlCard
+                        key={response.id}
+                        response={response}
+                        assessmentId={id}
+                        controlEvidence={getControlEvidence(response.controlObjectiveId)}
+                      />
+                    ))}
                   </div>
                 </AccordionContent>
               </AccordionItem>
