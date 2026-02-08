@@ -30,6 +30,7 @@ import {
   ScrollText,
   LogOut,
   ChevronDown,
+  Users,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,6 +48,7 @@ const tenantMenuItems = [
   { title: "Suppliers", url: "/suppliers", icon: Truck },
   { title: "Risks", url: "/risks", icon: Shield },
   { title: "Reports", url: "/reports", icon: FileText },
+  { title: "Users", url: "/users", icon: Users },
 ];
 
 const adminMenuItems = [

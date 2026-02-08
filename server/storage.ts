@@ -16,6 +16,11 @@ import {
   controls,
   incidentNotifications,
   tenantDailySnapshots,
+  sectorPacks,
+  applicabilityRules,
+  inviteTokens,
+  evidenceAccessLogs,
+  evidenceUnlockRequests,
   type InsertTenant,
   type InsertUser,
   type InsertRequirement,
@@ -30,6 +35,11 @@ import {
   type InsertControl,
   type InsertIncidentNotification,
   type InsertTenantDailySnapshot,
+  type InsertSectorPack,
+  type InsertApplicabilityRule,
+  type InsertInviteToken,
+  type InsertEvidenceAccessLog,
+  type InsertEvidenceUnlockRequest,
   type Tenant,
   type User,
   type Requirement,
@@ -45,18 +55,28 @@ import {
   type Control,
   type IncidentNotification,
   type TenantDailySnapshot,
+  type SectorPack,
+  type ApplicabilityRule,
+  type InviteToken,
+  type EvidenceAccessLog,
+  type EvidenceUnlockRequest,
 } from "@shared/schema";
 
 export interface IStorage {
   createTenant(data: InsertTenant): Promise<Tenant>;
   getTenant(id: number): Promise<Tenant | undefined>;
   getAllTenants(): Promise<Tenant[]>;
+  updateTenant(id: number, data: Partial<InsertTenant>): Promise<Tenant | undefined>;
 
   createUser(data: InsertUser): Promise<User>;
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUsersByTenant(tenantId: number): Promise<User[]>;
   updateUserLastLogin(id: number): Promise<void>;
+  updateUser(id: number, data: Partial<{fullName: string, role: string, isActive: boolean}>): Promise<User | undefined>;
+  createInviteToken(data: InsertInviteToken): Promise<InviteToken>;
+  getInviteTokenByHash(tokenHash: string): Promise<InviteToken | undefined>;
+  markInviteTokenUsed(id: number): Promise<void>;
 
   createRequirement(data: InsertRequirement): Promise<Requirement>;
   getAllRequirements(): Promise<Requirement[]>;
@@ -64,6 +84,13 @@ export interface IStorage {
 
   createControlObjective(data: InsertControlObjective): Promise<ControlObjective>;
   getAllControlObjectives(): Promise<ControlObjective[]>;
+
+  createSectorPack(data: InsertSectorPack): Promise<SectorPack>;
+  getAllSectorPacks(): Promise<SectorPack[]>;
+  getSectorPacksByApplicability(sector: string, subsector?: string): Promise<SectorPack[]>;
+
+  createApplicabilityRule(data: InsertApplicabilityRule): Promise<ApplicabilityRule>;
+  getApplicabilityRulesForControl(controlObjectiveId: number): Promise<ApplicabilityRule[]>;
 
   createAssessment(data: InsertAssessment): Promise<Assessment>;
   getAssessmentsByTenant(tenantId: number): Promise<Assessment[]>;
@@ -81,6 +108,13 @@ export interface IStorage {
 
   getEvidenceByTenant(tenantId: number): Promise<EvidenceItem[]>;
   createEvidenceItem(data: InsertEvidenceItem): Promise<EvidenceItem>;
+  lockEvidence(id: number, lockedBy: number, reason: string): Promise<EvidenceItem | undefined>;
+  unlockEvidence(id: number): Promise<EvidenceItem | undefined>;
+  createEvidenceAccessLog(data: InsertEvidenceAccessLog): Promise<EvidenceAccessLog>;
+  getEvidenceAccessLogs(evidenceId: number): Promise<EvidenceAccessLog[]>;
+  createEvidenceUnlockRequest(data: InsertEvidenceUnlockRequest): Promise<EvidenceUnlockRequest>;
+  getEvidenceUnlockRequests(tenantId: number): Promise<EvidenceUnlockRequest[]>;
+  updateEvidenceUnlockRequest(id: number, data: {status: string, approvedBy: number}): Promise<EvidenceUnlockRequest | undefined>;
 
   createIncidentCase(data: InsertIncidentCase): Promise<IncidentCase>;
   getIncidentCase(id: number): Promise<IncidentCase | undefined>;
@@ -108,6 +142,8 @@ export interface IStorage {
   createTenantDailySnapshot(data: InsertTenantDailySnapshot): Promise<TenantDailySnapshot>;
   getSnapshotsByTenant(tenantId: number, limit?: number): Promise<TenantDailySnapshot[]>;
 
+  recomputeTenantSnapshot(tenantId: number): Promise<TenantDailySnapshot>;
+
   getDashboardData(tenantId: number): Promise<any>;
   getAdminDashboardData(): Promise<any>;
 }
@@ -125,6 +161,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAllTenants(): Promise<Tenant[]> {
     return db.select().from(tenants);
+  }
+
+  async updateTenant(id: number, data: Partial<InsertTenant>): Promise<Tenant | undefined> {
+    const [tenant] = await db.update(tenants).set(data).where(eq(tenants.id, id)).returning();
+    return tenant;
   }
 
   async createUser(data: InsertUser): Promise<User> {
@@ -148,6 +189,25 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserLastLogin(id: number): Promise<void> {
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id));
+  }
+
+  async updateUser(id: number, data: Partial<{fullName: string, role: string, isActive: boolean}>): Promise<User | undefined> {
+    const [user] = await db.update(users).set(data as any).where(eq(users.id, id)).returning();
+    return user;
+  }
+
+  async createInviteToken(data: InsertInviteToken): Promise<InviteToken> {
+    const [token] = await db.insert(inviteTokens).values(data).returning();
+    return token;
+  }
+
+  async getInviteTokenByHash(tokenHash: string): Promise<InviteToken | undefined> {
+    const [token] = await db.select().from(inviteTokens).where(eq(inviteTokens.tokenHash, tokenHash));
+    return token;
+  }
+
+  async markInviteTokenUsed(id: number): Promise<void> {
+    await db.update(inviteTokens).set({ usedAt: new Date() }).where(eq(inviteTokens.id, id));
   }
 
   async createRequirement(data: InsertRequirement): Promise<Requirement> {
@@ -175,6 +235,39 @@ export class DatabaseStorage implements IStorage {
 
   async getAllControlObjectives(): Promise<ControlObjective[]> {
     return db.select().from(controlObjectives);
+  }
+
+  async createSectorPack(data: InsertSectorPack): Promise<SectorPack> {
+    const [pack] = await db.insert(sectorPacks).values(data).returning();
+    return pack;
+  }
+
+  async getAllSectorPacks(): Promise<SectorPack[]> {
+    return db.select().from(sectorPacks);
+  }
+
+  async getSectorPacksByApplicability(sector: string, subsector?: string): Promise<SectorPack[]> {
+    const allPacks = await db.select().from(sectorPacks).where(eq(sectorPacks.isActive, true));
+    return allPacks.filter((pack) => {
+      const appliesTo = pack.appliesTo as { sectorGroups?: string[]; sectors?: string[]; subsectors?: string[] } | null;
+      if (!appliesTo) return true;
+      if (appliesTo.sectors && appliesTo.sectors.length > 0) {
+        if (!appliesTo.sectors.includes(sector)) return false;
+      }
+      if (subsector && appliesTo.subsectors && appliesTo.subsectors.length > 0) {
+        if (!appliesTo.subsectors.includes(subsector)) return false;
+      }
+      return true;
+    });
+  }
+
+  async createApplicabilityRule(data: InsertApplicabilityRule): Promise<ApplicabilityRule> {
+    const [rule] = await db.insert(applicabilityRules).values(data).returning();
+    return rule;
+  }
+
+  async getApplicabilityRulesForControl(controlObjectiveId: number): Promise<ApplicabilityRule[]> {
+    return db.select().from(applicabilityRules).where(eq(applicabilityRules.controlObjectiveId, controlObjectiveId));
   }
 
   async createAssessment(data: InsertAssessment): Promise<Assessment> {
@@ -244,6 +337,52 @@ export class DatabaseStorage implements IStorage {
   async createEvidenceItem(data: InsertEvidenceItem): Promise<EvidenceItem> {
     const [item] = await db.insert(evidenceItems).values(data).returning();
     return item;
+  }
+
+  async lockEvidence(id: number, lockedBy: number, reason: string): Promise<EvidenceItem | undefined> {
+    const [item] = await db.update(evidenceItems)
+      .set({ lockedAt: new Date(), lockedBy, lockReason: reason })
+      .where(eq(evidenceItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async unlockEvidence(id: number): Promise<EvidenceItem | undefined> {
+    const [item] = await db.update(evidenceItems)
+      .set({ lockedAt: null, lockedBy: null, lockReason: null })
+      .where(eq(evidenceItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async createEvidenceAccessLog(data: InsertEvidenceAccessLog): Promise<EvidenceAccessLog> {
+    const [log] = await db.insert(evidenceAccessLogs).values(data).returning();
+    return log;
+  }
+
+  async getEvidenceAccessLogs(evidenceId: number): Promise<EvidenceAccessLog[]> {
+    return db.select().from(evidenceAccessLogs)
+      .where(eq(evidenceAccessLogs.evidenceId, evidenceId))
+      .orderBy(desc(evidenceAccessLogs.createdAt));
+  }
+
+  async createEvidenceUnlockRequest(data: InsertEvidenceUnlockRequest): Promise<EvidenceUnlockRequest> {
+    const [request] = await db.insert(evidenceUnlockRequests).values(data).returning();
+    return request;
+  }
+
+  async getEvidenceUnlockRequests(tenantId: number): Promise<EvidenceUnlockRequest[]> {
+    return db.select().from(evidenceUnlockRequests)
+      .where(eq(evidenceUnlockRequests.tenantId, tenantId))
+      .orderBy(desc(evidenceUnlockRequests.createdAt));
+  }
+
+  async updateEvidenceUnlockRequest(id: number, data: {status: string, approvedBy: number}): Promise<EvidenceUnlockRequest | undefined> {
+    const [request] = await db.update(evidenceUnlockRequests)
+      .set({ ...data, decidedAt: new Date() } as any)
+      .where(eq(evidenceUnlockRequests.id, id))
+      .returning();
+    return request;
   }
 
   async createIncidentCase(data: InsertIncidentCase): Promise<IncidentCase> {
@@ -488,6 +627,40 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tenantDailySnapshots.tenantId, tenantId))
       .orderBy(desc(tenantDailySnapshots.date))
       .limit(limit);
+  }
+
+  async recomputeTenantSnapshot(tenantId: number): Promise<TenantDailySnapshot> {
+    const dashboard = await this.getDashboardData(tenantId);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const existing = await db.select().from(tenantDailySnapshots)
+      .where(and(eq(tenantDailySnapshots.tenantId, tenantId), eq(tenantDailySnapshots.date, today)));
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(tenantDailySnapshots)
+        .set({
+          compliancePct: dashboard.complianceScore,
+          verifiedPct: dashboard.statusDistribution.find((s: any) => s.name === "Verified")?.value ?? 0,
+          maturityAvg: dashboard.maturityAverage,
+          overdueTasks: dashboard.overdueTasks,
+          evidenceCoverage: dashboard.evidenceCount,
+          incidentsOpen: dashboard.openIncidents,
+        })
+        .where(eq(tenantDailySnapshots.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    return this.createTenantDailySnapshot({
+      tenantId,
+      date: today,
+      compliancePct: dashboard.complianceScore,
+      verifiedPct: dashboard.statusDistribution.find((s: any) => s.name === "Verified")?.value ?? 0,
+      maturityAvg: dashboard.maturityAverage,
+      overdueTasks: dashboard.overdueTasks,
+      evidenceCoverage: dashboard.evidenceCount,
+      incidentsOpen: dashboard.openIncidents,
+    });
   }
 }
 

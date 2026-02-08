@@ -1,0 +1,350 @@
+You are a senior security-focused full-stack engineer building a secure multi-tenant compliance SaaS:
+“NIS2 Readiness Platform”.
+
+PRIMARY GOALS
+1) Provide article-level NIS2 readiness assessment, covering all entity obligations and enabling “audit-grade” traceability.
+2) Provide deep-dive assessments that adapt to ALL NIS2 Annex I (high criticality) and Annex II (other critical) sectors/subsectors.
+3) Provide progress tracking (gaps → action plan → evidence → verification → monitoring).
+4) Provide PLATFORM_ADMIN aggregated statistics across all tenants WITHOUT data leakage.
+
+NON-NEGOTIABLE SECURITY REQUIREMENTS
+- Multi-tenant isolation is enforced server-side on every request.
+- Defense-in-depth: application checks + database constraints + optional Postgres RLS.
+- Encrypt evidence files at rest with envelope encryption (per-tenant DEK).
+- Evidence locking (immutable after verification unless privileged + audited unlock).
+- Strong authentication, session security, audit logging, and OWASP hardening.
+
+TECH STACK (Replit-friendly)
+- Next.js 14+ App Router, TypeScript
+- TailwindCSS + shadcn/ui
+- PostgreSQL + Prisma
+- Auth: custom session auth (HttpOnly cookies) OR NextAuth Credentials (but still implement custom session table for revocation)
+- Validation: Zod
+- Charts: recharts
+- Logging: pino (server) with correlation IDs
+
+PERSONAS & RBAC
+Roles enum:
+- PLATFORM_ADMIN (global)
+- TENANT_ADMIN
+- TENANT_MANAGER
+- TENANT_USER
+- READONLY_AUDITOR
+
+Access rules:
+- PLATFORM_ADMIN can access all tenants and the global admin area.
+- Tenant roles can only access their own tenant data.
+- READONLY_AUDITOR can view assessments, evidence, and reports but cannot create/update/delete.
+- TENANT_ADMIN can manage users within their tenant and enforce MFA policy at tenant-level.
+
+STRICT TENANT ISOLATION
+Every tenant-scoped table has tenantId.
+All reads/writes MUST include tenantId filters unless PLATFORM_ADMIN.
+Implement central guards:
+- requireAuth()
+- requireRole(...)
+- requireTenantScope(requestedTenantId)
+- assertResourceTenant(resource.tenantId)
+Never trust client-provided tenantId—derive tenantId from session.
+
+OPTIONAL Postgres RLS (defense-in-depth):
+- Enable RLS on tenant-scoped tables.
+- Set session variables per request transaction (e.g., app.tenant_id, app.role).
+- Create policies that restrict access by tenant_id unless role=PLATFORM_ADMIN.
+
+DATA MODEL (Prisma) — MUST IMPLEMENT
+Core multi-tenancy:
+- Tenant(id, name, sectorGroup, sector, subsector, entityType, country, createdAt)
+- User(id, email unique, passwordHash, name, phone, jobTitle, department, isActive, createdAt, lastLoginAt)
+- Membership(id, userId, tenantId nullable, role, createdAt) 
+  Note: PLATFORM_ADMIN has membership with tenantId = null and role=PLATFORM_ADMIN.
+
+Auth + security:
+- Session(id, userId, createdAt, expiresAt, revokedAt nullable, ip, userAgent)
+- LoginAttempt(id, email, ip, success, createdAt)
+- PasswordResetToken(id, userId, tokenHash, expiresAt, usedAt nullable)
+- InviteToken(id, tenantId, email, role, tokenHash, expiresAt, usedAt nullable, createdBy)
+- EmailVerificationToken(id, userId, tokenHash, expiresAt, usedAt nullable)
+- MfaTotp(id, userId, secretEnc, enabledAt, lastUsedAt) + MfaRecoveryCode(id, userId, codeHash, usedAt nullable)
+
+Audit + compliance:
+- AuditLog(id, tenantId nullable, actorUserId, action, entityType, entityId,
+          before JSON, after JSON, ip, userAgent, correlationId, createdAt)
+
+Compliance library ontology (separate “what is required” from “what is implemented”):
+- Requirement(id, code, title, description, nis2Article, nis2Paragraph, greekRef nullable, category, isActive)
+- SectorPack(id, key, name, description, appliesTo JSON, isActive)
+- ControlObjective(id, requirementId, packId nullable, title, description, guidance, weight int, tags JSON)
+- ApplicabilityRule(id, controlObjectiveId, rule JSON) // sector/subsector/entityType/serviceType gating
+- EvidenceRequirement(id, controlObjectiveId, acceptableTypes JSON, minimumSet JSON)
+- TestProcedure(id, controlObjectiveId, method, steps, frequency)
+
+Tenant implementation layer:
+- ControlImplementation(id, tenantId, controlObjectiveId, ownerUserId nullable,
+                        implementationStatus enum[NOT_STARTED,IN_PROGRESS,IMPLEMENTED,VERIFIED],
+                        maturityLevel int 0-5, confidence enum[NONE,WEAK,STRONG,INDEPENDENT],
+                        lastReviewedAt, nextReviewDueAt, notes)
+
+Assessments:
+- Assessment(id, tenantId, name, scope, createdBy, status enum[DRAFT,IN_PROGRESS,SUBMITTED], createdAt, submittedAt)
+- AssessmentResponse(id, assessmentId, controlObjectiveId,
+                     implementationStatus, maturityLevel, confidence, notes,
+                     answeredBy, answeredAt)
+
+Tasks / remediation:
+- Task(id, tenantId, relatedControlObjectiveId nullable, title, description,
+       ownerUserId, approverUserId nullable, dueDate, status enum[OPEN,IN_PROGRESS,BLOCKED,DONE,VERIFIED],
+       priority enum[LOW,MEDIUM,HIGH,CRITICAL], createdAt, updatedAt)
+
+Evidence vault (ENVELOPE ENCRYPTION + LOCKING):
+- TenantKey(id, tenantId, dekWrappedBase64, dekAlg, createdAt, rotatedAt nullable)
+- EvidenceItem(id, tenantId, relatedType enum[CONTROL,TASK,INCIDENT,OTHER], relatedId,
+              filename, mimeType, size, storagePath,
+              sha256, encrypted boolean, encryptionMeta JSON,
+              uploadedBy, uploadedAt, expiresAt nullable,
+              lockedAt nullable, lockedBy nullable, lockReason nullable)
+- EvidenceAccessLog(id, evidenceId, actorUserId, action enum[UPLOAD,DOWNLOAD,LOCK,UNLOCK], ip, userAgent, createdAt)
+- EvidenceUnlockRequest(id, evidenceId, tenantId, requestedBy, approvedBy nullable, reason, status enum[PENDING,APPROVED,REJECTED], createdAt, decidedAt)
+
+Incidents (Article 23 clock):
+- IncidentCase(id, tenantId, title, description, severity, isSignificant,
+               detectedAt, awareAt, containedAt, recoveredAt,
+               earlyWarningDueAt, notificationDueAt, finalReportDueAt,
+               status enum[OPEN,CONTAINED,RECOVERED,CLOSED], createdBy, updatedAt)
+- IncidentNotification(id, incidentId,
+                       type enum[EARLY_WARNING,NOTIFICATION_72H,FINAL_REPORT],
+                       preparedAt, sentAt nullable, channel, content JSON, preparedBy)
+
+Suppliers + risks:
+- Supplier(id, tenantId, name, criticality enum[LOW,MEDIUM,HIGH,CRITICAL], services, lastAssessmentAt, notes)
+- RiskItem(id, tenantId, title, description, likelihood int, impact int, treatment, ownerUserId, status, updatedAt)
+
+ANALYTICS (SNAPSHOT-BASED SERVICE) — MUST IMPLEMENT
+Goal: Admin aggregated analytics without scanning raw tables constantly and without leakage.
+Create:
+- TenantDailySnapshot(id, tenantId, date,
+  compliancePct, verifiedPct, maturityAvg, overdueTasks, openIncidents, evidenceCoveragePct,
+  lastComputedAt)
+
+Computation strategy:
+- On any write to ControlImplementation/Task/EvidenceItem/IncidentCase/AssessmentSubmission, enqueue a lightweight “recompute snapshot for tenant” job.
+- Also run a daily scheduled recomputation to fix drift.
+
+Implementation:
+- Use a simple in-app job runner (setInterval) for Replit OR a queue (BullMQ) if feasible.
+- Snapshot service lives in /lib/analytics/snapshots.ts with idempotent recomputeTenantSnapshot(tenantId, date).
+
+Admin aggregated analytics MUST read from TenantDailySnapshot:
+- Global totals: tenants, active users, avg compliance, distribution of verifiedPct, overdue tasks, evidence coverage.
+- Breakdown by sector/subsector, BUT apply k-anonymity: do NOT show group breakdown if groupCount < 5 (configurable).
+- Drill-down requires explicit tenant selection and writes an AuditLog entry.
+
+EVIDENCE ENCRYPTION (ENVELOPE ENCRYPTION) — MUST IMPLEMENT
+- KEK is APP_KEK env var (32 bytes base64) kept outside DB.
+- Each tenant has a DEK stored wrapped (encrypted) by KEK in TenantKey.dekWrappedBase64.
+- On upload:
+  - unwrap DEK using KEK
+  - generate random fileKey (or reuse DEK directly; prefer per-file key wrapped by DEK if time permits)
+  - encrypt file bytes with AES-256-GCM
+  - store iv/tag and metadata in encryptionMeta
+- On download:
+  - authorization check
+  - decrypt streaming server-side
+- Provide /lib/crypto/envelope.ts with: getTenantDEK(), encryptBuffer(), decryptStream()
+
+Evidence locking:
+- When a control is marked VERIFIED, require at least one linked EvidenceItem; allow “Lock all linked evidence”.
+- Locked evidence cannot be replaced/deleted by tenant users.
+- Unlock requires EvidenceUnlockRequest approval by TENANT_ADMIN (or PLATFORM_ADMIN) and is fully audited.
+
+USER MANAGEMENT — MUST ENHANCE (REQUESTED)
+Tenant user management screens:
+- TENANT_ADMIN can: invite user, assign role, deactivate/reactivate, reset password, enforce tenant MFA policy.
+- Users can: update profile (name/phone/jobTitle/department), change password (requires current password), manage MFA, view/revoke active sessions.
+
+Platform admin user management:
+- Manage all tenants and users (global search).
+- Force reset password, deactivate accounts, view auth/audit events.
+
+Invite flow:
+- Generate InviteToken; if SMTP env exists send email, else show “Copy invite link”.
+- Invite link sets password, verifies email, optionally enrolls MFA if policy requires.
+Password reset:
+- Token-based reset with expiry; rate limit; log events.
+
+Session revocation:
+- Session table + “logout all sessions” button.
+
+MFA:
+- Implement TOTP (RFC 6238) using a library; store secret encrypted at rest.
+- Provide recovery codes (one-time use, hashed).
+- Enforce MFA for PLATFORM_ADMIN always; for TENANT_ADMIN if tenant policy enabled.
+
+ONBOARDING WIZARD (DEEP DIVE, ALL SECTORS)
+During tenant creation, collect:
+- Sector group: ANNEX_I or ANNEX_II
+- Sector, Subsector, EntityType (from NIS2 annex taxonomy)
+- Flags: isDNSProvider, isTLDRegistry, isTrustServiceProvider, isCloudProvider, isDataCenterProvider, isCDNProvider,
+         isManagedServiceProvider, isManagedSecurityServiceProvider,
+         isPublicEComNetwork, isPubliclyAvailableEComService,
+         isDigitalProvider(online marketplace/search engine/social platform),
+         isResearchOrg
+- Size: employees, turnover, balance sheet (to help essential/important classification)
+Compute and store a derived “NIS2 Applicability Profile” JSON on Tenant.
+
+NIS2 SECTOR TAXONOMY (ALL ANNEX I + II)
+Create /data/nis2_sectors.json and seed it.
+
+ANNEX I (High Criticality):
+1) Energy:
+   - Electricity
+   - District heating and cooling
+   - Oil
+   - Gas
+   - Hydrogen
+2) Transport:
+   - Air
+   - Rail
+   - Water
+   - Road
+3) Banking
+4) Financial market infrastructures
+5) Health
+6) Drinking water
+7) Waste water
+8) Digital infrastructure:
+   - Internet Exchange Point providers
+   - DNS service providers (excluding operators of root name servers)
+   - TLD name registries
+   - Cloud computing service providers
+   - Data centre service providers
+   - Content delivery network providers
+   - Trust service providers
+   - Providers of public electronic communications networks
+   - Providers of publicly available electronic communications services
+9) ICT service management (B2B):
+   - Managed service providers
+   - Managed security service providers
+10) Public administration:
+   - Central government entities
+   - Regional level entities
+11) Space:
+   - Operators of ground-based infrastructure supporting space-based services (excluding public e-comms networks)
+
+ANNEX II (Other Critical):
+1) Postal and courier services
+2) Waste management
+3) Manufacture/production/distribution of chemicals
+4) Production/processing/distribution of food
+5) Manufacturing:
+   (a) medical devices and in vitro diagnostic medical devices
+   (b) computer, electronic and optical products
+   (c) electrical equipment
+   (d) machinery and equipment n.e.c.
+   (e) motor vehicles, trailers and semi-trailers
+   (f) other transport equipment
+6) Digital providers:
+   - online marketplaces
+   - online search engines
+   - social networking services platforms
+7) Research:
+   - research organisations
+
+ASSESSMENT ENGINE — MUST BE DEEPER AND SECTOR-AWARE
+Implement “layered” assessment packs:
+A) CORE NIS2 PACK (applies to all tenants)
+- Governance/management accountability (Art 20) as multiple objectives (approval, oversight, training, accountability evidence)
+- Risk management measures (Art 21): implement each minimum measure as separate ControlObjectives
+- Incident reporting (Art 23): significance determination, playbooks, 24h/72h/1-month readiness
+- Supply chain considerations (Art 21 + Art 22) as separate objectives
+- Audit/supervision evidence readiness (requests for info, audits, scans) as an “audit pack”
+
+B) SECTOR PACKS (deep dive per Annex sector/subsector)
+For EACH sector/subsector, create additional ControlObjectives that tailor Art 21 to sector-specific realities.
+Examples (not exhaustive; implement at least 20–50 extra objectives per sector pack):
+- Energy (electricity/oil/gas/hydrogen): OT/ICS governance, segmentation, safety impact analysis, remote access controls, secure maintenance, backup/restore drills for SCADA, incident coordination with operations
+- Transport (air/rail/water/road): safety-critical systems, operational continuity, third-party maintenance controls, segmentation and monitoring of operational networks
+- Drinking water / waste water: OT/ICS, monitoring integrity, resilient operations, emergency procedures
+- Health: clinical system resilience, medical device security processes, patch windows, data integrity and continuity
+- Digital infrastructure (cloud/data center/CDN/DNS/TLD/trust services/e-comms): identity assurance, secure service management, tenant isolation, logging, DDoS preparedness, key management, incident comms
+- ICT service management (MSP/MSSP): customer segregation, privileged access mgmt, secure tooling, incident notification obligations to customers, logging retention
+- Public administration: baseline hardening, identity, continuity, supplier governance, secure communications
+- Space ground infrastructure: high-availability, supply chain dependencies, secure uplink/ground ops procedures
+- Manufacturing/chemicals/food/waste/postal: production continuity, supplier criticality, industrial network protections, asset inventory completeness
+- Digital providers: platform security, abuse monitoring, resilience
+
+Mechanics:
+- Each ControlObjective has ApplicabilityRule JSON that activates based on tenant’s sector/subsector flags.
+- Admin can edit/extend packs in the Requirement Library UI.
+
+Assessment UX:
+- Show assessment as “domains” (Governance, Identify, Protect, Detect, Respond, Recover, Supply Chain, Reporting).
+- For each question capture:
+  - implementation status, maturity (0–5), confidence, notes
+  - required evidence checklist + upload links
+  - test procedure checklist
+- Auto-create tasks for any control with NOT_STARTED/IN_PROGRESS and assign owners.
+
+SCORING (MORE DEFENSIBLE)
+Compute:
+- CompliancePct = weighted % of objectives at least IMPLEMENTED
+- VerifiedPct = weighted % VERIFIED
+- EvidenceCoveragePct = % of IMPLEMENTED/VERIFIED objectives with minimum evidence set met
+- MaturityAvg = average maturity weighted
+Expose scores per:
+- NIS2 article
+- domain
+- sector pack
+- time (trend by assessment submissions + daily snapshots)
+
+PLATFORM ADMIN DASHBOARD (AGGREGATED, SAFE)
+Admin area (/admin) accessible only to PLATFORM_ADMIN:
+- Uses TenantDailySnapshot for metrics
+- Default view = aggregates only
+- k-anonymity thresholding for breakdowns (min group size 5)
+- Drill-down to a tenant requires explicit selection and is audited
+
+TENANT DASHBOARD
+- KPIs: compliance %, verified %, evidence coverage %, overdue tasks, open incidents
+- Heatmap by domain vs status
+- Trend charts (snapshots + submitted assessments)
+- Top 10 prioritized gaps (weight × criticality × overdue)
+
+ROUTES / STRUCTURE
+- /app/(tenant)/dashboard, assessments, tasks, evidence, incidents, suppliers, risks, reports, settings/users
+- /app/(admin)/analytics, tenants, users, library, auditlog
+- /lib/auth (sessions, password hashing, login rate limiting, csrf helpers)
+- /lib/rbac (guards)
+- /lib/tenant (tenant context)
+- /lib/security (headers, csrf, rate limit)
+- /lib/crypto (envelope encryption)
+- /lib/analytics (snapshot computation)
+- /data seeds (nis2_sectors.json, nis2_controls_core.json, sector_packs/*.json)
+
+HARDENING CHECKLIST — MUST IMPLEMENT
+- Password hashing (argon2 preferred)
+- Secure cookies: HttpOnly, Secure, SameSite=Strict
+- CSRF for state-changing actions
+- Rate limiting on login, password reset, invites, uploads
+- Secure headers + CSP (reasonable default)
+- Input validation with Zod on every server action/API
+- Pagination on list endpoints + indexes on tenantId, createdAt
+- Audit log for: auth events, role changes, invites, password resets, evidence lock/unlock, admin drilldowns
+
+TESTS (MINIMUM)
+- Unit tests for tenant guard + role guard + IDOR prevention
+- E2E smoke tests:
+  - tenant admin invite user
+  - user sets password + logs in
+  - user creates assessment + answers + uploads evidence
+  - admin sees aggregate analytics (no raw leakage)
+
+DELIVERABLES
+- Working app with migrations + seed
+- README (Replit setup) with ENV vars:
+  DATABASE_URL
+  SESSION_SECRET
+  APP_KEK (base64 32 bytes)
+  UPLOAD_DIR
+  SMTP_* optional (if present, send invites/reset emails; else show copy link)
+- Seeded library: Core NIS2 controls + sector packs for ALL Annex I & Annex II sector groups above.

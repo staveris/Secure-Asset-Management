@@ -106,8 +106,12 @@ export const notificationTypeEnum = pgEnum("notification_type", [
 export const tenants = pgTable("tenants", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  sectorGroup: text("sector_group").default("ANNEX_I"),
   sector: text("sector").notNull().default("general"),
+  subsector: text("subsector"),
   entityType: text("entity_type").notNull().default("essential"),
+  country: text("country"),
+  applicabilityProfile: jsonb("applicability_profile").$type<Record<string, boolean>>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -123,6 +127,18 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const inviteTokens = pgTable("invite_tokens", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  email: text("email").notNull(),
+  role: userRoleEnum("role").notNull().default("TENANT_USER"),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const requirements = pgTable("requirements", {
   id: serial("id").primaryKey(),
   code: text("code").notNull().unique(),
@@ -135,15 +151,34 @@ export const requirements = pgTable("requirements", {
   isActive: boolean("is_active").notNull().default(true),
 });
 
+export const sectorPacks = pgTable("sector_packs", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  appliesTo: jsonb("applies_to").$type<{ sectorGroups?: string[]; sectors?: string[]; subsectors?: string[] }>(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
 export const controlObjectives = pgTable("control_objectives", {
   id: serial("id").primaryKey(),
   requirementId: integer("requirement_id")
     .references(() => requirements.id)
     .notNull(),
+  sectorPackId: integer("sector_pack_id").references(() => sectorPacks.id),
   title: text("title").notNull(),
   description: text("description").notNull(),
   guidance: text("guidance"),
+  domain: text("domain").default("Governance"),
+  weight: integer("weight").notNull().default(1),
+  tags: jsonb("tags").$type<string[]>().default([]),
   evidenceTypes: jsonb("evidence_types").$type<string[]>().default([]),
+});
+
+export const applicabilityRules = pgTable("applicability_rules", {
+  id: serial("id").primaryKey(),
+  controlObjectiveId: integer("control_objective_id").references(() => controlObjectives.id).notNull(),
+  rule: jsonb("rule").$type<{ sectors?: string[]; subsectors?: string[]; entityTypes?: string[]; flags?: string[] }>().notNull(),
 });
 
 export const assessments = pgTable("assessments", {
@@ -191,6 +226,7 @@ export const tasks = pgTable("tasks", {
   title: text("title").notNull(),
   description: text("description"),
   ownerUserId: integer("owner_user_id").references(() => users.id),
+  approverUserId: integer("approver_user_id").references(() => users.id),
   dueDate: timestamp("due_date"),
   status: taskStatusEnum("status").notNull().default("TODO"),
   priority: taskPriorityEnum("priority").notNull().default("MEDIUM"),
@@ -208,10 +244,36 @@ export const evidenceItems = pgTable("evidence_items", {
   filename: text("filename").notNull(),
   mimeType: text("mime_type"),
   size: integer("size"),
+  storagePath: text("storage_path"),
+  sha256: text("sha256"),
+  lockedAt: timestamp("locked_at"),
+  lockedBy: integer("locked_by").references(() => users.id),
+  lockReason: text("lock_reason"),
   uploadedBy: integer("uploaded_by")
     .references(() => users.id)
     .notNull(),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+});
+
+export const evidenceAccessLogs = pgTable("evidence_access_logs", {
+  id: serial("id").primaryKey(),
+  evidenceId: integer("evidence_id").references(() => evidenceItems.id).notNull(),
+  actorUserId: integer("actor_user_id").references(() => users.id).notNull(),
+  action: text("action").notNull(),
+  ip: text("ip"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const evidenceUnlockRequests = pgTable("evidence_unlock_requests", {
+  id: serial("id").primaryKey(),
+  evidenceId: integer("evidence_id").references(() => evidenceItems.id).notNull(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  requestedBy: integer("requested_by").references(() => users.id).notNull(),
+  approvedBy: integer("approved_by").references(() => users.id),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("PENDING"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  decidedAt: timestamp("decided_at"),
 });
 
 export const incidentCases = pgTable("incident_cases", {
@@ -252,6 +314,7 @@ export const riskItems = pgTable("risk_items", {
     .references(() => tenants.id)
     .notNull(),
   title: text("title").notNull(),
+  description: text("description"),
   likelihood: integer("likelihood").notNull().default(3),
   impact: integer("impact").notNull().default(3),
   treatment: riskTreatmentEnum("treatment").notNull().default("MITIGATE"),
@@ -268,6 +331,7 @@ export const auditLogs = pgTable("audit_logs", {
   entityType: text("entity_type").notNull(),
   entityId: text("entity_id"),
   details: jsonb("details"),
+  ip: text("ip"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -314,12 +378,23 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
   lastLoginAt: true,
 });
+export const insertInviteTokenSchema = createInsertSchema(inviteTokens).omit({
+  id: true,
+  createdAt: true,
+  usedAt: true,
+});
 export const insertRequirementSchema = createInsertSchema(requirements).omit({
+  id: true,
+});
+export const insertSectorPackSchema = createInsertSchema(sectorPacks).omit({
   id: true,
 });
 export const insertControlObjectiveSchema = createInsertSchema(
   controlObjectives,
 ).omit({ id: true });
+export const insertApplicabilityRuleSchema = createInsertSchema(applicabilityRules).omit({
+  id: true,
+});
 export const insertAssessmentSchema = createInsertSchema(assessments).omit({
   id: true,
   createdAt: true,
@@ -335,6 +410,19 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
 export const insertEvidenceItemSchema = createInsertSchema(evidenceItems).omit({
   id: true,
   uploadedAt: true,
+  lockedAt: true,
+  lockedBy: true,
+  lockReason: true,
+});
+export const insertEvidenceAccessLogSchema = createInsertSchema(evidenceAccessLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertEvidenceUnlockRequestSchema = createInsertSchema(evidenceUnlockRequests).omit({
+  id: true,
+  createdAt: true,
+  decidedAt: true,
+  approvedBy: true,
 });
 export const insertIncidentCaseSchema = createInsertSchema(incidentCases).omit({
   id: true,
@@ -363,12 +451,18 @@ export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InviteToken = typeof inviteTokens.$inferSelect;
+export type InsertInviteToken = z.infer<typeof insertInviteTokenSchema>;
 export type Requirement = typeof requirements.$inferSelect;
 export type InsertRequirement = z.infer<typeof insertRequirementSchema>;
+export type SectorPack = typeof sectorPacks.$inferSelect;
+export type InsertSectorPack = z.infer<typeof insertSectorPackSchema>;
 export type ControlObjective = typeof controlObjectives.$inferSelect;
 export type InsertControlObjective = z.infer<
   typeof insertControlObjectiveSchema
 >;
+export type ApplicabilityRule = typeof applicabilityRules.$inferSelect;
+export type InsertApplicabilityRule = z.infer<typeof insertApplicabilityRuleSchema>;
 export type Assessment = typeof assessments.$inferSelect;
 export type InsertAssessment = z.infer<typeof insertAssessmentSchema>;
 export type AssessmentResponse = typeof assessmentResponses.$inferSelect;
@@ -379,6 +473,10 @@ export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type EvidenceItem = typeof evidenceItems.$inferSelect;
 export type InsertEvidenceItem = z.infer<typeof insertEvidenceItemSchema>;
+export type EvidenceAccessLog = typeof evidenceAccessLogs.$inferSelect;
+export type InsertEvidenceAccessLog = z.infer<typeof insertEvidenceAccessLogSchema>;
+export type EvidenceUnlockRequest = typeof evidenceUnlockRequests.$inferSelect;
+export type InsertEvidenceUnlockRequest = z.infer<typeof insertEvidenceUnlockRequestSchema>;
 export type IncidentCase = typeof incidentCases.$inferSelect;
 export type InsertIncidentCase = z.infer<typeof insertIncidentCaseSchema>;
 export type Supplier = typeof suppliers.$inferSelect;
@@ -403,6 +501,9 @@ export const registerSchema = z.object({
   password: z.string().min(8),
   fullName: z.string().min(2),
   companyName: z.string().min(2),
+  sectorGroup: z.string().optional(),
   sector: z.string().min(1),
+  subsector: z.string().optional(),
   entityType: z.string().min(1),
+  country: z.string().optional(),
 });

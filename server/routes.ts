@@ -127,8 +127,12 @@ export async function registerRoutes(
       const passwordHash = await bcrypt.hash(data.password, 12);
       const tenant = await storage.createTenant({
         name: data.companyName,
+        sectorGroup: data.sectorGroup || "ANNEX_I",
         sector: data.sector,
+        subsector: data.subsector || null,
         entityType: data.entityType,
+        country: data.country || null,
+        applicabilityProfile: null,
       });
 
       const user = await storage.createUser({
@@ -204,6 +208,11 @@ export async function registerRoutes(
       role: user.role,
       tenantId: user.tenantId,
       tenantName: tenant?.name || null,
+      tenantSector: tenant?.sector || null,
+      tenantSectorGroup: tenant?.sectorGroup || null,
+      tenantSubsector: tenant?.subsector || null,
+      tenantEntityType: tenant?.entityType || null,
+      tenantCountry: tenant?.country || null,
       isActive: user.isActive,
       createdAt: user.createdAt,
     });
@@ -685,6 +694,257 @@ export async function registerRoutes(
   app.get("/api/admin/audit-logs", requirePlatformAdmin, async (req, res) => {
     const logs = await storage.getAuditLogs(200);
     res.json(logs);
+  });
+
+  app.get("/api/nis2/sectors", (_req, res) => {
+    const { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, NIS2_DOMAINS } = require("./nis2-sectors");
+    res.json({ sectors: NIS2_SECTORS, flags: NIS2_APPLICABILITY_FLAGS, countries: EU_COUNTRIES, domains: NIS2_DOMAINS });
+  });
+
+  app.patch("/api/tenant/profile", requireAuth, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Only tenant admins can update profile" });
+      }
+
+      const { sectorGroup, sector, subsector, entityType, country, applicabilityProfile } = req.body;
+      const updates: any = {};
+      if (sectorGroup !== undefined) updates.sectorGroup = sectorGroup;
+      if (sector !== undefined) updates.sector = sector;
+      if (subsector !== undefined) updates.subsector = subsector;
+      if (entityType !== undefined) updates.entityType = entityType;
+      if (country !== undefined) updates.country = country;
+      if (applicabilityProfile !== undefined) updates.applicabilityProfile = applicabilityProfile;
+
+      const updated = await storage.updateTenant(user.tenantId, updates);
+      if (!updated) return res.status(404).json({ message: "Tenant not found" });
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "UPDATE_PROFILE",
+        entityType: "TENANT",
+        entityId: String(user.tenantId),
+        details: updates,
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/tenant/users", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const tenantUsers = await storage.getUsersByTenant(user.tenantId);
+    res.json(tenantUsers.map(u => ({
+      id: u.id, email: u.email, fullName: u.fullName, role: u.role, isActive: u.isActive, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt,
+    })));
+  });
+
+  app.patch("/api/tenant/users/:id", requireAuth, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Only tenant admins can manage users" });
+      }
+
+      const targetId = parseInt(req.params.id);
+      const targetUser = await storage.getUser(targetId);
+      if (!targetUser || targetUser.tenantId !== user.tenantId) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { role, isActive, fullName } = req.body;
+      const updates: any = {};
+      if (role !== undefined) updates.role = role;
+      if (isActive !== undefined) updates.isActive = isActive;
+      if (fullName !== undefined) updates.fullName = fullName;
+
+      const updated = await storage.updateUser(targetId, updates);
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "UPDATE_USER",
+        entityType: "USER",
+        entityId: String(targetId),
+        details: updates,
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/tenant/invite", requireAuth, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Only tenant admins can invite users" });
+      }
+
+      const { email, role } = req.body;
+      if (!email) return res.status(400).json({ message: "Email required" });
+
+      const existing = await storage.getUserByEmail(email);
+      if (existing) return res.status(400).json({ message: "User already exists" });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+      const invite = await storage.createInviteToken({
+        tenantId: user.tenantId,
+        email,
+        role: role || "TENANT_USER",
+        tokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        createdBy: user.id,
+      });
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "INVITE_USER",
+        entityType: "INVITE",
+        entityId: String(invite.id),
+        details: { email, role },
+      });
+
+      res.json({ invite, inviteLink: `/invite/${token}` });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/evidence/:id/lock", requireAuth, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+
+      const id = parseInt(req.params.id);
+      const evidence = await storage.getEvidenceByTenant(user.tenantId);
+      const item = evidence.find(e => e.id === id);
+      if (!item) return res.status(404).json({ message: "Evidence not found" });
+      if (item.lockedAt) return res.status(400).json({ message: "Already locked" });
+
+      const reason = req.body.reason || "Locked for verification";
+      const locked = await storage.lockEvidence(id, user.id, reason);
+
+      await storage.createEvidenceAccessLog({
+        evidenceId: id,
+        actorUserId: user.id,
+        action: "LOCK",
+        ip: req.ip || null,
+      });
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "LOCK",
+        entityType: "EVIDENCE",
+        entityId: String(id),
+        details: { reason },
+      });
+
+      res.json(locked);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/evidence/:id/unlock-request", requireAuth, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+
+      const id = parseInt(req.params.id);
+      const { reason } = req.body;
+      if (!reason) return res.status(400).json({ message: "Reason required" });
+
+      const request = await storage.createEvidenceUnlockRequest({
+        evidenceId: id,
+        tenantId: user.tenantId,
+        requestedBy: user.id,
+        reason,
+        status: "PENDING",
+      });
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "UNLOCK_REQUEST",
+        entityType: "EVIDENCE",
+        entityId: String(id),
+        details: { reason },
+      });
+
+      res.json(request);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/evidence/unlock-requests/:id/approve", requireAuth, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Only admins can approve unlock requests" });
+      }
+
+      const requestId = parseInt(req.params.id);
+      const updated = await storage.updateEvidenceUnlockRequest(requestId, {
+        status: "APPROVED",
+        approvedBy: user.id,
+      });
+
+      if (updated) {
+        await storage.unlockEvidence(updated.evidenceId);
+        await storage.createEvidenceAccessLog({
+          evidenceId: updated.evidenceId,
+          actorUserId: user.id,
+          action: "UNLOCK",
+          ip: req.ip || null,
+        });
+      }
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/evidence/unlock-requests", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const requests = await storage.getEvidenceUnlockRequests(user.tenantId);
+    res.json(requests);
+  });
+
+  app.get("/api/sector-packs", requireAuth, async (req, res) => {
+    const packs = await storage.getAllSectorPacks();
+    res.json(packs);
+  });
+
+  app.get("/api/snapshots", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const snapshots = await storage.getSnapshotsByTenant(user.tenantId, 90);
+    res.json(snapshots);
+  });
+
+  app.post("/api/snapshots/recompute", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const snapshot = await storage.recomputeTenantSnapshot(user.tenantId);
+    res.json(snapshot);
   });
 
   return httpServer;

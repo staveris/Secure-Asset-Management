@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { ArrowRight, Building2, Lock, Mail, User } from "lucide-react";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
+
+interface SectorData {
+  sectors: Array<{ sectorGroup: string; sector: string; subsectors: string[] }>;
+  countries: string[];
+}
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -24,8 +30,25 @@ export default function AuthPage() {
   const [regPassword, setRegPassword] = useState("");
   const [regName, setRegName] = useState("");
   const [regCompany, setRegCompany] = useState("");
-  const [regSector, setRegSector] = useState("technology");
+  const [regSectorGroup, setRegSectorGroup] = useState("ANNEX_I");
+  const [regSector, setRegSector] = useState("");
+  const [regSubsector, setRegSubsector] = useState("");
   const [regEntityType, setRegEntityType] = useState("essential");
+  const [regCountry, setRegCountry] = useState("");
+
+  const { data: sectorData } = useQuery<SectorData>({
+    queryKey: ["/api/nis2/sectors"],
+    enabled: !isLogin,
+  });
+
+  const filteredSectors = useMemo(() => {
+    if (!sectorData) return [];
+    return sectorData.sectors.filter(s => s.sectorGroup === regSectorGroup);
+  }, [sectorData, regSectorGroup]);
+
+  const selectedSectorObj = useMemo(() => {
+    return filteredSectors.find(s => s.sector === regSector);
+  }, [filteredSectors, regSector]);
 
   if (user) {
     navigate("/");
@@ -47,6 +70,10 @@ export default function AuthPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!regSector) {
+      toast({ title: "Required", description: "Please select a sector", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
       await register({
@@ -54,8 +81,11 @@ export default function AuthPage() {
         password: regPassword,
         fullName: regName,
         companyName: regCompany,
+        sectorGroup: regSectorGroup,
         sector: regSector,
+        subsector: regSubsector || undefined,
         entityType: regEntityType,
+        country: regCountry || undefined,
       });
       navigate("/onboarding");
     } catch (err: any) {
@@ -203,31 +233,31 @@ export default function AuthPage() {
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>NIS2 Classification</Label>
+                    <Select value={regSectorGroup} onValueChange={(v) => { setRegSectorGroup(v); setRegSector(""); setRegSubsector(""); }}>
+                      <SelectTrigger data-testid="select-sector-group">
+                        <SelectValue placeholder="Select annex" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ANNEX_I">Annex I - Highly Critical Sectors</SelectItem>
+                        <SelectItem value="ANNEX_II">Annex II - Other Critical Sectors</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label>Sector</Label>
-                      <Select value={regSector} onValueChange={setRegSector}>
+                      <Select value={regSector} onValueChange={(v) => { setRegSector(v); setRegSubsector(""); }}>
                         <SelectTrigger data-testid="select-sector">
-                          <SelectValue />
+                          <SelectValue placeholder="Select sector" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="energy">Energy</SelectItem>
-                          <SelectItem value="transport">Transport</SelectItem>
-                          <SelectItem value="banking">Banking</SelectItem>
-                          <SelectItem value="financial">Financial Markets</SelectItem>
-                          <SelectItem value="health">Health</SelectItem>
-                          <SelectItem value="water">Drinking Water</SelectItem>
-                          <SelectItem value="digital">Digital Infrastructure</SelectItem>
-                          <SelectItem value="ict">ICT Service Management</SelectItem>
-                          <SelectItem value="public_admin">Public Administration</SelectItem>
-                          <SelectItem value="space">Space</SelectItem>
-                          <SelectItem value="postal">Postal Services</SelectItem>
-                          <SelectItem value="waste">Waste Management</SelectItem>
-                          <SelectItem value="chemicals">Chemicals</SelectItem>
-                          <SelectItem value="food">Food</SelectItem>
-                          <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                          <SelectItem value="technology">Technology</SelectItem>
-                          <SelectItem value="research">Research</SelectItem>
+                          {filteredSectors.map(s => (
+                            <SelectItem key={s.sector} value={s.sector}>{s.sector}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -244,6 +274,37 @@ export default function AuthPage() {
                       </Select>
                     </div>
                   </div>
+
+                  {selectedSectorObj && selectedSectorObj.subsectors.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Subsector</Label>
+                      <Select value={regSubsector} onValueChange={setRegSubsector}>
+                        <SelectTrigger data-testid="select-subsector">
+                          <SelectValue placeholder="Select subsector (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedSectorObj.subsectors.map(ss => (
+                            <SelectItem key={ss} value={ss}>{ss}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>EU Member State</Label>
+                    <Select value={regCountry} onValueChange={setRegCountry}>
+                      <SelectTrigger data-testid="select-country">
+                        <SelectValue placeholder="Select country (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(sectorData?.countries || []).map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <Button type="submit" className="w-full" disabled={loading} data-testid="button-register">
                     {loading ? "Creating account..." : "Create account"}
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -273,7 +334,11 @@ export default function AuthPage() {
           <div className="space-y-3 opacity-80">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-primary-foreground" />
-              <span>Full NIS2 article coverage assessment</span>
+              <span>Full NIS2 Annex I & II sector coverage</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-primary-foreground" />
+              <span>Sector-specific control applicability</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-primary-foreground" />
@@ -282,10 +347,6 @@ export default function AuthPage() {
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-primary-foreground" />
               <span>Evidence vault with audit-ready reports</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-primary-foreground" />
-              <span>Supply chain risk management</span>
             </div>
           </div>
         </div>

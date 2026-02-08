@@ -3,20 +3,32 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest, getQueryFn } from "./queryClient";
 import type { User } from "@shared/schema";
 
-type AuthUser = User & { tenantName?: string };
+type AuthUser = User & {
+  tenantName?: string;
+  tenantSector?: string;
+  tenantSectorGroup?: string;
+  tenantSubsector?: string;
+  tenantEntityType?: string;
+  tenantCountry?: string;
+};
+
+interface RegisterData {
+  email: string;
+  password: string;
+  fullName: string;
+  companyName: string;
+  sector: string;
+  entityType: string;
+  sectorGroup?: string;
+  subsector?: string;
+  country?: string;
+}
 
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: {
-    email: string;
-    password: string;
-    fullName: string;
-    companyName: string;
-    sector: string;
-    entityType: string;
-  }) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   isPlatformAdmin: boolean;
 }
@@ -46,14 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const registerMutation = useMutation({
-    mutationFn: async (data: {
-      email: string;
-      password: string;
-      fullName: string;
-      companyName: string;
-      sector: string;
-      entityType: string;
-    }) => {
+    mutationFn: async (data: RegisterData) => {
       await apiRequest("POST", "/api/auth/register", data);
     },
     onSuccess: () => {
@@ -78,14 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
-    async (data: {
-      email: string;
-      password: string;
-      fullName: string;
-      companyName: string;
-      sector: string;
-      entityType: string;
-    }) => {
+    async (data: RegisterData) => {
       await registerMutation.mutateAsync(data);
     },
     [registerMutation],
