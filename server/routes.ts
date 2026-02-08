@@ -1006,6 +1006,57 @@ export async function registerRoutes(
     res.json(packs);
   });
 
+  app.get("/api/assessment-history", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+
+    const allAssessments = await storage.getAssessmentsByTenant(user.tenantId);
+    const sorted = allAssessments.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    const controls = await storage.getAllControlObjectives();
+    const reqs = await storage.getAllRequirements();
+    const controlDomainMap = new Map<number, string>();
+    for (const c of controls) {
+      const req = reqs.find(rq => rq.id === c.requirementId);
+      const domain = (c as any)?.domain || req?.category || "Other";
+      controlDomainMap.set(c.id, domain);
+    }
+
+    const history = await Promise.all(sorted.map(async (a) => {
+      const responses = await storage.getAssessmentResponses(a.id);
+      const total = responses.length;
+      const implemented = responses.filter(r => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED").length;
+      const verified = responses.filter(r => r.implementationStatus === "VERIFIED").length;
+      const completionPct = total > 0 ? Math.round((implemented / total) * 100) : 0;
+      const maturityAvg = total > 0 ? parseFloat((responses.reduce((sum, r) => sum + r.maturityLevel, 0) / total).toFixed(2)) : 0;
+      const maturityByDomain: Record<string, { sum: number; count: number }> = {};
+      for (const r of responses) {
+        const domain = controlDomainMap.get(r.controlObjectiveId) || "Other";
+        if (!maturityByDomain[domain]) maturityByDomain[domain] = { sum: 0, count: 0 };
+        maturityByDomain[domain].sum += r.maturityLevel;
+        maturityByDomain[domain].count++;
+      }
+      const domainScores = Object.entries(maturityByDomain).map(([domain, d]) => ({
+        domain,
+        maturityAvg: parseFloat((d.sum / d.count).toFixed(2)),
+      }));
+      return {
+        id: a.id,
+        name: a.name,
+        date: a.createdAt,
+        status: a.status,
+        completionPct,
+        maturityAvg,
+        verifiedPct: total > 0 ? Math.round((verified / total) * 100) : 0,
+        totalControls: total,
+        implementedControls: implemented,
+        domainScores,
+      };
+    }));
+
+    res.json(history);
+  });
+
   app.get("/api/snapshots", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });

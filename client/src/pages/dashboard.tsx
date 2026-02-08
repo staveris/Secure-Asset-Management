@@ -18,16 +18,27 @@ import {
   LineChart,
   Line,
   CartesianGrid,
+  Legend,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
 } from "recharts";
 import {
   ClipboardCheck,
   ListTodo,
   AlertTriangle,
   TrendingUp,
+  TrendingDown,
   Clock,
   FileCheck,
   Target,
   BarChart3,
+  History,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
 } from "lucide-react";
 
 interface DashboardData {
@@ -55,6 +66,35 @@ interface Snapshot {
   incidentsOpen: number;
 }
 
+interface AssessmentHistoryItem {
+  id: number;
+  name: string;
+  date: string;
+  status: string;
+  completionPct: number;
+  maturityAvg: number;
+  verifiedPct: number;
+  totalControls: number;
+  implementedControls: number;
+  domainScores: { domain: string; maturityAvg: number }[];
+}
+
+function TrendBadge({ current, previous, suffix = "%" }: { current: number; previous: number; suffix?: string }) {
+  const diff = current - previous;
+  if (Math.abs(diff) < 0.1) return (
+    <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+      <Minus className="w-3 h-3" /> No change
+    </span>
+  );
+  const isUp = diff > 0;
+  return (
+    <span className={`flex items-center gap-0.5 text-xs ${isUp ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+      {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+      {isUp ? "+" : ""}{diff.toFixed(1)}{suffix} vs previous
+    </span>
+  );
+}
+
 export default function Dashboard() {
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard"],
@@ -62,6 +102,10 @@ export default function Dashboard() {
 
   const { data: snapshots } = useQuery<Snapshot[]>({
     queryKey: ["/api/snapshots"],
+  });
+
+  const { data: assessmentHistory } = useQuery<AssessmentHistoryItem[]>({
+    queryKey: ["/api/assessment-history"],
   });
 
   const recomputeMutation = useMutation({
@@ -98,33 +142,41 @@ export default function Dashboard() {
 
   if (!data) return null;
 
+  const history = assessmentHistory || [];
+  const latestAssessment = history.length > 0 ? history[history.length - 1] : null;
+  const previousAssessment = history.length > 1 ? history[history.length - 2] : null;
+
   const kpis = [
     {
       label: "Compliance Score",
       value: `${data.complianceScore}%`,
       icon: Target,
-      trend: data.complianceScore >= 50 ? "Good progress" : "Needs attention",
+      trend: latestAssessment && previousAssessment
+        ? <TrendBadge current={latestAssessment.completionPct} previous={previousAssessment.completionPct} />
+        : <span className="text-xs text-muted-foreground">{data.complianceScore >= 50 ? "Good progress" : "Needs attention"}</span>,
       color: data.complianceScore >= 70 ? "text-green-600 dark:text-green-400" : data.complianceScore >= 40 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400",
     },
     {
       label: "Maturity Level",
       value: data.maturityAverage.toFixed(1),
       icon: TrendingUp,
-      trend: `of 5.0 target`,
+      trend: latestAssessment && previousAssessment
+        ? <TrendBadge current={latestAssessment.maturityAvg} previous={previousAssessment.maturityAvg} suffix="" />
+        : <span className="text-xs text-muted-foreground">of 5.0 target</span>,
       color: "text-blue-600 dark:text-blue-400",
     },
     {
       label: "Active Tasks",
       value: data.activeTasks,
       icon: ListTodo,
-      trend: `${data.overdueTasks} overdue`,
+      trend: <span className="text-xs text-muted-foreground">{data.overdueTasks} overdue</span>,
       color: data.overdueTasks > 0 ? "text-orange-600 dark:text-orange-400" : "text-green-600 dark:text-green-400",
     },
     {
       label: "Open Incidents",
       value: data.openIncidents,
       icon: AlertTriangle,
-      trend: data.openIncidents === 0 ? "All clear" : "Requires attention",
+      trend: <span className="text-xs text-muted-foreground">{data.openIncidents === 0 ? "All clear" : "Requires attention"}</span>,
       color: data.openIncidents > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400",
     },
   ];
@@ -142,6 +194,25 @@ export default function Dashboard() {
     maturity: Math.round(s.maturityAvg * 20),
     evidence: s.evidenceCoverage,
   }));
+
+  const assessmentTrendData = history.map((a, i) => ({
+    name: a.name.length > 20 ? a.name.slice(0, 18) + "..." : a.name,
+    fullName: a.name,
+    date: new Date(a.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }),
+    completion: a.completionPct,
+    maturity: parseFloat((a.maturityAvg * 20).toFixed(1)),
+    maturityRaw: a.maturityAvg,
+    verified: a.verifiedPct,
+    index: i + 1,
+  }));
+
+  const latestDomainRadar = latestAssessment?.domainScores.map(d => ({
+    domain: d.domain.length > 15 ? d.domain.slice(0, 13) + "..." : d.domain,
+    current: parseFloat((d.maturityAvg * 20).toFixed(1)),
+    ...(previousAssessment ? {
+      previous: parseFloat(((previousAssessment.domainScores.find(pd => pd.domain === d.domain)?.maturityAvg || 0) * 20).toFixed(1))
+    } : {}),
+  })) || [];
 
   const domainHeatmap = data.categoryScores.map(cs => {
     let level = "bg-red-500/20 text-red-700 dark:text-red-300";
@@ -175,18 +246,134 @@ export default function Dashboard() {
               <div className={`text-2xl font-bold ${kpi.color}`} data-testid={`text-kpi-${kpi.label.toLowerCase().replace(/\s/g, "-")}`}>
                 {kpi.value}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{kpi.trend}</p>
+              <div className="mt-1">{kpi.trend}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
+      {assessmentTrendData.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <div>
+              <h3 className="font-semibold">Assessment Progress Over Time</h3>
+              <p className="text-xs text-muted-foreground">
+                Compliance and maturity trends across {assessmentTrendData.length} assessment{assessmentTrendData.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+            <History className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {assessmentTrendData.length === 1 ? (
+              <div className="space-y-4">
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <BarChart3 className="w-10 h-10 text-muted-foreground/40 mb-3" />
+                  <p className="text-sm text-muted-foreground mb-1">You have 1 assessment so far</p>
+                  <p className="text-xs text-muted-foreground">Create more assessments over time to see your improvement trend</p>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 rounded-md bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Completion</p>
+                    <p className="text-xl font-bold">{assessmentTrendData[0].completion}%</p>
+                  </div>
+                  <div className="text-center p-3 rounded-md bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Maturity</p>
+                    <p className="text-xl font-bold">{assessmentTrendData[0].maturityRaw.toFixed(1)}/5</p>
+                  </div>
+                  <div className="text-center p-3 rounded-md bg-muted/50">
+                    <p className="text-xs text-muted-foreground">Verified</p>
+                    <p className="text-xl font-bold">{assessmentTrendData[0].verified}%</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="h-56" data-testid="chart-assessment-trend">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={assessmentTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" fontSize={11} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                      <YAxis domain={[0, 100]} fontSize={11} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const d = payload[0]?.payload;
+                          return (
+                            <div className="bg-popover border rounded-md p-3 shadow-md text-sm">
+                              <p className="font-medium mb-1">{d?.fullName}</p>
+                              <p className="text-xs text-muted-foreground mb-2">{d?.date}</p>
+                              <div className="space-y-1">
+                                <p><span className="text-green-500 font-medium">Completion:</span> {d?.completion}%</p>
+                                <p><span className="text-blue-500 font-medium">Maturity:</span> {d?.maturityRaw?.toFixed(1)}/5.0 ({d?.maturity}%)</p>
+                                <p><span className="text-purple-500 font-medium">Verified:</span> {d?.verified}%</p>
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="completion" stroke="#22c55e" strokeWidth={2.5} dot={{ r: 4 }} name="Completion %" activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="maturity" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4 }} name="Maturity (scaled %)" activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="verified" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} name="Verified %" strokeDasharray="5 5" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                {latestAssessment && previousAssessment && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 rounded-md bg-muted/50 space-y-1">
+                      <p className="text-xs text-muted-foreground">Completion Change</p>
+                      <TrendBadge current={latestAssessment.completionPct} previous={previousAssessment.completionPct} />
+                    </div>
+                    <div className="p-3 rounded-md bg-muted/50 space-y-1">
+                      <p className="text-xs text-muted-foreground">Maturity Change</p>
+                      <TrendBadge current={latestAssessment.maturityAvg} previous={previousAssessment.maturityAvg} suffix="/5" />
+                    </div>
+                    <div className="p-3 rounded-md bg-muted/50 space-y-1">
+                      <p className="text-xs text-muted-foreground">Verified Change</p>
+                      <TrendBadge current={latestAssessment.verifiedPct} previous={previousAssessment.verifiedPct} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {latestDomainRadar.length > 2 && previousAssessment && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <div>
+              <h3 className="font-semibold">Domain Maturity Comparison</h3>
+              <p className="text-xs text-muted-foreground">Current vs. previous assessment by NIS2 domain</p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64" data-testid="chart-domain-radar">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart cx="50%" cy="50%" outerRadius="75%" data={latestDomainRadar}>
+                  <PolarGrid stroke="hsl(var(--border))" />
+                  <PolarAngleAxis dataKey="domain" fontSize={10} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                  <PolarRadiusAxis domain={[0, 100]} fontSize={9} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                  <Radar name="Current" dataKey="current" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} strokeWidth={2} />
+                  {previousAssessment && (
+                    <Radar name="Previous" dataKey="previous" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.1} strokeWidth={1.5} strokeDasharray="4 4" />
+                  )}
+                  <Legend />
+                  <Tooltip />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {trendData.length > 1 && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <div>
-              <h3 className="font-semibold">Compliance Trend</h3>
-              <p className="text-xs text-muted-foreground">Score progression over time</p>
+              <h3 className="font-semibold">Daily Compliance Trend</h3>
+              <p className="text-xs text-muted-foreground">Score progression over time (daily snapshots)</p>
             </div>
             <TrendingUp className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
@@ -272,6 +459,68 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {history.length > 1 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <div>
+              <h3 className="font-semibold">Assessment History</h3>
+              <p className="text-xs text-muted-foreground">Detailed comparison of all assessments</p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" data-testid="table-assessment-history">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 pr-4 font-medium text-muted-foreground">Assessment</th>
+                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Date</th>
+                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Completion</th>
+                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Maturity</th>
+                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Verified</th>
+                    <th className="text-right py-2 pl-3 font-medium text-muted-foreground">Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((a, i) => {
+                    const prev = i > 0 ? history[i - 1] : null;
+                    const compDiff = prev ? a.completionPct - prev.completionPct : 0;
+                    return (
+                      <tr key={a.id} className="border-b last:border-0" data-testid={`row-history-${a.id}`}>
+                        <td className="py-2.5 pr-4">
+                          <div className="font-medium truncate max-w-[200px]">{a.name}</div>
+                        </td>
+                        <td className="py-2.5 px-3 text-muted-foreground text-xs">
+                          {new Date(a.date).toLocaleDateString()}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full bg-green-500" style={{ width: `${a.completionPct}%` }} />
+                            </div>
+                            <span className="font-medium tabular-nums">{a.completionPct}%</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-medium tabular-nums">{a.maturityAvg.toFixed(1)}/5</td>
+                        <td className="py-2.5 px-3 text-right font-medium tabular-nums">{a.verifiedPct}%</td>
+                        <td className="py-2.5 pl-3 text-right">
+                          {prev ? (
+                            <span className={`text-xs font-medium ${compDiff > 0 ? "text-green-600 dark:text-green-400" : compDiff < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+                              {compDiff > 0 ? "+" : ""}{compDiff}%
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">baseline</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
@@ -341,6 +590,16 @@ export default function Dashboard() {
                   <span className="font-medium">{data.maturityAverage.toFixed(1)} / 5.0</span>
                 </div>
                 <Progress value={(data.maturityAverage / 5) * 100} className="h-2" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Assessments</span>
+                  <span className="font-medium">{history.length} total</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ClipboardCheck className="w-3.5 h-3.5" />
+                  <span>{history.length > 1 ? `Tracking improvement over ${history.length} assessments` : "Create more assessments to track progress"}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
