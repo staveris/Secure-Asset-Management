@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -15,24 +16,42 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Calendar, User, ArrowRight, ChevronRight } from "lucide-react";
-import type { Assessment } from "@shared/schema";
+import { Plus, ClipboardCheck, Calendar, ChevronRight, BarChart3, Target, CheckCircle2, Clock } from "lucide-react";
 import { useLocation } from "wouter";
 
-const statusColors: Record<string, string> = {
+interface EnrichedAssessment {
+  id: number;
+  name: string;
+  scope: string | null;
+  status: string;
+  createdAt: string;
+  totalControls: number;
+  implementedControls: number;
+  inProgressControls: number;
+  completionPct: number;
+  maturityAvg: number;
+}
+
+const statusVariants: Record<string, string> = {
   DRAFT: "secondary",
   IN_PROGRESS: "default",
   COMPLETED: "outline",
   ARCHIVED: "outline",
 };
+
+function MaturityIndicator({ value, max = 5 }: { value: number; max?: number }) {
+  const pct = (value / max) * 100;
+  const color = pct >= 80 ? "bg-green-500" : pct >= 60 ? "bg-blue-500" : pct >= 40 ? "bg-yellow-500" : pct >= 20 ? "bg-orange-500" : "bg-red-500";
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs font-medium tabular-nums w-8 text-right">{value}/{max}</span>
+    </div>
+  );
+}
 
 export default function Assessments() {
   const [showCreate, setShowCreate] = useState(false);
@@ -41,7 +60,7 @@ export default function Assessments() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const { data: assessments, isLoading } = useQuery<Assessment[]>({
+  const { data: assessments, isLoading } = useQuery<EnrichedAssessment[]>({
     queryKey: ["/api/assessments"],
   });
 
@@ -60,6 +79,10 @@ export default function Assessments() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
+
+  const sortedAssessments = assessments?.slice().sort((a, b) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   return (
     <div className="p-6 space-y-6" data-testid="assessments-page">
@@ -112,45 +135,80 @@ export default function Assessments() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
-              <CardContent className="p-5">
-                <Skeleton className="h-5 w-48 mb-3" />
-                <Skeleton className="h-4 w-32 mb-2" />
+              <CardContent className="p-5 space-y-3">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-2 w-full" />
                 <Skeleton className="h-4 w-24" />
               </CardContent>
             </Card>
           ))}
         </div>
-      ) : assessments && assessments.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {assessments.map((assessment) => (
+      ) : sortedAssessments && sortedAssessments.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {sortedAssessments.map((assessment) => (
             <Card
               key={assessment.id}
               className="hover-elevate cursor-pointer"
               onClick={() => navigate(`/assessments/${assessment.id}`)}
               data-testid={`card-assessment-${assessment.id}`}
             >
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <h3 className="font-semibold text-sm">{assessment.name}</h3>
-                  <Badge variant={statusColors[assessment.status] as any} className="shrink-0 text-xs">
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold truncate" data-testid={`text-assessment-name-${assessment.id}`}>{assessment.name}</h3>
+                    {assessment.scope && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{assessment.scope}</p>
+                    )}
+                  </div>
+                  <Badge variant={statusVariants[assessment.status] as any} className="shrink-0 text-xs">
                     {assessment.status.replace("_", " ")}
                   </Badge>
                 </div>
-                {assessment.scope && (
-                  <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{assessment.scope}</p>
-                )}
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(assessment.createdAt).toLocaleDateString()}
-                  </span>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Target className="w-3.5 h-3.5" />
+                      Completion
+                    </span>
+                    <span className="font-medium" data-testid={`text-completion-${assessment.id}`}>{assessment.completionPct}%</span>
+                  </div>
+                  <Progress value={assessment.completionPct} className="h-2" />
                 </div>
-                <div className="mt-3 flex items-center justify-end text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    Open assessment <ChevronRight className="w-3 h-3" />
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      Maturity Level
+                    </span>
+                  </div>
+                  <MaturityIndicator value={assessment.maturityAvg} />
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(assessment.createdAt).toLocaleDateString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {assessment.implementedControls}/{assessment.totalControls}
+                    </span>
+                    {assessment.inProgressControls > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {assessment.inProgressControls} in progress
+                      </span>
+                    )}
+                  </div>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    Open <ChevronRight className="w-3 h-3" />
                   </span>
                 </div>
               </CardContent>

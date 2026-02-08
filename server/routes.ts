@@ -283,7 +283,18 @@ export async function registerRoutes(
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const list = await storage.getAssessmentsByTenant(user.tenantId);
-    res.json(list);
+
+    const enriched = await Promise.all(list.map(async (a) => {
+      const responses = await storage.getAssessmentResponses(a.id);
+      const total = responses.length;
+      const implemented = responses.filter(r => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED").length;
+      const inProgress = responses.filter(r => r.implementationStatus === "IN_PROGRESS").length;
+      const completionPct = total > 0 ? Math.round((implemented / total) * 100) : 0;
+      const maturityAvg = total > 0 ? parseFloat((responses.reduce((sum, r) => sum + r.maturityLevel, 0) / total).toFixed(1)) : 0;
+      return { ...a, totalControls: total, implementedControls: implemented, inProgressControls: inProgress, completionPct, maturityAvg };
+    }));
+
+    res.json(enriched);
   });
 
   app.post("/api/assessments", requireAuth, requireWriteAccess, async (req, res) => {
