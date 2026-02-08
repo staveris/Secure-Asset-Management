@@ -100,7 +100,7 @@ export default function AuthPage() {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
           <div className="flex items-center gap-3 mb-8">
-            <img src={companyLogo} alt="Tools of Tech" className="h-10 w-10 rounded-md object-cover" data-testid="img-company-logo" />
+            <img src={companyLogo} alt="Tools of Tech" className="h-20 w-20 rounded-md object-cover" data-testid="img-company-logo" />
             <div>
               <h1 className="text-xl font-semibold tracking-tight">NIS2 Platform</h1>
               <p className="text-sm text-muted-foreground">Compliance Readiness</p>
@@ -326,7 +326,7 @@ export default function AuthPage() {
       </div>
       <div className="hidden lg:flex flex-1 bg-primary items-center justify-center p-12">
         <div className="max-w-lg text-primary-foreground">
-          <img src={companyLogo} alt="Tools of Tech" className="h-16 mb-6 rounded-md opacity-90" data-testid="img-hero-logo" />
+          <img src={companyLogo} alt="Tools of Tech" className="h-28 mb-6 rounded-md opacity-90" data-testid="img-hero-logo" />
           <h2 className="text-3xl font-bold mb-4">NIS2 Compliance Made Simple</h2>
           <p className="text-lg opacity-90 mb-6">
             Assess, track, and demonstrate your organization's readiness for the NIS2 Directive with our comprehensive compliance platform.
