@@ -99,12 +99,10 @@ export default function AuthPage() {
     <div className="min-h-screen flex" data-testid="auth-page">
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
-          <div className="flex items-center gap-3 mb-8">
-            <img src={companyLogo} alt="Tools of Tech" className="h-20 w-20 rounded-md object-cover" data-testid="img-company-logo" />
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">NIS2 Platform</h1>
-              <p className="text-sm text-muted-foreground">Compliance Readiness</p>
-            </div>
+          <div className="flex flex-col items-center mb-8">
+            <img src={companyLogo} alt="Tools of Tech" className="h-20 w-auto rounded-md object-contain mb-3" data-testid="img-company-logo" />
+            <h1 className="text-xl font-semibold tracking-tight">NIS2 Platform</h1>
+            <p className="text-sm text-muted-foreground">Compliance Readiness</p>
           </div>
 
           {isLogin ? (
