@@ -183,6 +183,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTenant(id: number): Promise<void> {
     await db.delete(tenantDailySnapshots).where(eq(tenantDailySnapshots.tenantId, id));
+    await db.delete(tasks).where(eq(tasks.tenantId, id));
     await db.delete(assessmentResponses).where(
       sql`${assessmentResponses.assessmentId} IN (SELECT id FROM assessments WHERE tenant_id = ${id})`
     );
@@ -196,7 +197,6 @@ export class DatabaseStorage implements IStorage {
       sql`${incidentNotifications.incidentId} IN (SELECT id FROM incident_cases WHERE tenant_id = ${id})`
     );
     await db.delete(incidentCases).where(eq(incidentCases.tenantId, id));
-    await db.delete(tasks).where(eq(tasks.tenantId, id));
     await db.delete(controls).where(eq(controls.tenantId, id));
     await db.delete(suppliers).where(eq(suppliers.tenantId, id));
     await db.delete(riskItems).where(eq(riskItems.tenantId, id));
