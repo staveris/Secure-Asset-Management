@@ -200,6 +200,46 @@ export async function sendVerificationEmail(
   }
 }
 
+export async function sendPasswordResetEmail(
+  toEmail: string,
+  fullName: string,
+  token: string,
+): Promise<boolean> {
+  const config = await getEmailConfig();
+  if (!config) {
+    console.log(`[Email] No email config found. Password reset link for ${toEmail}: /reset-password?token=${token}`);
+    return false;
+  }
+
+  const baseUrl = getAppBaseUrl();
+  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #1a1a1a;">Reset your password</h2>
+      <p>Hello ${fullName},</p>
+      <p>We received a request to reset your password on the NIS2 Readiness Platform. Click the button below to set a new password:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+          Reset Password
+        </a>
+      </div>
+      <p style="color: #666; font-size: 14px;">This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email.</p>
+      <p style="color: #666; font-size: 12px;">If the button doesn't work, copy and paste this URL into your browser:<br/>${resetUrl}</p>
+    </div>
+  `;
+
+  try {
+    if (config.provider === "gmail" || config.provider === "smtp") {
+      return await sendViaSMTP(config, toEmail, "Reset your password - NIS2 Platform", htmlBody);
+    }
+    return await sendViaAPI(config, toEmail, "Reset your password - NIS2 Platform", htmlBody);
+  } catch (err) {
+    console.error(`[Email] Send error:`, err);
+    return false;
+  }
+}
+
 export async function sendGenericEmail(
   toEmail: string,
   subject: string,

@@ -84,6 +84,9 @@ const stats = [
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login, register, user } = useAuth();
   const [, navigate] = useLocation();
@@ -111,6 +114,26 @@ export default function AuthPage() {
       navigate("/");
     } catch (err: any) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await res.json();
+      setForgotSent(true);
+      toast({ title: "Check your email", description: data.message });
+    } catch (err: any) {
+      toast({ title: "Error", description: "Something went wrong. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -267,17 +290,76 @@ export default function AuthPage() {
                 <span className="text-xs text-muted-foreground font-medium tracking-wider uppercase">NIS2 Readiness Platform</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight" data-testid="text-form-title">
-                {isLogin ? "Welcome back" : "Get started"}
+                {showForgotPassword ? "Reset your password" : isLogin ? "Welcome back" : "Get started"}
               </h2>
               <p className="text-muted-foreground mt-1.5 text-sm">
-                {isLogin
-                  ? "Sign in to continue to your compliance dashboard"
-                  : "Create your account and begin your NIS2 compliance journey"
+                {showForgotPassword
+                  ? "Enter your email and we'll send you a link to reset your password"
+                  : isLogin
+                    ? "Sign in to continue to your compliance dashboard"
+                    : "Create your account and begin your NIS2 compliance journey"
                 }
               </p>
             </div>
 
-            {isLogin ? (
+            {showForgotPassword ? (
+              forgotSent ? (
+                <div className="space-y-4 text-center" data-testid="forgot-password-sent">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <Mail className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h3 className="text-base font-semibold" data-testid="text-forgot-sent-title">Check your email</h3>
+                  <p className="text-sm text-muted-foreground" data-testid="text-forgot-sent-message">
+                    If an account with that email exists, we've sent a password reset link. Please check your inbox and spam folder.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgotPassword(false); setForgotSent(false); setForgotEmail(""); }}
+                    className="text-sm text-primary hover:underline"
+                    data-testid="link-back-to-login"
+                  >
+                    Back to Login
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-4" data-testid="form-forgot-password">
+                  <div className="space-y-2">
+                    <Label htmlFor="forgot-email">Email address</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        placeholder="you@company.com"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        className="pl-10 bg-white dark:bg-neutral-900"
+                        required
+                        data-testid="input-forgot-email"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-300 text-white no-default-hover-elevate"
+                    disabled={loading}
+                    data-testid="button-forgot-submit"
+                  >
+                    {loading ? "Sending..." : "Send Reset Link"}
+                  </Button>
+                  <div className="text-center pt-3">
+                    <button
+                      type="button"
+                      onClick={() => { setShowForgotPassword(false); setForgotEmail(""); }}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      data-testid="link-back-to-login-from-forgot"
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                </form>
+              )
+            ) : isLogin ? (
               <form onSubmit={handleLogin} className="space-y-4" data-testid="form-login">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email address</Label>
@@ -296,7 +378,17 @@ export default function AuthPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
+                  <div className="flex items-center justify-between flex-wrap gap-1">
+                    <Label htmlFor="login-password">Password</Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-xs text-primary hover:underline"
+                      data-testid="link-forgot-password"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input

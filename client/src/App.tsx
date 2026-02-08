@@ -31,6 +31,7 @@ import VerifyEmail from "@/pages/verify-email";
 import VerificationPending from "@/pages/verification-pending";
 import UsersPage from "@/pages/users";
 import SettingsPage from "@/pages/settings";
+import ResetPassword from "@/pages/reset-password";
 import NotFound from "@/pages/not-found";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,6 +126,10 @@ function AppContent() {
 
   if (window.location.pathname === "/verify-email") {
     return <VerifyEmail />;
+  }
+
+  if (window.location.pathname === "/reset-password") {
+    return <ResetPassword />;
   }
 
   if (!user) {

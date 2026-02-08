@@ -108,3 +108,4 @@ All routes prefixed with `/api/`:
 - 2026-02-08: Contact popup for locked features: clicking locked sidebar items opens dialog with Tools of Tech P.C. contact info (email, phone)
 - 2026-02-08: Demo mode banner: restricted users see persistent top banner indicating they are using the Demo Version with contact link
 - 2026-02-08: RestrictedPage updated: shows "Feature Not Available in Demo" with Tools of Tech P.C. contact details and mailto CTA
+- 2026-02-08: Password reset: forgot-password flow on login page, reset-password page with token validation, hashed reset tokens, 1hr expiry, server-side password complexity enforcement

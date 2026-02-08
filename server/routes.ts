@@ -14,8 +14,8 @@ import fs from "fs";
 import crypto from "crypto";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
 import { getAppBaseUrl } from "./email";
-import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendGenericEmail } from "./email";
-import { platformSettings } from "@shared/schema";
+import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
+import { platformSettings, users } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -284,6 +284,74 @@ export async function registerRoutes(
     req.session.destroy(() => {
       res.json({ ok: true });
     });
+  });
+
+  app.post("/api/auth/forgot-password", authLimiter, async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ message: "Email is required" });
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+      }
+
+      const rawToken = generateVerificationToken();
+      const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+      const expires = new Date(Date.now() + 60 * 60 * 1000);
+
+      await db.update(users)
+        .set({ passwordResetToken: tokenHash, passwordResetExpires: expires })
+        .where(eq(users.id, user.id));
+
+      await sendPasswordResetEmail(user.email, user.fullName, rawToken);
+
+      res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+    } catch (err: any) {
+      console.error("[Auth] Forgot password error:", err);
+      res.status(500).json({ message: "Something went wrong. Please try again." });
+    }
+  });
+
+  app.post("/api/auth/reset-password", authLimiter, async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+      if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+        return res.status(400).json({ message: "Password must include uppercase, lowercase, number, and special character" });
+      }
+
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+      const [user] = await db.select().from(users)
+        .where(eq(users.passwordResetToken, tokenHash));
+
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired reset link. Please request a new one." });
+      }
+
+      if (user.passwordResetExpires && new Date() > new Date(user.passwordResetExpires)) {
+        await db.update(users)
+          .set({ passwordResetToken: null, passwordResetExpires: null })
+          .where(eq(users.id, user.id));
+        return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
+      }
+
+      const newHash = await bcrypt.hash(password, 10);
+      await db.update(users)
+        .set({ passwordHash: newHash, passwordResetToken: null, passwordResetExpires: null })
+        .where(eq(users.id, user.id));
+
+      res.json({ message: "Password has been reset successfully. You can now log in with your new password." });
+    } catch (err: any) {
+      console.error("[Auth] Reset password error:", err);
+      res.status(500).json({ message: "Something went wrong. Please try again." });
+    }
   });
 
   app.patch("/api/auth/password", requireAuth, async (req, res) => {
