@@ -12,6 +12,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
 
 const PgSession = connectPgSimple(session);
 
@@ -195,6 +196,59 @@ export async function registerRoutes(
     req.session.destroy(() => {
       res.json({ ok: true });
     });
+  });
+
+  app.patch("/api/auth/password", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      }
+
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+
+      const newHash = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserPassword(user.id, newHash);
+
+      res.json({ message: "Password updated successfully" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/auth/profile", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const { fullName, email } = req.body;
+      const updates: any = {};
+      if (fullName !== undefined && fullName.trim()) updates.fullName = fullName.trim();
+      if (email !== undefined && email.trim()) {
+        const existing = await storage.getUserByEmail(email.trim());
+        if (existing && existing.id !== user.id) {
+          return res.status(400).json({ message: "Email is already in use" });
+        }
+        updates.email = email.trim();
+      }
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No changes provided" });
+      }
+
+      await storage.updateUserProfile(user.id, updates);
+      res.json({ message: "Profile updated successfully" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   app.get("/api/auth/me", async (req, res) => {
@@ -699,8 +753,14 @@ export async function registerRoutes(
   });
 
   app.get("/api/nis2/sectors", (_req, res) => {
-    const { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, NIS2_DOMAINS } = require("./nis2-sectors");
-    res.json({ sectors: NIS2_SECTORS, flags: NIS2_APPLICABILITY_FLAGS, countries: EU_COUNTRIES, domains: NIS2_DOMAINS });
+    res.json({
+      sectors: NIS2_SECTORS,
+      flags: NIS2_APPLICABILITY_FLAGS,
+      euCountries: [...EU_COUNTRIES],
+      otherCountries: [...OTHER_COUNTRIES],
+      countries: [...EU_COUNTRIES, ...OTHER_COUNTRIES],
+      domains: NIS2_DOMAINS,
+    });
   });
 
   app.patch("/api/tenant/profile", requireAuth, requireWriteAccess, async (req, res) => {

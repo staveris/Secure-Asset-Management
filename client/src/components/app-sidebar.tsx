@@ -31,6 +31,7 @@ import {
   LogOut,
   ChevronDown,
   Users,
+  Settings,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -49,6 +50,7 @@ const tenantMenuItems = [
   { title: "Risks", url: "/risks", icon: Shield },
   { title: "Reports", url: "/reports", icon: FileText },
   { title: "Users", url: "/users", icon: Users },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 const adminMenuItems = [

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CheckCircle,
   ArrowRight,
@@ -34,6 +34,8 @@ interface SectorData {
   sectors: SectorInfo[];
   flags: Array<{ key: string; label: string; description: string; applicableSectors: string[] }>;
   countries: string[];
+  euCountries: string[];
+  otherCountries: string[];
   domains: string[];
 }
 
@@ -315,15 +317,24 @@ export default function Onboarding() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>EU Member State</Label>
+                    <Label>Country</Label>
                     <Select value={country} onValueChange={setCountry}>
                       <SelectTrigger data-testid="select-country">
                         <SelectValue placeholder="Select country" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {(sectorData?.countries || []).map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
+                      <SelectContent className="max-h-72">
+                        <SelectGroup>
+                          <SelectLabel>EU Member States</SelectLabel>
+                          {(sectorData?.euCountries || []).map(c => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Other Countries</SelectLabel>
+                          {(sectorData?.otherCountries || []).map(c => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </div>
