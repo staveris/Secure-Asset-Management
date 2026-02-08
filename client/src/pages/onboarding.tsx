@@ -108,8 +108,8 @@ export default function Onboarding() {
   });
 
   const handleSaveProfile = () => {
-    if (!sectorGroup || !sector || !entityType) {
-      toast({ title: "Required Fields", description: "Please select sector group, sector, and entity type.", variant: "destructive" });
+    if (!sectorGroup || !sector || !entityType || !country) {
+      toast({ title: "Required Fields", description: "Please select sector group, sector, entity type, and country.", variant: "destructive" });
       return;
     }
     updateProfileMutation.mutate({
@@ -117,7 +117,7 @@ export default function Onboarding() {
       sector,
       subsector: subsector || null,
       entityType,
-      country: country || null,
+      country,
       applicabilityProfile: applicableFlags.length > 0 ? applicabilityFlags : null,
     });
   };
@@ -317,7 +317,7 @@ export default function Onboarding() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Country</Label>
+                    <Label>Country <span className="text-destructive">*</span></Label>
                     <Select value={country} onValueChange={setCountry}>
                       <SelectTrigger data-testid="select-country">
                         <SelectValue placeholder="Select country" />

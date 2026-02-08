@@ -1174,6 +1174,9 @@ export async function registerRoutes(
       }
 
       const { sectorGroup, sector, subsector, entityType, country, applicabilityProfile } = req.body;
+      if (country !== undefined && (!country || typeof country !== "string" || country.trim().length === 0)) {
+        return res.status(400).json({ message: "Country is required" });
+      }
       const updates: any = {};
       if (sectorGroup !== undefined) updates.sectorGroup = sectorGroup;
       if (sector !== undefined) updates.sector = sector;

@@ -98,3 +98,6 @@ All routes prefixed with `/api/`:
 - 2026-02-08: Admin email settings page (SendGrid/Resend provider configuration)
 - 2026-02-08: Enhanced admin analytics: per-country breakdown chart, annex classification (Annex I/II) chart
 - 2026-02-08: Email service consolidated to use JSON config from platform_settings table
+- 2026-02-08: Storage quota system: 10 GB per tenant, 100 MB max file, 10 users per tenant, admin Storage & Quotas page
+- 2026-02-08: Country field made required during onboarding (frontend + backend validation)
+- 2026-02-08: Reports page redesigned: professional print layout with SVG gauges, gradient header, domain progress bars, recommendations section, operational summary
