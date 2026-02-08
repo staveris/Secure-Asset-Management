@@ -1,0 +1,177 @@
+You are an expert full-stack engineer building a secure, multi-tenant compliance SaaS called “NIS2 Readiness Platform”.
+
+GOAL
+Build a web platform that companies use to:
+1) Identify their preparedness level for the NIS2 Directive (full coverage of entity obligations)
+2) Track progress over time (gaps → action plan → evidence → verification)
+3) Produce audit/regulator-ready reports and dashboards
+
+CRITICAL ACCESS REQUIREMENTS (MULTI-TENANCY + RBAC)
+There are 2 top-level personas:
+A) PLATFORM ADMIN (global)
+- Can view and manage EVERYTHING across all companies/tenants
+- Can view aggregated statistics across all companies (no data leakage issues)
+- Can manage the requirement library (NIS2 obligations/control packs/questions)
+- Can export aggregated metrics, plus per-tenant reports
+- Can view per-tenant status dashboards
+
+B) COMPANY USERS (tenant-scoped)
+- Users can only see and edit data for their own tenant/company
+- No company user can access another tenant’s data
+- Company Admin (within tenant) can manage users for their tenant (invite/disable/roles)
+- Company User can fill assessments, attach evidence, update tasks; cannot manage tenant users unless granted
+
+SECURITY IS A TOP PRIORITY
+Implement defense-in-depth:
+- Strict server-side authorization checks on every request (never trust client)
+- Tenant isolation enforced in API layer AND via database Row Level Security (RLS) policies if using Postgres
+- Use secure authentication, hashed passwords (bcrypt/argon2), session security, CSRF protection
+- Input validation everywhere (Zod), secure headers, rate limiting, audit logs, minimal exposure of secrets
+- File upload security (size/type limits), malware-safety placeholders, encrypted-at-rest storage for evidence files
+- Comprehensive audit trail (who changed what, when, from which IP/user agent)
+- OWASP Top 10 baseline hardening
+
+TECH STACK (choose a Replit-friendly stack)
+- Next.js 14+ (App Router) + TypeScript
+- TailwindCSS + shadcn/ui for UI components
+- PostgreSQL + Prisma ORM
+- NextAuth (Credentials provider) for authentication OR a simple secure custom auth (sessions via HttpOnly cookies)
+- Zod for validation
+- Server Actions or API routes for backend endpoints
+- Charting for dashboards (recharts)
+
+DATABASE (MULTI-TENANT SCHEMA)
+Create Prisma models (minimum):
+- Tenant(id, name, sector, entityType, createdAt)
+- User(id, tenantId nullable for platform_admin, email unique, passwordHash, role enum, createdAt, lastLoginAt, isActive)
+Roles enum: PLATFORM_ADMIN, TENANT_ADMIN, TENANT_MANAGER, TENANT_USER, READONLY_AUDITOR
+
+Core compliance models:
+- Requirement(id, code, title, description, nis2Article, nis2Paragraph, greekRef optional, category, isActive)
+- ControlObjective(id, requirementId, title, description, guidance, evidenceTypes JSON)
+- Assessment(id, tenantId, name, scope, createdBy, status, createdAt)
+- AssessmentResponse(id, assessmentId, controlObjectiveId, implementationStatus enum, maturityLevel int 0-5, evidenceConfidence enum, notes, updatedBy, updatedAt)
+- Task(id, tenantId, controlObjectiveId nullable, title, description, ownerUserId, dueDate, status enum, priority, createdAt, updatedAt)
+- EvidenceItem(id, tenantId, relatedType enum [CONTROL, TASK, INCIDENT], relatedId, filename, mimeType, size, storagePath, sha256, encrypted boolean, uploadedBy, uploadedAt, expiresAt)
+- IncidentCase(id, tenantId, title, description, severity, isSignificant boolean, detectedAt, status, earlyWarningDueAt, notificationDueAt, finalReportDueAt, createdBy, updatedAt)
+- Supplier(id, tenantId, name, criticality, services, lastAssessmentAt, notes)
+- RiskItem(id, tenantId, title, likelihood, impact, treatment, ownerUserId, status, updatedAt)
+- AuditLog(id, tenantId nullable, actorUserId, action, entityType, entityId, before JSON, after JSON, ip, userAgent, createdAt)
+
+MULTI-TENANCY ENFORCEMENT
+- Every tenant-scoped record MUST include tenantId and must be filtered by tenantId on read/write.
+- PLATFORM_ADMIN can access all tenants; others can only access their own tenant.
+- Implement a reusable authorization helper:
+  requireAuth()
+  requireRole(...)
+  requireTenantAccess(tenantId)
+
+If Postgres supports RLS in this environment, implement RLS:
+- Enable RLS on tenant-scoped tables
+- Create policies to restrict rows by current_setting('app.tenant_id') and 'app.role'
+- On each request, set these settings per DB session/transaction for defense-in-depth
+
+NIS2 FULL COVERAGE CONTENT (REQUIREMENT LIBRARY)
+Seed a “Requirement Library” that covers the full NIS2 entity obligations with article references, at least:
+- Governance/management accountability (Art. 20)
+- Risk management measures (Art. 21) with all minimum measures as separate control objectives
+- Supply chain (Art. 21(2)(d) + Art. 22)
+- Incident reporting (Art. 23) including deadlines: 24h early warning, 72h notification, 1 month final report
+- Cybersecurity certification/assurance angle (Art. 24) and standards (Art. 25)
+- Jurisdiction/registration-related obligations as relevant to entities (Arts. 26–28 where applicable)
+- Information sharing / voluntary notification (Arts. 29–30)
+- Supervision/enforcement evidence readiness (include an “audit pack” control set)
+Also include optional “Greek transposition reference” field (Law 5160/2024) for each requirement.
+
+Build seeding:
+- /data/nis2_requirements.json
+- prisma/seed.ts loads requirements + control objectives
+
+FEATURES / MODULES (MVP + CORE)
+1) Onboarding wizard (tenant setup)
+- Create tenant + first TENANT_ADMIN user
+- Select sector/entity type; store on Tenant
+
+2) Assessment engine
+- Create an assessment (scope + date)
+- Answer controls: ImplementationStatus (Not Started/In Progress/Implemented/Verified), Maturity 0–5, Evidence Confidence
+- Auto-generate gaps list and create Tasks from gaps
+
+3) Progress tracking
+- Kanban + list views for Tasks
+- KPIs: % implemented, % verified, maturity average, overdue tasks, evidence coverage
+
+4) Evidence vault
+- Upload evidence and link to controls/tasks/incidents
+- Enforce size/type limits, store sha256
+- Encrypt file contents at rest using an APP_ENCRYPTION_KEY (AES-256-GCM)
+- Store encrypted files in /uploads (or object storage placeholder); store metadata in DB
+- Provide secure download endpoints with authorization checks
+
+5) Incident workflow (NIS2 reporting timeline)
+- Create incident case, mark “significant”
+- Auto-calculate and display deadlines (24h/72h/1 month)
+- Provide editable report drafts (Early Warning / Notification / Final Report)
+- Audit trail on edits
+
+6) Supplier module
+- Supplier register, criticality, last assessment, attachments, tasks
+
+PLATFORM ADMIN DASHBOARD (GLOBAL, AGGREGATED)
+Create a /admin area accessible only to PLATFORM_ADMIN:
+- Global stats:
+  - Total tenants, active users
+  - Average compliance % across tenants
+  - Distribution of implementation status (Not Started/In Progress/Implemented/Verified)
+  - Average maturity by sector/entity type
+  - Overdue tasks count across platform
+  - Evidence coverage ratio across platform
+- Drill-down: tenant list with status summary
+- Export aggregated CSV
+
+TENANT DASHBOARD (COMPANY VIEW)
+- Compliance scorecards by NIS2 article category
+- Heatmap by control category vs implementation status
+- Trend over time (assessments)
+- “What to fix next” prioritized list (risk-weighted optional)
+
+UI/UX
+- Clean, professional UI
+- Left navigation: Dashboard, Assessments, Tasks, Evidence, Incidents, Suppliers, Risks, Reports, Settings
+- Admin-only navigation: Global Analytics, Tenants, Requirement Library, Platform Audit Log
+
+REPORTING
+- Generate a downloadable “NIS2 Readiness Report” (HTML page + print-friendly view) containing:
+  - Scope/profile
+  - Scores and maturity
+  - Top gaps + remediation plan
+  - Evidence index
+  - Incident readiness section
+
+SECURITY IMPLEMENTATION DETAILS (DO NOT SKIP)
+- Password hashing using bcrypt/argon2
+- HttpOnly secure cookies for sessions; sameSite=strict
+- CSRF protection for state-changing actions
+- Rate limit login and uploads
+- Strict CORS (same origin)
+- Security headers (CSP, HSTS in prod, X-Content-Type-Options, etc.)
+- Input validation (Zod) for all server actions/APIs
+- Centralized authorization guard for all routes
+- Prevent IDOR: every resource fetch checks tenant ownership unless PLATFORM_ADMIN
+- Audit log for all CRUD on core entities
+- Ensure PLATFORM_ADMIN analytics never exposes raw tenant data unintentionally (show aggregates by default; drill-down requires explicit tenant selection)
+
+DELIVERABLES
+- Full working Next.js app with Prisma schema, migrations, seed script
+- Working authentication and RBAC + tenant isolation
+- MVP screens for all modules above
+- Sample seeded NIS2 requirement library
+- README with setup instructions for Replit:
+  - ENV vars: DATABASE_URL, NEXTAUTH_SECRET (or SESSION_SECRET), APP_ENCRYPTION_KEY
+  - prisma migrate + seed
+  - run dev
+
+IMPORTANT CONSTRAINTS
+- Never expose secrets to client
+- Keep code organized: /lib/auth, /lib/tenant, /lib/security, /app/(admin), /app/(tenant), /app/api
+- Provide clear comments and avoid placeholder insecure code
