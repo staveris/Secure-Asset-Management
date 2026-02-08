@@ -268,6 +268,7 @@ export default function Tasks() {
           <TabsTrigger value="all">All ({tasks?.length || 0})</TabsTrigger>
           <TabsTrigger value="TODO">To Do ({tasks?.filter((t) => t.status === "TODO").length || 0})</TabsTrigger>
           <TabsTrigger value="IN_PROGRESS">In Progress ({tasks?.filter((t) => t.status === "IN_PROGRESS").length || 0})</TabsTrigger>
+          <TabsTrigger value="IN_REVIEW">In Review ({tasks?.filter((t) => t.status === "IN_REVIEW").length || 0})</TabsTrigger>
           <TabsTrigger value="DONE">Done ({tasks?.filter((t) => t.status === "DONE").length || 0})</TabsTrigger>
         </TabsList>
       </Tabs>
