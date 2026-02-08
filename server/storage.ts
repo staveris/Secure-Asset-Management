@@ -77,6 +77,9 @@ export interface IStorage {
   updateUser(id: number, data: Partial<{fullName: string, role: string, isActive: boolean}>): Promise<User | undefined>;
   updateUserPassword(id: number, newPasswordHash: string): Promise<void>;
   updateUserProfile(id: number, data: Partial<{fullName: string, email: string}>): Promise<void>;
+  getUserByVerificationToken(token: string): Promise<User | undefined>;
+  verifyUserEmail(id: number): Promise<void>;
+  updateUserVerificationToken(id: number, token: string, expires: Date): Promise<void>;
   createInviteToken(data: InsertInviteToken): Promise<InviteToken>;
   getInviteTokenByHash(tokenHash: string): Promise<InviteToken | undefined>;
   markInviteTokenUsed(id: number): Promise<void>;
@@ -231,6 +234,26 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserProfile(id: number, data: Partial<{fullName: string, email: string}>): Promise<void> {
     await db.update(users).set(data as any).where(eq(users.id, id));
+  }
+
+  async getUserByVerificationToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.emailVerificationToken, token));
+    return user;
+  }
+
+  async verifyUserEmail(id: number): Promise<void> {
+    await db.update(users).set({
+      emailVerified: true,
+      emailVerificationToken: null,
+      emailVerificationExpires: null,
+    }).where(eq(users.id, id));
+  }
+
+  async updateUserVerificationToken(id: number, token: string, expires: Date): Promise<void> {
+    await db.update(users).set({
+      emailVerificationToken: token,
+      emailVerificationExpires: expires,
+    }).where(eq(users.id, id));
   }
 
   async createInviteToken(data: InsertInviteToken): Promise<InviteToken> {

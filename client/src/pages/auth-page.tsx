@@ -1,19 +1,55 @@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight, Building2, Lock, Mail, User } from "lucide-react";
+import { ArrowRight, Building2, Lock, Mail, User, Check, X } from "lucide-react";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
 
-interface SectorData {
-  sectors: Array<{ sectorGroup: string; sector: string; subsectors: string[] }>;
-  countries: string[];
+function PasswordStrength({ password }: { password: string }) {
+  const rules = [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "Uppercase letter", met: /[A-Z]/.test(password) },
+    { label: "Lowercase letter", met: /[a-z]/.test(password) },
+    { label: "Number", met: /[0-9]/.test(password) },
+    { label: "Special character", met: /[^A-Za-z0-9]/.test(password) },
+  ];
+
+  const metCount = rules.filter(r => r.met).length;
+  const strengthPct = (metCount / rules.length) * 100;
+  const strengthColor = metCount <= 2 ? "bg-red-500" : metCount <= 3 ? "bg-yellow-500" : metCount <= 4 ? "bg-blue-500" : "bg-green-500";
+  const strengthLabel = metCount <= 2 ? "Weak" : metCount <= 3 ? "Fair" : metCount <= 4 ? "Good" : "Strong";
+
+  if (!password) return null;
+
+  return (
+    <div className="space-y-2 mt-2" data-testid="password-strength">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${strengthColor}`}
+            style={{ width: `${strengthPct}%` }}
+          />
+        </div>
+        <span className="text-xs text-muted-foreground">{strengthLabel}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        {rules.map((rule) => (
+          <div key={rule.label} className="flex items-center gap-1.5 text-xs">
+            {rule.met ? (
+              <Check className="w-3 h-3 text-green-500 shrink-0" />
+            ) : (
+              <X className="w-3 h-3 text-muted-foreground shrink-0" />
+            )}
+            <span className={rule.met ? "text-foreground" : "text-muted-foreground"}>{rule.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function AuthPage() {
@@ -30,25 +66,6 @@ export default function AuthPage() {
   const [regPassword, setRegPassword] = useState("");
   const [regName, setRegName] = useState("");
   const [regCompany, setRegCompany] = useState("");
-  const [regSectorGroup, setRegSectorGroup] = useState("ANNEX_I");
-  const [regSector, setRegSector] = useState("");
-  const [regSubsector, setRegSubsector] = useState("");
-  const [regEntityType, setRegEntityType] = useState("essential");
-  const [regCountry, setRegCountry] = useState("");
-
-  const { data: sectorData } = useQuery<SectorData>({
-    queryKey: ["/api/nis2/sectors"],
-    enabled: !isLogin,
-  });
-
-  const filteredSectors = useMemo(() => {
-    if (!sectorData) return [];
-    return sectorData.sectors.filter(s => s.sectorGroup === regSectorGroup);
-  }, [sectorData, regSectorGroup]);
-
-  const selectedSectorObj = useMemo(() => {
-    return filteredSectors.find(s => s.sector === regSector);
-  }, [filteredSectors, regSector]);
 
   if (user) {
     navigate("/");
@@ -68,10 +85,16 @@ export default function AuthPage() {
     }
   };
 
+  const isPasswordValid = regPassword.length >= 8 &&
+    /[A-Z]/.test(regPassword) &&
+    /[a-z]/.test(regPassword) &&
+    /[0-9]/.test(regPassword) &&
+    /[^A-Za-z0-9]/.test(regPassword);
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regSector) {
-      toast({ title: "Required", description: "Please select a sector", variant: "destructive" });
+    if (!isPasswordValid) {
+      toast({ title: "Weak password", description: "Please meet all password requirements", variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -81,11 +104,6 @@ export default function AuthPage() {
         password: regPassword,
         fullName: regName,
         companyName: regCompany,
-        sectorGroup: regSectorGroup,
-        sector: regSector,
-        subsector: regSubsector || undefined,
-        entityType: regEntityType,
-        country: regCountry || undefined,
       });
       navigate("/onboarding");
     } catch (err: any) {
@@ -209,12 +227,13 @@ export default function AuthPage() {
                         type="password"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
-                        placeholder="Min 8 characters"
+                        placeholder="Create a strong password"
                         className="pl-10"
                         required
                         data-testid="input-reg-password"
                       />
                     </div>
+                    <PasswordStrength password={regPassword} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="reg-company">Company Name</Label>
@@ -232,78 +251,7 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>NIS2 Classification</Label>
-                    <Select value={regSectorGroup} onValueChange={(v) => { setRegSectorGroup(v); setRegSector(""); setRegSubsector(""); }}>
-                      <SelectTrigger data-testid="select-sector-group">
-                        <SelectValue placeholder="Select annex" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ANNEX_I">Annex I - Highly Critical Sectors</SelectItem>
-                        <SelectItem value="ANNEX_II">Annex II - Other Critical Sectors</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label>Sector</Label>
-                      <Select value={regSector} onValueChange={(v) => { setRegSector(v); setRegSubsector(""); }}>
-                        <SelectTrigger data-testid="select-sector">
-                          <SelectValue placeholder="Select sector" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredSectors.map(s => (
-                            <SelectItem key={s.sector} value={s.sector}>{s.sector}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Entity Type</Label>
-                      <Select value={regEntityType} onValueChange={setRegEntityType}>
-                        <SelectTrigger data-testid="select-entity-type">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="essential">Essential Entity</SelectItem>
-                          <SelectItem value="important">Important Entity</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {selectedSectorObj && selectedSectorObj.subsectors.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Subsector</Label>
-                      <Select value={regSubsector} onValueChange={setRegSubsector}>
-                        <SelectTrigger data-testid="select-subsector">
-                          <SelectValue placeholder="Select subsector (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {selectedSectorObj.subsectors.map(ss => (
-                            <SelectItem key={ss} value={ss}>{ss}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label>EU Member State</Label>
-                    <Select value={regCountry} onValueChange={setRegCountry}>
-                      <SelectTrigger data-testid="select-country">
-                        <SelectValue placeholder="Select country (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(sectorData?.countries || []).map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={loading} data-testid="button-register">
+                  <Button type="submit" className="w-full" disabled={loading || !isPasswordValid} data-testid="button-register">
                     {loading ? "Creating account..." : "Create account"}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>

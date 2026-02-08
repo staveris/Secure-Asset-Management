@@ -17,11 +17,6 @@ interface RegisterData {
   password: string;
   fullName: string;
   companyName: string;
-  sector: string;
-  entityType: string;
-  sectorGroup?: string;
-  subsector?: string;
-  country?: string;
 }
 
 interface AuthContextType {

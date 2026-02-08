@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useSearch } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,10 +70,23 @@ interface LinkableEntities {
 export default function Evidence() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const linkType = searchParams.get("linkType") || "";
+  const linkId = searchParams.get("linkId") || "";
+
   const [open, setOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [relatedType, setRelatedType] = useState("");
-  const [relatedId, setRelatedId] = useState("");
+  const [relatedType, setRelatedType] = useState(linkType);
+  const [relatedId, setRelatedId] = useState(linkId);
+
+  useEffect(() => {
+    if (linkType && linkId) {
+      setRelatedType(linkType);
+      setRelatedId(linkId);
+      setOpen(true);
+    }
+  }, [linkType, linkId]);
   const [lockDialogId, setLockDialogId] = useState<number | null>(null);
   const [lockReason, setLockReason] = useState("");
   const [unlockDialogId, setUnlockDialogId] = useState<number | null>(null);

@@ -13,6 +13,10 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
+import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail } from "./email";
+import { platformSettings } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 const PgSession = connectPgSimple(session);
 
@@ -128,13 +132,16 @@ export async function registerRoutes(
       const passwordHash = await bcrypt.hash(data.password, 12);
       const tenant = await storage.createTenant({
         name: data.companyName,
-        sectorGroup: data.sectorGroup || "ANNEX_I",
-        sector: data.sector,
-        subsector: data.subsector || null,
-        entityType: data.entityType,
-        country: data.country || null,
+        sectorGroup: "ANNEX_I",
+        sector: "general",
+        subsector: null,
+        entityType: "essential",
+        country: null,
         applicabilityProfile: null,
       });
+
+      const verificationToken = generateVerificationToken();
+      const verificationExpires = getVerificationExpiry();
 
       const user = await storage.createUser({
         tenantId: tenant.id,
@@ -143,6 +150,9 @@ export async function registerRoutes(
         fullName: data.fullName,
         role: "TENANT_ADMIN",
         isActive: true,
+        emailVerified: false,
+        emailVerificationToken: verificationToken,
+        emailVerificationExpires: verificationExpires,
       });
 
       await storage.createAuditLog({
@@ -153,8 +163,18 @@ export async function registerRoutes(
         entityId: String(user.id),
       });
 
+      const emailSent = await sendVerificationEmail(data.email, data.fullName, verificationToken);
+
       req.session.userId = user.id;
-      res.json({ id: user.id, email: user.email, fullName: user.fullName, role: user.role });
+      res.json({
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        emailVerified: false,
+        emailSent,
+        requiresVerification: true,
+      });
     } catch (err: any) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
@@ -191,6 +211,58 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
       }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/auth/verify-email", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({ message: "Verification token is required" });
+      }
+
+      const user = await storage.getUserByVerificationToken(token);
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired verification token" });
+      }
+
+      if (user.emailVerificationExpires && new Date(user.emailVerificationExpires) < new Date()) {
+        return res.status(400).json({ message: "Verification link has expired. Please request a new one." });
+      }
+
+      await storage.verifyUserEmail(user.id);
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId!,
+        actorUserId: user.id,
+        action: "EMAIL_VERIFIED",
+        entityType: "USER",
+        entityId: String(user.id),
+      });
+
+      res.json({ message: "Email verified successfully", verified: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/resend-verification", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      if (user.emailVerified) {
+        return res.json({ message: "Email is already verified" });
+      }
+
+      const newToken = generateVerificationToken();
+      const newExpiry = getVerificationExpiry();
+      await storage.updateUserVerificationToken(user.id, newToken, newExpiry);
+
+      const emailSent = await sendVerificationEmail(user.email, user.fullName, newToken);
+      res.json({ message: "Verification email sent", emailSent });
+    } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
   });
@@ -866,6 +938,88 @@ export async function registerRoutes(
   app.get("/api/admin/audit-logs", requirePlatformAdmin, async (req, res) => {
     const logs = await storage.getAuditLogs(200);
     res.json(logs);
+  });
+
+  app.get("/api/admin/email-settings", requirePlatformAdmin, async (req, res) => {
+    try {
+      const [settings] = await db.select().from(platformSettings).where(eq(platformSettings.key, "email_config"));
+      if (!settings) {
+        return res.json({ provider: null, fromAddress: null, configured: false });
+      }
+      const config = JSON.parse(settings.value);
+      res.json({ ...config, configured: !!config.provider });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/admin/email-settings", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { provider, apiKey, fromAddress } = req.body;
+      const config = JSON.stringify({ provider, apiKey, fromAddress });
+      const existing = await db.select().from(platformSettings).where(eq(platformSettings.key, "email_config"));
+      if (existing.length > 0) {
+        await db.update(platformSettings).set({ value: config }).where(eq(platformSettings.key, "email_config"));
+      } else {
+        await db.insert(platformSettings).values({ key: "email_config", value: config });
+      }
+      res.json({ message: "Email settings saved", configured: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/admin/analytics", requirePlatformAdmin, async (req, res) => {
+    try {
+      const allTenants = await storage.getAllTenants();
+      const sectorBreakdown: Record<string, number> = {};
+      const countryBreakdown: Record<string, number> = {};
+      const entityTypeBreakdown: Record<string, number> = {};
+      const sectorGroupBreakdown: Record<string, number> = {};
+
+      for (const t of allTenants) {
+        const sector = t.sector || "Unclassified";
+        sectorBreakdown[sector] = (sectorBreakdown[sector] || 0) + 1;
+
+        const country = (t as any).country || "Not specified";
+        countryBreakdown[country] = (countryBreakdown[country] || 0) + 1;
+
+        const entityType = t.entityType || "Not specified";
+        entityTypeBreakdown[entityType] = (entityTypeBreakdown[entityType] || 0) + 1;
+
+        const sectorGroup = (t as any).sectorGroup || "Not specified";
+        sectorGroupBreakdown[sectorGroup] = (sectorGroupBreakdown[sectorGroup] || 0) + 1;
+      }
+
+      const tenantDetails = await Promise.all(
+        allTenants.map(async (t) => {
+          const dashData = await storage.getDashboardData(t.id);
+          const usersCount = (await storage.getUsersByTenant(t.id)).length;
+          return {
+            id: t.id,
+            name: t.name,
+            sector: t.sector,
+            country: (t as any).country,
+            entityType: t.entityType,
+            sectorGroup: (t as any).sectorGroup,
+            status: (t as any).status || "active",
+            complianceScore: dashData.complianceScore,
+            userCount: usersCount,
+          };
+        })
+      );
+
+      res.json({
+        totalTenants: allTenants.length,
+        sectorBreakdown,
+        countryBreakdown,
+        entityTypeBreakdown,
+        sectorGroupBreakdown,
+        tenantDetails,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   app.get("/api/nis2/sectors", (_req, res) => {

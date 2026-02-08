@@ -124,6 +124,9 @@ export const users = pgTable("users", {
   fullName: text("full_name").notNull(),
   role: userRoleEnum("role").notNull().default("TENANT_USER"),
   isActive: boolean("is_active").notNull().default(true),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerificationToken: text("email_verification_token"),
+  emailVerificationExpires: timestamp("email_verification_expires"),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -492,6 +495,17 @@ export type InsertIncidentNotification = z.infer<typeof insertIncidentNotificati
 export type TenantDailySnapshot = typeof tenantDailySnapshots.$inferSelect;
 export type InsertTenantDailySnapshot = z.infer<typeof insertTenantDailySnapshotSchema>;
 
+export const platformSettings = pgTable("platform_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPlatformSettingSchema = createInsertSchema(platformSettings).omit({ id: true, updatedAt: true });
+export type PlatformSetting = typeof platformSettings.$inferSelect;
+export type InsertPlatformSetting = z.infer<typeof insertPlatformSettingSchema>;
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
@@ -499,12 +513,12 @@ export const loginSchema = z.object({
 
 export const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
   fullName: z.string().min(2),
   companyName: z.string().min(2),
-  sectorGroup: z.string().optional(),
-  sector: z.string().min(1),
-  subsector: z.string().optional(),
-  entityType: z.string().min(1),
-  country: z.string().optional(),
 });

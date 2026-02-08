@@ -302,7 +302,7 @@ function ControlCard({
               <FileText className="w-3 h-3" />
               Evidence ({controlEvidence.length})
             </Label>
-            <Link href="/evidence">
+            <Link href={`/evidence?linkType=Control&linkId=${response.controlObjectiveId}`}>
               <Button variant="ghost" size="sm" data-testid={`button-upload-evidence-${response.id}`}>
                 <Upload className="w-3 h-3 mr-1" />
                 Upload
