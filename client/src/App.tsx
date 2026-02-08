@@ -19,10 +19,12 @@ import Evidence from "@/pages/evidence";
 import Incidents from "@/pages/incidents";
 import Suppliers from "@/pages/suppliers";
 import Risks from "@/pages/risks";
+import Reports from "@/pages/reports";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminTenants from "@/pages/admin-tenants";
 import AdminRequirements from "@/pages/admin-requirements";
 import AdminAuditLog from "@/pages/admin-audit-log";
+import Onboarding from "@/pages/onboarding";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedRouter() {
@@ -38,10 +40,12 @@ function AuthenticatedRouter() {
       <Route path="/incidents" component={Incidents} />
       <Route path="/suppliers" component={Suppliers} />
       <Route path="/risks" component={Risks} />
+      <Route path="/reports" component={Reports} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/tenants" component={AdminTenants} />
       <Route path="/admin/requirements" component={AdminRequirements} />
       <Route path="/admin/audit-log" component={AdminAuditLog} />
+      <Route path="/onboarding" component={Onboarding} />
       <Route component={NotFound} />
     </Switch>
   );

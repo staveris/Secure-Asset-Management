@@ -13,6 +13,9 @@ import {
   suppliers,
   riskItems,
   auditLogs,
+  controls,
+  incidentNotifications,
+  tenantDailySnapshots,
   type InsertTenant,
   type InsertUser,
   type InsertRequirement,
@@ -24,6 +27,9 @@ import {
   type InsertIncidentCase,
   type InsertSupplier,
   type InsertRiskItem,
+  type InsertControl,
+  type InsertIncidentNotification,
+  type InsertTenantDailySnapshot,
   type Tenant,
   type User,
   type Requirement,
@@ -36,6 +42,9 @@ import {
   type Supplier,
   type RiskItem,
   type AuditLog,
+  type Control,
+  type IncidentNotification,
+  type TenantDailySnapshot,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -87,6 +96,17 @@ export interface IStorage {
   createAuditLog(data: { tenantId?: number | null; actorUserId?: number | null; action: string; entityType: string; entityId?: string; details?: any }): Promise<AuditLog>;
   getAuditLogs(limit?: number): Promise<AuditLog[]>;
   getAuditLogsByTenant(tenantId: number, limit?: number): Promise<AuditLog[]>;
+
+  createControl(data: InsertControl): Promise<Control>;
+  getControlsByTenant(tenantId: number): Promise<Control[]>;
+  updateControl(id: number, data: Partial<InsertControl>): Promise<Control | undefined>;
+
+  createIncidentNotification(data: InsertIncidentNotification): Promise<IncidentNotification>;
+  getIncidentNotifications(incidentId: number): Promise<IncidentNotification[]>;
+  updateIncidentNotification(id: number, data: Partial<InsertIncidentNotification>): Promise<IncidentNotification | undefined>;
+
+  createTenantDailySnapshot(data: InsertTenantDailySnapshot): Promise<TenantDailySnapshot>;
+  getSnapshotsByTenant(tenantId: number, limit?: number): Promise<TenantDailySnapshot[]>;
 
   getDashboardData(tenantId: number): Promise<any>;
   getAdminDashboardData(): Promise<any>;
@@ -421,6 +441,53 @@ export class DatabaseStorage implements IStorage {
         count,
       })),
     };
+  }
+  async createControl(data: InsertControl): Promise<Control> {
+    const [control] = await db.insert(controls).values(data).returning();
+    return control;
+  }
+
+  async getControlsByTenant(tenantId: number): Promise<Control[]> {
+    return db.select().from(controls).where(eq(controls.tenantId, tenantId));
+  }
+
+  async updateControl(id: number, data: Partial<InsertControl>): Promise<Control | undefined> {
+    const [control] = await db
+      .update(controls)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(controls.id, id))
+      .returning();
+    return control;
+  }
+
+  async createIncidentNotification(data: InsertIncidentNotification): Promise<IncidentNotification> {
+    const [notification] = await db.insert(incidentNotifications).values(data).returning();
+    return notification;
+  }
+
+  async getIncidentNotifications(incidentId: number): Promise<IncidentNotification[]> {
+    return db.select().from(incidentNotifications).where(eq(incidentNotifications.incidentId, incidentId)).orderBy(desc(incidentNotifications.createdAt));
+  }
+
+  async updateIncidentNotification(id: number, data: Partial<InsertIncidentNotification>): Promise<IncidentNotification | undefined> {
+    const [notification] = await db
+      .update(incidentNotifications)
+      .set(data)
+      .where(eq(incidentNotifications.id, id))
+      .returning();
+    return notification;
+  }
+
+  async createTenantDailySnapshot(data: InsertTenantDailySnapshot): Promise<TenantDailySnapshot> {
+    const [snapshot] = await db.insert(tenantDailySnapshots).values(data).returning();
+    return snapshot;
+  }
+
+  async getSnapshotsByTenant(tenantId: number, limit = 30): Promise<TenantDailySnapshot[]> {
+    return db.select().from(tenantDailySnapshots)
+      .where(eq(tenantDailySnapshots.tenantId, tenantId))
+      .orderBy(desc(tenantDailySnapshots.date))
+      .limit(limit);
   }
 }
 

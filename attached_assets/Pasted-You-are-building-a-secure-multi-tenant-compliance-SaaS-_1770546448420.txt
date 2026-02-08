@@ -1,0 +1,98 @@
+You are building a secure multi-tenant compliance SaaS: “NIS2 Readiness Platform”.
+Primary goal: article-level NIS2 coverage + progress tracking + audit-grade evidence + safe admin aggregates.
+
+STACK
+- Next.js 14+ App Router, TypeScript, Tailwind, shadcn/ui
+- PostgreSQL + Prisma
+- Auth: NextAuth Credentials OR custom sessions (HttpOnly cookies). Prefer adding OIDC-ready architecture.
+- Zod validation everywhere
+- Recharts for dashboards
+- Logging: pino (server) + correlation ids
+
+PERSONAS / ACCESS CONTROL
+1) PLATFORM_ADMIN (global)
+- Full access across all tenants
+- Admin analytics must be privacy-safe: aggregated metrics by default, drilldown only with explicit tenant selection
+- All admin actions are auditable
+
+2) TENANT USERS (scoped)
+- Strict isolation: users access only their tenant data
+- Tenant roles: TENANT_ADMIN, TENANT_MANAGER, TENANT_USER, READONLY_AUDITOR
+- READONLY_AUDITOR can view evidence and reports but cannot modify
+
+SECURITY (NON-NEGOTIABLE)
+- Server-side authorization on every request; never trust client state
+- Prevent IDOR: all reads/writes must enforce tenantId scope unless PLATFORM_ADMIN
+- Rate limit login + uploads
+- CSRF protection for state-changing routes
+- Secure headers (CSP, X-Frame-Options/Frame-ancestors, HSTS in prod, nosniff)
+- Password hashing (argon2 preferred; fallback bcrypt)
+- MFA requirement flags (at minimum enforce for PLATFORM_ADMIN/TENANT_ADMIN)
+- Audit logs for all CRUD on core entities + auth events
+- File upload security: strict size/type limits, content sniffing, store sha256
+- Evidence encryption at rest using AES-256-GCM with envelope encryption (per-tenant DEK encrypted by KEK)
+- Secrets never exposed client-side
+
+DOMAIN MODEL (ADD COMPLIANCE ONTOLOGY)
+Prisma models (minimum):
+Tenant, User (tenantId nullable for PLATFORM_ADMIN), Membership (optional), AuditLog
+
+Compliance library:
+- Requirement(id, code, title, description, nis2Article, paragraph, greekRef, category, isActive)
+- ControlObjective(id, requirementId, title, description, guidance)
+- Control(id, tenantId, controlObjectiveId, implementationOwnerUserId, status, maturityLevel 0-5)
+- TestProcedure(id, controlObjectiveId, method, steps, frequency)
+- EvidenceRequirement(id, controlObjectiveId, acceptableTypes JSON, minimumSet JSON)
+- ApplicabilityRule(id, controlObjectiveId, rule JSON) // sector/entity-type/service-type gating
+
+Operations:
+- Assessment(id, tenantId, name, scope, status, createdAt)
+- AssessmentResponse(id, assessmentId, controlObjectiveId, implementationStatus enum, maturity 0-5, confidence enum, notes, updatedAt)
+- Task(id, tenantId, relatedControlObjectiveId nullable, title, ownerUserId, dueDate, status, priority)
+- EvidenceItem(id, tenantId, relatedType, relatedId, filename, size, mimeType, sha256, encrypted, storagePath, uploadedBy, uploadedAt, expiresAt, lockedAt nullable)
+- IncidentCase(id, tenantId, title, severity, isSignificant, detectedAt, awareAt, containedAt, recoveredAt, earlyWarningDueAt, notificationDueAt, finalReportDueAt, status)
+- IncidentNotification(id, incidentId, type enum[EARLY_WARNING,NOTIFICATION,FINAL], preparedAt, sentAt, channel, content JSON)
+- Supplier(id, tenantId, name, criticality, services, lastAssessmentAt)
+- RiskItem(id, tenantId, title, likelihood, impact, treatment, ownerUserId, status)
+
+Analytics:
+- TenantDailySnapshot(id, tenantId, date, compliancePct, verifiedPct, maturityAvg, overdueTasks, evidenceCoverage, incidentsOpen)
+Admin dashboards must read from snapshots + safe aggregates (k-anonymity thresholding).
+
+NIS2 LIBRARY (SEED DATA)
+- Seed NIS2 obligations with clear IDs and article references (Art. 20–30 plus evidence readiness).
+- For Art. 21, include each minimum measure as separate control objectives.
+- For Art. 23, implement reporting clock with 24h/72h/1-month deadlines.
+- Include greekRef field for Law 5160/2024 where known; keep nullable.
+
+MODULES (MVP)
+Tenant area:
+- Onboarding wizard (tenant profile)
+- Dashboard (KPIs, heatmap, trend)
+- Assessments (create, answer, compare)
+- Tasks (kanban/list)
+- Evidence vault (upload/link/lock after verification)
+- Incidents (timeline + notification drafts + deadlines)
+- Suppliers, Risks
+- Reports (print-friendly readiness report)
+
+Admin area (/admin):
+- Global Analytics (aggregate only by default)
+- Tenants list with summary from snapshots
+- Requirement Library management (CRUD)
+- Platform audit log viewer
+- Export aggregated CSV (never raw evidence/content unless explicit tenant selected)
+
+IMPLEMENTATION DETAILS
+- Route groups: /app/(tenant)/..., /app/(admin)/...
+- Central auth/authorization helpers:
+  requireAuth(), requireRole(), requireTenantScope(tenantId), enforceResourceTenant(resourceTenantId)
+- Pagination + indexes (tenantId + createdAt) everywhere
+- Tests:
+  - Unit tests for auth/tenant guards
+  - E2E smoke: login, tenant create, assessment submit, admin analytics load
+
+DELIVERABLES
+- Running app, prisma migrations, seed script, sample data
+- README with ENV vars: DATABASE_URL, SESSION_SECRET/NEXTAUTH_SECRET, APP_KEK, UPLOAD_DIR
+- Clear notes on threat model and security choices

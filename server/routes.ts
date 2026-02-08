@@ -7,8 +7,57 @@ import { z } from "zod";
 import { loginSchema, registerSchema } from "@shared/schema";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
+import rateLimit from "express-rate-limit";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import crypto from "crypto";
 
 const PgSession = connectPgSimple(session);
+
+const UPLOAD_DIR = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+const ALLOWED_MIME_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "text/csv",
+];
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
+
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = crypto.randomBytes(16).toString("hex");
+    cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const upload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("File type not allowed"));
+    }
+  },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { message: "Too many attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 declare module "express-session" {
   interface SessionData {
@@ -28,6 +77,16 @@ async function requirePlatformAdmin(req: Request, res: Response, next: NextFunct
   const user = await storage.getUser(req.session.userId);
   if (!user || user.role !== "PLATFORM_ADMIN") {
     return res.status(403).json({ message: "Forbidden" });
+  }
+  next();
+}
+
+async function requireWriteAccess(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+  const user = await storage.getUser(req.session.userId);
+  if (!user) return res.status(401).json({ message: "Unauthorized" });
+  if (user.role === "READONLY_AUDITOR") {
+    return res.status(403).json({ message: "Read-only access. Auditors cannot modify data." });
   }
   next();
 }
@@ -59,7 +118,7 @@ export async function registerRoutes(
     })
   );
 
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", authLimiter, async (req, res) => {
     try {
       const data = registerSchema.parse(req.body);
       const existing = await storage.getUserByEmail(data.email);
@@ -99,7 +158,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authLimiter, async (req, res) => {
     try {
       const data = loginSchema.parse(req.body);
       const user = await storage.getUserByEmail(data.email);
@@ -164,7 +223,7 @@ export async function registerRoutes(
     res.json(list);
   });
 
-  app.post("/api/assessments", requireAuth, async (req, res) => {
+  app.post("/api/assessments", requireAuth, requireWriteAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -252,7 +311,7 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/assessment-responses/:id", requireAuth, async (req, res) => {
+  app.patch("/api/assessment-responses/:id", requireAuth, requireWriteAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
 
@@ -295,7 +354,7 @@ export async function registerRoutes(
     res.json(list);
   });
 
-  app.post("/api/tasks", requireAuth, async (req, res) => {
+  app.post("/api/tasks", requireAuth, requireWriteAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -324,7 +383,7 @@ export async function registerRoutes(
     res.json(task);
   });
 
-  app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
+  app.patch("/api/tasks/:id", requireAuth, requireWriteAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
 
@@ -355,6 +414,55 @@ export async function registerRoutes(
     res.json(list);
   });
 
+  app.post("/api/evidence/upload", requireAuth, requireWriteAccess, upload.single("file"), async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No file provided" });
+
+      const { relatedType, relatedId } = req.body;
+      if (!relatedType || !relatedId) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "relatedType and relatedId are required" });
+      }
+
+      const fileBuffer = fs.readFileSync(file.path);
+      const sha256 = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+
+      const evidenceItem = await storage.createEvidenceItem({
+        tenantId: user.tenantId,
+        relatedType,
+        relatedId: parseInt(relatedId),
+        filename: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        uploadedBy: user.id,
+      });
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "UPLOAD",
+        entityType: "EVIDENCE",
+        entityId: String(evidenceItem.id),
+        details: { filename: file.originalname, sha256, size: file.size },
+      });
+
+      res.json(evidenceItem);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/evidence/:id/download", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    res.status(501).json({ message: "File download requires object storage configuration" });
+  });
+
   app.get("/api/incidents", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -362,7 +470,7 @@ export async function registerRoutes(
     res.json(list);
   });
 
-  app.post("/api/incidents", requireAuth, async (req, res) => {
+  app.post("/api/incidents", requireAuth, requireWriteAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -400,7 +508,7 @@ export async function registerRoutes(
     res.json(incident);
   });
 
-  app.patch("/api/incidents/:id", requireAuth, async (req, res) => {
+  app.patch("/api/incidents/:id", requireAuth, requireWriteAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
 
@@ -431,7 +539,7 @@ export async function registerRoutes(
     res.json(list);
   });
 
-  app.post("/api/suppliers", requireAuth, async (req, res) => {
+  app.post("/api/suppliers", requireAuth, requireWriteAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -464,7 +572,7 @@ export async function registerRoutes(
     res.json(list);
   });
 
-  app.post("/api/risks", requireAuth, async (req, res) => {
+  app.post("/api/risks", requireAuth, requireWriteAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -490,6 +598,62 @@ export async function registerRoutes(
     });
 
     res.json(risk);
+  });
+
+  app.get("/api/incidents/:id/notifications", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    const incidentId = parseInt(req.params.id);
+    const incident = await storage.getIncidentCase(incidentId);
+    if (!incident || (incident.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    const notifications = await storage.getIncidentNotifications(incidentId);
+    res.json(notifications);
+  });
+
+  app.post("/api/incidents/:id/notifications", requireAuth, requireWriteAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    const incidentId = parseInt(req.params.id);
+    const incident = await storage.getIncidentCase(incidentId);
+    if (!incident || (incident.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    const { type, channel, content } = req.body;
+    const notification = await storage.createIncidentNotification({
+      incidentId,
+      type,
+      channel: channel || null,
+      content: content || null,
+      preparedAt: new Date(),
+    });
+
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "CREATE",
+      entityType: "INCIDENT_NOTIFICATION",
+      entityId: String(notification.id),
+    });
+
+    res.json(notification);
+  });
+
+  app.get("/api/admin/csv-export", requirePlatformAdmin, async (req, res) => {
+    const data = await storage.getAdminDashboardData();
+    const rows = [
+      ["Tenant", "Sector", "Compliance Score %", "Tasks", "Users"],
+      ...data.tenantSummaries.map((t: any) => [t.name, t.sector, t.complianceScore, t.taskCount, t.userCount]),
+    ];
+    const csv = rows.map((r: any[]) => r.join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=nis2-platform-export.csv");
+    res.send(csv);
   });
 
   app.get("/api/admin/dashboard", requirePlatformAdmin, async (req, res) => {

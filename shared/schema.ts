@@ -9,6 +9,8 @@ import {
   pgEnum,
   jsonb,
   serial,
+  date,
+  real,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -85,6 +87,20 @@ export const riskStatusEnum = pgEnum("risk_status", [
   "TREATING",
   "MONITORING",
   "CLOSED",
+]);
+
+export const controlStatusEnum = pgEnum("control_status", [
+  "NOT_IMPLEMENTED",
+  "PLANNED",
+  "IN_PROGRESS",
+  "IMPLEMENTED",
+  "VERIFIED",
+]);
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "EARLY_WARNING",
+  "NOTIFICATION",
+  "FINAL_REPORT",
 ]);
 
 export const tenants = pgTable("tenants", {
@@ -255,6 +271,40 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const controls = pgTable("controls", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  controlObjectiveId: integer("control_objective_id").references(() => controlObjectives.id).notNull(),
+  implementationOwnerUserId: integer("implementation_owner_user_id").references(() => users.id),
+  status: controlStatusEnum("status").notNull().default("NOT_IMPLEMENTED"),
+  maturityLevel: integer("maturity_level").notNull().default(0),
+  notes: text("notes"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const incidentNotifications = pgTable("incident_notifications", {
+  id: serial("id").primaryKey(),
+  incidentId: integer("incident_id").references(() => incidentCases.id).notNull(),
+  type: notificationTypeEnum("type").notNull(),
+  preparedAt: timestamp("prepared_at"),
+  sentAt: timestamp("sent_at"),
+  channel: text("channel"),
+  content: jsonb("content").$type<{ subject?: string; body?: string; recipients?: string[] }>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const tenantDailySnapshots = pgTable("tenant_daily_snapshots", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  date: text("snapshot_date").notNull(),
+  compliancePct: real("compliance_pct").notNull().default(0),
+  verifiedPct: real("verified_pct").notNull().default(0),
+  maturityAvg: real("maturity_avg").notNull().default(0),
+  overdueTasks: integer("overdue_tasks").notNull().default(0),
+  evidenceCoverage: real("evidence_coverage").notNull().default(0),
+  incidentsOpen: integer("incidents_open").notNull().default(0),
+});
+
 export const insertTenantSchema = createInsertSchema(tenants).omit({
   id: true,
   createdAt: true,
@@ -297,6 +347,17 @@ export const insertRiskItemSchema = createInsertSchema(riskItems).omit({
   id: true,
   updatedAt: true,
 });
+export const insertControlSchema = createInsertSchema(controls).omit({
+  id: true,
+  updatedAt: true,
+});
+export const insertIncidentNotificationSchema = createInsertSchema(incidentNotifications).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertTenantDailySnapshotSchema = createInsertSchema(tenantDailySnapshots).omit({
+  id: true,
+});
 
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
@@ -325,6 +386,12 @@ export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
 export type RiskItem = typeof riskItems.$inferSelect;
 export type InsertRiskItem = z.infer<typeof insertRiskItemSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type Control = typeof controls.$inferSelect;
+export type InsertControl = z.infer<typeof insertControlSchema>;
+export type IncidentNotification = typeof incidentNotifications.$inferSelect;
+export type InsertIncidentNotification = z.infer<typeof insertIncidentNotificationSchema>;
+export type TenantDailySnapshot = typeof tenantDailySnapshots.$inferSelect;
+export type InsertTenantDailySnapshot = z.infer<typeof insertTenantDailySnapshotSchema>;
 
 export const loginSchema = z.object({
   email: z.string().email(),

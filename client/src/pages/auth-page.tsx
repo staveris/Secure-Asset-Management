@@ -57,7 +57,7 @@ export default function AuthPage() {
         sector: regSector,
         entityType: regEntityType,
       });
-      navigate("/");
+      navigate("/onboarding");
     } catch (err: any) {
       toast({ title: "Registration failed", description: err.message, variant: "destructive" });
     } finally {

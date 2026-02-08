@@ -1,20 +1,22 @@
 # NIS2 Readiness Platform
 
 ## Overview
-Multi-tenant compliance SaaS for NIS2 Directive readiness. Companies can assess their cybersecurity posture, track compliance progress, manage incidents, and produce audit-ready reports.
+Multi-tenant compliance SaaS for NIS2 Directive readiness. Companies can assess their cybersecurity posture, track compliance progress, manage incidents with EU reporting timelines, and produce audit-ready reports.
 
 ## Tech Stack
 - **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui + Recharts
 - **Backend**: Express.js + TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
 - **Auth**: bcryptjs password hashing + express-session with PostgreSQL session store
+- **Security**: helmet (secure headers), express-rate-limit (auth rate limiting), READONLY_AUDITOR write enforcement
 - **Routing**: wouter (frontend), Express (backend)
+- **File Upload**: multer with size/type validation
 
 ## Architecture
-- `shared/schema.ts` - Drizzle schemas and Zod validation for all entities
+- `shared/schema.ts` - Drizzle schemas and Zod validation for all 15 entities
 - `server/db.ts` - PostgreSQL connection pool
 - `server/storage.ts` - DatabaseStorage class implementing IStorage interface
-- `server/routes.ts` - All API endpoints with auth middleware and tenant isolation
+- `server/routes.ts` - All API endpoints with auth middleware, tenant isolation, rate limiting
 - `server/seed.ts` - NIS2 requirement library + demo data seeding
 - `client/src/lib/auth.tsx` - React auth context with login/register/logout
 - `client/src/lib/theme.tsx` - Light/dark theme provider
@@ -24,8 +26,12 @@ Multi-tenant compliance SaaS for NIS2 Directive readiness. Companies can assess 
 ## Key Entities
 - Tenants, Users (with roles: PLATFORM_ADMIN, TENANT_ADMIN, TENANT_MANAGER, TENANT_USER, READONLY_AUDITOR)
 - Requirements, ControlObjectives (NIS2 library)
+- Controls (tenant-scoped implementation tracking with maturity levels)
 - Assessments, AssessmentResponses
-- Tasks, EvidenceItems, IncidentCases, Suppliers, RiskItems, AuditLogs
+- Tasks, EvidenceItems (with file upload), IncidentCases
+- IncidentNotifications (EARLY_WARNING, NOTIFICATION, FINAL_REPORT drafts)
+- Suppliers, RiskItems, AuditLogs
+- TenantDailySnapshots (compliance metrics over time)
 
 ## Demo Accounts
 - Platform Admin: admin@nis2platform.eu / admin123
@@ -33,15 +39,47 @@ Multi-tenant compliance SaaS for NIS2 Directive readiness. Companies can assess 
 
 ## API Routes
 All routes prefixed with `/api/`:
-- Auth: POST login, register, logout; GET me
+- Auth: POST login, register (rate-limited), logout; GET me
 - Dashboard: GET /dashboard (tenant), GET /admin/dashboard (admin)
 - Assessments: GET/POST /assessments, GET /assessments/:id, PATCH /assessment-responses/:id
 - Tasks: GET/POST /tasks, PATCH /tasks/:id
-- Evidence: GET /evidence
+- Evidence: GET /evidence, POST /evidence/upload (multipart)
 - Incidents: GET/POST /incidents, PATCH /incidents/:id
+- Incident Notifications: GET/POST /incidents/:id/notifications
 - Suppliers: GET/POST /suppliers
 - Risks: GET/POST /risks
-- Admin: GET /admin/tenants, /admin/requirements, /admin/audit-logs
+- Admin: GET /admin/tenants, /admin/requirements, /admin/audit-logs, /admin/csv-export
+
+## Frontend Pages
+- `/` - Dashboard (compliance KPIs, charts, trends)
+- `/assessments` - Assessment list and creation
+- `/assessments/:id` - Assessment detail with control-level scoring
+- `/tasks` - Task management with filters
+- `/evidence` - Evidence vault with file upload
+- `/incidents` - Incident management with EU deadline tracking and notification drafts
+- `/suppliers` - Supplier register
+- `/risks` - Risk register
+- `/reports` - Print-friendly NIS2 readiness report
+- `/onboarding` - New tenant setup wizard
+- `/admin` - Platform admin analytics with CSV export
+- `/admin/tenants` - Tenant management
+- `/admin/requirements` - NIS2 requirements library
+- `/admin/audit-log` - Platform audit log
+
+## Security Features
+- Helmet secure headers
+- Rate limiting on auth endpoints (15 attempts / 15 minutes)
+- READONLY_AUDITOR role enforcement on all mutation endpoints
+- Tenant isolation (IDOR prevention) on all update endpoints
+- Session management with PostgreSQL store
+- File upload validation (type, size limits)
+- Audit logging for all CRUD operations
 
 ## Recent Changes
 - 2026-02-08: Initial MVP build - full schema, all pages, auth, NIS2 seed data, dashboard charts
+- 2026-02-08: Security hardening - helmet, rate limiting, READONLY_AUDITOR enforcement
+- 2026-02-08: Added Controls, IncidentNotifications, TenantDailySnapshots entities
+- 2026-02-08: Evidence vault with file upload, incident notification workflow
+- 2026-02-08: Reports page, onboarding wizard, admin CSV export
+- 2026-02-08: Company logo (Tools of Tech) integrated
+- 2026-02-08: Fixed CSV export credentials, registration redirect to onboarding, error handling

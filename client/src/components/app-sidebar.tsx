@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Truck,
   Shield,
+  FileText,
   BarChart3,
   Building2,
   BookOpen,
@@ -45,6 +46,7 @@ const tenantMenuItems = [
   { title: "Incidents", url: "/incidents", icon: AlertTriangle },
   { title: "Suppliers", url: "/suppliers", icon: Truck },
   { title: "Risks", url: "/risks", icon: Shield },
+  { title: "Reports", url: "/reports", icon: FileText },
 ];
 
 const adminMenuItems = [

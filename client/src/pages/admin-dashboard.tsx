@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 import {
   BarChart,
   Bar,
@@ -13,7 +16,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { Building2, Users, Target, ListTodo, AlertTriangle, FileCheck } from "lucide-react";
+import { Building2, Users, Target, ListTodo, AlertTriangle, FileCheck, Download } from "lucide-react";
 
 interface AdminDashboardData {
   totalTenants: number;
@@ -35,9 +38,34 @@ interface AdminDashboardData {
 }
 
 export default function AdminDashboard() {
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
   const { data, isLoading } = useQuery<AdminDashboardData>({
     queryKey: ["/api/admin/dashboard"],
   });
+
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true);
+      const response = await fetch("/api/admin/csv-export", { credentials: "include" });
+      if (!response.ok) throw new Error("Export failed");
+      const csvText = await response.text();
+      const blob = new Blob([csvText], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "nis2-platform-export.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: "Export complete", description: "CSV file downloaded successfully" });
+    } catch (err) {
+      toast({ title: "Export failed", description: "Could not download CSV export", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -63,9 +91,19 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6 space-y-6" data-testid="admin-dashboard-page">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Platform Analytics</h1>
-        <p className="text-muted-foreground mt-1">Aggregated compliance metrics across all tenants</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Platform Analytics</h1>
+          <p className="text-muted-foreground mt-1">Aggregated compliance metrics across all tenants</p>
+        </div>
+        <Button
+          onClick={handleExportCSV}
+          disabled={isExporting}
+          data-testid="button-export-csv"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          {isExporting ? "Exporting..." : "Export CSV"}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
