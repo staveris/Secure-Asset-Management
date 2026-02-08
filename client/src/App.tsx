@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -29,7 +29,20 @@ import UsersPage from "@/pages/users";
 import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
-function AuthenticatedRouter() {
+function AdminRouter() {
+  return (
+    <Switch>
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/tenants" component={AdminTenants} />
+      <Route path="/admin/requirements" component={AdminRequirements} />
+      <Route path="/admin/audit-log" component={AdminAuditLog} />
+      <Route path="/settings" component={SettingsPage} />
+      <Route><Redirect to="/admin" /></Route>
+    </Switch>
+  );
+}
+
+function TenantRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -43,10 +56,6 @@ function AuthenticatedRouter() {
       <Route path="/suppliers" component={Suppliers} />
       <Route path="/risks" component={Risks} />
       <Route path="/reports" component={Reports} />
-      <Route path="/admin" component={AdminDashboard} />
-      <Route path="/admin/tenants" component={AdminTenants} />
-      <Route path="/admin/requirements" component={AdminRequirements} />
-      <Route path="/admin/audit-log" component={AdminAuditLog} />
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/users" component={UsersPage} />
       <Route path="/settings" component={SettingsPage} />
@@ -56,7 +65,7 @@ function AuthenticatedRouter() {
 }
 
 function AppContent() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isPlatformAdmin } = useAuth();
 
   if (isLoading) {
     return (
@@ -88,7 +97,7 @@ function AppContent() {
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto">
-            <AuthenticatedRouter />
+            {isPlatformAdmin ? <AdminRouter /> : <TenantRouter />}
           </main>
         </div>
       </div>

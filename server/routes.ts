@@ -172,10 +172,13 @@ export async function registerRoutes(
       const valid = await bcrypt.compare(data.password, user.passwordHash);
       if (!valid) return res.status(401).json({ message: "Invalid credentials" });
 
+      const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
+      if (tenant && (tenant as any).status === "suspended" && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Your organization's access has been suspended. Please contact your administrator." });
+      }
+
       await storage.updateUserLastLogin(user.id);
       req.session.userId = user.id;
-
-      const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
       res.json({
         id: user.id,
         email: user.email,
@@ -751,6 +754,61 @@ export async function registerRoutes(
       })
     );
     res.json(result);
+  });
+
+  const createTenantSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    sector: z.string().min(1, "Sector is required"),
+    entityType: z.enum(["essential", "important"]).default("essential"),
+    country: z.string().nullable().optional(),
+    sectorGroup: z.enum(["ANNEX_I", "ANNEX_II"]).default("ANNEX_I"),
+  });
+
+  app.post("/api/admin/tenants", requirePlatformAdmin, async (req, res) => {
+    try {
+      const data = createTenantSchema.parse(req.body);
+      const tenant = await storage.createTenant({
+        name: data.name,
+        sector: data.sector,
+        entityType: data.entityType,
+        country: data.country || null,
+        sectorGroup: data.sectorGroup,
+        status: "active",
+      });
+      res.json(tenant);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  const tenantStatusSchema = z.object({
+    status: z.enum(["active", "suspended"]),
+  });
+
+  app.patch("/api/admin/tenants/:id/status", requirePlatformAdmin, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.id);
+      const { status } = tenantStatusSchema.parse(req.body);
+      const tenant = await storage.updateTenant(tenantId, { status } as any);
+      if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+      res.json(tenant);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/admin/tenants/:id", requirePlatformAdmin, async (req, res) => {
+    const tenantId = parseInt(req.params.id);
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+    await storage.deleteTenant(tenantId);
+    res.json({ message: "Tenant deleted successfully" });
   });
 
   app.get("/api/admin/requirements", requirePlatformAdmin, async (req, res) => {

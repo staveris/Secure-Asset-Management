@@ -67,6 +67,7 @@ export interface IStorage {
   getTenant(id: number): Promise<Tenant | undefined>;
   getAllTenants(): Promise<Tenant[]>;
   updateTenant(id: number, data: Partial<InsertTenant>): Promise<Tenant | undefined>;
+  deleteTenant(id: number): Promise<void>;
 
   createUser(data: InsertUser): Promise<User>;
   getUser(id: number): Promise<User | undefined>;
@@ -168,6 +169,31 @@ export class DatabaseStorage implements IStorage {
   async updateTenant(id: number, data: Partial<InsertTenant>): Promise<Tenant | undefined> {
     const [tenant] = await db.update(tenants).set(data).where(eq(tenants.id, id)).returning();
     return tenant;
+  }
+
+  async deleteTenant(id: number): Promise<void> {
+    await db.delete(tenantDailySnapshots).where(eq(tenantDailySnapshots.tenantId, id));
+    await db.delete(assessmentResponses).where(
+      sql`${assessmentResponses.assessmentId} IN (SELECT id FROM assessments WHERE tenant_id = ${id})`
+    );
+    await db.delete(assessments).where(eq(assessments.tenantId, id));
+    await db.delete(evidenceAccessLogs).where(
+      sql`${evidenceAccessLogs.evidenceId} IN (SELECT id FROM evidence_items WHERE tenant_id = ${id})`
+    );
+    await db.delete(evidenceUnlockRequests).where(eq(evidenceUnlockRequests.tenantId, id));
+    await db.delete(evidenceItems).where(eq(evidenceItems.tenantId, id));
+    await db.delete(incidentNotifications).where(
+      sql`${incidentNotifications.incidentId} IN (SELECT id FROM incident_cases WHERE tenant_id = ${id})`
+    );
+    await db.delete(incidentCases).where(eq(incidentCases.tenantId, id));
+    await db.delete(tasks).where(eq(tasks.tenantId, id));
+    await db.delete(controls).where(eq(controls.tenantId, id));
+    await db.delete(suppliers).where(eq(suppliers.tenantId, id));
+    await db.delete(riskItems).where(eq(riskItems.tenantId, id));
+    await db.delete(auditLogs).where(eq(auditLogs.tenantId, id));
+    await db.delete(inviteTokens).where(eq(inviteTokens.tenantId, id));
+    await db.delete(users).where(eq(users.tenantId, id));
+    await db.delete(tenants).where(eq(tenants.id, id));
   }
 
   async createUser(data: InsertUser): Promise<User> {
@@ -534,6 +560,9 @@ export class DatabaseStorage implements IStorage {
     const allIncidentsList = await db.select().from(incidentCases);
     const allEvidenceList = await db.select().from(evidenceItems);
     const allResponsesList = await db.select().from(assessmentResponses);
+    const allAssessmentsList = await db.select().from(assessments);
+    const allSuppliersList = await db.select().from(suppliers);
+    const allRisksList = await db.select().from(riskItems);
 
     const statusCounts = { NOT_STARTED: 0, IN_PROGRESS: 0, IMPLEMENTED: 0, VERIFIED: 0 };
     for (const r of allResponsesList) {
@@ -546,47 +575,113 @@ export class DatabaseStorage implements IStorage {
     ).length;
     const avgComplianceScore = totalResponses > 0 ? Math.round((implementedTotal / totalResponses) * 100) : 0;
 
+    const maturitySum = allResponsesList.reduce((sum, r) => sum + r.maturityLevel, 0);
+    const avgMaturity = totalResponses > 0 ? parseFloat((maturitySum / totalResponses).toFixed(2)) : 0;
+
     const overdueTasksCount = allTasksList.filter(
       (t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "DONE"
     ).length;
+    const completedTasksCount = allTasksList.filter(t => t.status === "DONE").length;
     const openIncidentsCount = allIncidentsList.filter((i) => i.status !== "CLOSED").length;
+    const criticalIncidents = allIncidentsList.filter(i => i.severity === "CRITICAL" && i.status !== "CLOSED").length;
+
+    const activeTenants = allTenants.filter(t => (t as any).status === "active" || !(t as any).status).length;
+    const suspendedTenants = allTenants.filter(t => (t as any).status === "suspended").length;
 
     const sectorMap: Record<string, number> = {};
     for (const t of allTenants) {
       sectorMap[t.sector] = (sectorMap[t.sector] || 0) + 1;
     }
 
+    const entityTypeMap: Record<string, number> = {};
+    for (const t of allTenants) {
+      const et = t.entityType || "unknown";
+      entityTypeMap[et] = (entityTypeMap[et] || 0) + 1;
+    }
+
+    const roleMap: Record<string, number> = {};
+    for (const u of allUsers) {
+      roleMap[u.role] = (roleMap[u.role] || 0) + 1;
+    }
+
+    const taskStatusMap: Record<string, number> = {};
+    for (const t of allTasksList) {
+      taskStatusMap[t.status] = (taskStatusMap[t.status] || 0) + 1;
+    }
+
     const tenantSummaries = await Promise.all(
       allTenants.map(async (t) => {
         const tenantUsers = allUsers.filter((u) => u.tenantId === t.id);
+        const tenantAssessments = allAssessmentsList.filter(a => a.tenantId === t.id);
+        const tenantTasks = allTasksList.filter(tk => tk.tenantId === t.id);
+        const tenantIncidents = allIncidentsList.filter(i => i.tenantId === t.id);
+        const tenantEvidence = allEvidenceList.filter(e => e.tenantId === t.id);
         const dashData = await this.getDashboardData(t.id);
         return {
           id: t.id,
           name: t.name,
           sector: t.sector,
+          entityType: t.entityType,
+          status: (t as any).status || "active",
           complianceScore: dashData.complianceScore,
+          maturityAvg: dashData.maturityAverage,
           taskCount: dashData.activeTasks,
           userCount: tenantUsers.length,
+          assessmentCount: tenantAssessments.length,
+          incidentCount: tenantIncidents.length,
+          evidenceCount: tenantEvidence.length,
+          overdueTasks: tenantTasks.filter(tk => tk.dueDate && new Date(tk.dueDate) < new Date() && tk.status !== "DONE").length,
         };
       })
     );
 
+    const complianceDistribution = [
+      { range: "0-25%", count: tenantSummaries.filter(t => t.complianceScore <= 25).length },
+      { range: "26-50%", count: tenantSummaries.filter(t => t.complianceScore > 25 && t.complianceScore <= 50).length },
+      { range: "51-75%", count: tenantSummaries.filter(t => t.complianceScore > 50 && t.complianceScore <= 75).length },
+      { range: "76-100%", count: tenantSummaries.filter(t => t.complianceScore > 75).length },
+    ];
+
     return {
       totalTenants: allTenants.length,
+      activeTenants,
+      suspendedTenants,
       totalUsers: allUsers.length,
+      activeUsers: allUsers.filter(u => u.isActive).length,
       avgComplianceScore,
+      avgMaturity,
       overdueTasksCount,
+      completedTasksCount,
+      totalTasks: allTasksList.length,
       openIncidentsCount,
+      criticalIncidents,
+      totalIncidents: allIncidentsList.length,
       evidenceCount: allEvidenceList.length,
+      totalAssessments: allAssessmentsList.length,
+      totalSuppliers: allSuppliersList.length,
+      totalRisks: allRisksList.length,
       statusDistribution: [
         { name: "Not Started", value: statusCounts.NOT_STARTED, color: "#6b7280" },
         { name: "In Progress", value: statusCounts.IN_PROGRESS, color: "#3b82f6" },
         { name: "Implemented", value: statusCounts.IMPLEMENTED, color: "#22c55e" },
         { name: "Verified", value: statusCounts.VERIFIED, color: "#8b5cf6" },
       ],
+      complianceDistribution,
+      entityTypeBreakdown: Object.entries(entityTypeMap).map(([type, count]) => ({
+        type: type.charAt(0).toUpperCase() + type.slice(1),
+        count,
+      })),
+      roleBreakdown: Object.entries(roleMap).map(([role, count]) => ({
+        role: role.replace(/_/g, " "),
+        count,
+      })),
+      taskStatusBreakdown: Object.entries(taskStatusMap).map(([status, count]) => ({
+        status: status.replace(/_/g, " "),
+        count,
+      })),
       tenantSummaries,
       sectorBreakdown: Object.entries(sectorMap).map(([sector, count]) => ({
-        sector: sector.charAt(0).toUpperCase() + sector.slice(1),
+        sector: sector.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
         count,
       })),
     };

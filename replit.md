@@ -83,3 +83,9 @@ All routes prefixed with `/api/`:
 - 2026-02-08: Reports page, onboarding wizard, admin CSV export
 - 2026-02-08: Company logo (Tools of Tech) integrated
 - 2026-02-08: Fixed CSV export credentials, registration redirect to onboarding, error handling
+- 2026-02-08: Assessment history API and dashboard trend charts (line chart, radar chart, assessment history table)
+- 2026-02-08: Platform admin sidebar restricted to Administration only (no Compliance section)
+- 2026-02-08: Separate AdminRouter/TenantRouter with role-based routing
+- 2026-02-08: Tenant management: add, suspend/reactivate, delete tenants with cascading data removal
+- 2026-02-08: Tenant status field (active/suspended) with login blocking for suspended tenants
+- 2026-02-08: Enhanced admin analytics: 8 KPI cards, compliance distribution, entity type breakdown, task status, role breakdown, sortable tenant overview table

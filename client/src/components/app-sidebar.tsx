@@ -85,30 +85,32 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Compliance</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {tenantMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      item.url === "/"
-                        ? location === "/"
-                        : location.startsWith(item.url)
-                    }
-                  >
-                    <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {!isPlatformAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Compliance</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {tenantMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        item.url === "/"
+                          ? location === "/"
+                          : location.startsWith(item.url)
+                      }
+                    >
+                      <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {isPlatformAdmin && (
           <SidebarGroup>

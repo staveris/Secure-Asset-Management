@@ -112,6 +112,7 @@ export const tenants = pgTable("tenants", {
   entityType: text("entity_type").notNull().default("essential"),
   country: text("country"),
   applicabilityProfile: jsonb("applicability_profile").$type<Record<string, boolean>>(),
+  status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
