@@ -21,7 +21,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
@@ -404,18 +403,34 @@ export default function AssessmentDetail({ id }: { id: string }) {
                                   <span>Maturity Level</span>
                                   <span className="font-medium">{response.maturityLevel}/5 - {maturityLabels[response.maturityLevel]}</span>
                                 </Label>
-                                <div className="pt-1">
-                                  <MaturityBar value={response.maturityLevel} />
+                                <div className="flex gap-1 pt-1" data-testid={`maturity-buttons-${response.id}`}>
+                                  {[0, 1, 2, 3, 4, 5].map((level) => {
+                                    const isActive = response.maturityLevel === level;
+                                    const isFilled = level <= response.maturityLevel && level > 0;
+                                    const fillColor = level >= 4 ? "bg-green-500 text-white" : level >= 3 ? "bg-blue-500 text-white" : level >= 2 ? "bg-yellow-500 text-white" : level >= 1 ? "bg-orange-500 text-white" : "";
+                                    return (
+                                      <button
+                                        key={level}
+                                        type="button"
+                                        onClick={() => updateMutation.mutate({ responseId: response.id, maturityLevel: level })}
+                                        className={`flex-1 h-8 rounded-md text-xs font-medium border transition-all ${
+                                          isActive
+                                            ? `${fillColor || "bg-muted"} ring-2 ring-offset-1 ring-primary/50`
+                                            : isFilled
+                                              ? `${fillColor} opacity-70`
+                                              : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                                        }`}
+                                        data-testid={`button-maturity-${response.id}-${level}`}
+                                      >
+                                        {level}
+                                      </button>
+                                    );
+                                  })}
                                 </div>
-                                <Slider
-                                  value={[response.maturityLevel]}
-                                  max={5}
-                                  step={1}
-                                  onValueCommit={(val) =>
-                                    updateMutation.mutate({ responseId: response.id, maturityLevel: val[0] })
-                                  }
-                                  data-testid={`slider-maturity-${response.id}`}
-                                />
+                                <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
+                                  <span>None</span>
+                                  <span>Optimized</span>
+                                </div>
                               </div>
                               <div className="space-y-1.5">
                                 <Label className="text-xs">Evidence Confidence</Label>
