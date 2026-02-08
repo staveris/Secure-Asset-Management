@@ -11,19 +11,20 @@ interface EmailConfig {
 }
 
 async function getEmailConfig(): Promise<EmailConfig | null> {
-  const settings = await db.select().from(platformSettings);
-  const settingsMap: Record<string, string> = {};
-  for (const s of settings) {
-    settingsMap[s.key] = s.value;
+  try {
+    const [configRow] = await db.select().from(platformSettings).where(eq(platformSettings.key, "email_config"));
+    if (!configRow) return null;
+    const config = JSON.parse(configRow.value);
+    if (!config.provider || !config.apiKey || !config.fromAddress) return null;
+    return {
+      provider: config.provider,
+      apiKey: config.apiKey,
+      fromEmail: config.fromAddress,
+      fromName: config.fromName || "NIS2 Platform",
+    };
+  } catch {
+    return null;
   }
-
-  const provider = settingsMap["email_provider"];
-  const apiKey = settingsMap["email_api_key"];
-  const fromEmail = settingsMap["email_from_address"];
-  const fromName = settingsMap["email_from_name"] || "NIS2 Platform";
-
-  if (!provider || !apiKey || !fromEmail) return null;
-  return { provider, apiKey, fromEmail, fromName };
 }
 
 export function generateVerificationToken(): string {

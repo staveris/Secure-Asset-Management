@@ -24,7 +24,9 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import AdminTenants from "@/pages/admin-tenants";
 import AdminRequirements from "@/pages/admin-requirements";
 import AdminAuditLog from "@/pages/admin-audit-log";
+import AdminEmailSettings from "@/pages/admin-email-settings";
 import Onboarding from "@/pages/onboarding";
+import VerifyEmail from "@/pages/verify-email";
 import UsersPage from "@/pages/users";
 import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
@@ -36,6 +38,7 @@ function AdminRouter() {
       <Route path="/admin/tenants" component={AdminTenants} />
       <Route path="/admin/requirements" component={AdminRequirements} />
       <Route path="/admin/audit-log" component={AdminAuditLog} />
+      <Route path="/admin/email-settings" component={AdminEmailSettings} />
       <Route path="/settings" component={SettingsPage} />
       <Route><Redirect to="/admin" /></Route>
     </Switch>
@@ -76,6 +79,10 @@ function AppContent() {
         </div>
       </div>
     );
+  }
+
+  if (window.location.pathname === "/verify-email") {
+    return <VerifyEmail />;
   }
 
   if (!user) {

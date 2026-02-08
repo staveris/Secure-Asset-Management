@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -142,6 +143,44 @@ export default function Dashboard() {
 
   if (!data) return null;
 
+  const EmailBanner = () => {
+    const { user } = useAuth();
+    const [resending, setResending] = useState(false);
+    const [sent, setSent] = useState(false);
+    if (!user || user.emailVerified) return null;
+    return (
+      <Card className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 shrink-0" />
+              <div>
+                <p className="text-sm font-medium" data-testid="text-email-verify-banner">Please verify your email address</p>
+                <p className="text-xs text-muted-foreground">Check your inbox for a verification link, or request a new one.</p>
+              </div>
+            </div>
+            <button
+              className="text-sm text-primary underline hover:no-underline disabled:opacity-50"
+              disabled={resending || sent}
+              data-testid="button-resend-verification"
+              onClick={async () => {
+                setResending(true);
+                try {
+                  await fetch("/api/auth/resend-verification", { method: "POST", credentials: "include" });
+                  setSent(true);
+                } finally {
+                  setResending(false);
+                }
+              }}
+            >
+              {sent ? "Verification email sent" : resending ? "Sending..." : "Resend verification email"}
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   const history = assessmentHistory || [];
   const latestAssessment = history.length > 0 ? history[history.length - 1] : null;
   const previousAssessment = history.length > 1 ? history[history.length - 2] : null;
@@ -230,6 +269,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6" data-testid="dashboard-page">
+      <EmailBanner />
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">Compliance Dashboard</h1>
         <p className="text-muted-foreground mt-1">Overview of your NIS2 readiness status</p>

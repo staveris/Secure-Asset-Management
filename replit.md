@@ -93,3 +93,8 @@ All routes prefixed with `/api/`:
 - 2026-02-08: Evidence upload linked to real entities (assessments, tasks, incidents, controls) via dropdown selection
 - 2026-02-08: Assessment detail page shows evidence per control with upload shortcut to Evidence Vault
 - 2026-02-08: Evidence search and type filtering in Evidence Vault
+- 2026-02-08: Email verification system: verify-email page, dashboard banner, resend verification endpoint
+- 2026-02-08: Simplified registration form (removed NIS2 fields, added password strength indicator)
+- 2026-02-08: Admin email settings page (SendGrid/Resend provider configuration)
+- 2026-02-08: Enhanced admin analytics: per-country breakdown chart, annex classification (Annex I/II) chart
+- 2026-02-08: Email service consolidated to use JSON config from platform_settings table

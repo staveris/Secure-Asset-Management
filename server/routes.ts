@@ -206,6 +206,7 @@ export async function registerRoutes(
         role: user.role,
         tenantId: user.tenantId,
         tenantName: tenant?.name || null,
+        emailVerified: user.emailVerified,
       });
     } catch (err: any) {
       if (err instanceof z.ZodError) {
@@ -343,6 +344,7 @@ export async function registerRoutes(
       tenantEntityType: tenant?.entityType || null,
       tenantCountry: tenant?.country || null,
       isActive: user.isActive,
+      emailVerified: user.emailVerified,
       createdAt: user.createdAt,
     });
   });
@@ -947,7 +949,12 @@ export async function registerRoutes(
         return res.json({ provider: null, fromAddress: null, configured: false });
       }
       const config = JSON.parse(settings.value);
-      res.json({ ...config, configured: !!config.provider });
+      res.json({
+        provider: config.provider || null,
+        fromAddress: config.fromAddress || null,
+        hasApiKey: !!config.apiKey,
+        configured: !!(config.provider && config.apiKey && config.fromAddress),
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -956,8 +963,16 @@ export async function registerRoutes(
   app.put("/api/admin/email-settings", requirePlatformAdmin, async (req, res) => {
     try {
       const { provider, apiKey, fromAddress } = req.body;
-      const config = JSON.stringify({ provider, apiKey, fromAddress });
       const existing = await db.select().from(platformSettings).where(eq(platformSettings.key, "email_config"));
+      let existingApiKey = "";
+      if (existing.length > 0) {
+        try {
+          const prev = JSON.parse(existing[0].value);
+          existingApiKey = prev.apiKey || "";
+        } catch {}
+      }
+      const finalApiKey = apiKey || existingApiKey;
+      const config = JSON.stringify({ provider, apiKey: finalApiKey, fromAddress });
       if (existing.length > 0) {
         await db.update(platformSettings).set({ value: config }).where(eq(platformSettings.key, "email_config"));
       } else {

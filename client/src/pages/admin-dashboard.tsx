@@ -81,6 +81,25 @@ interface AdminDashboardData {
   sectorBreakdown: { sector: string; count: number }[];
 }
 
+interface AnalyticsData {
+  totalTenants: number;
+  sectorBreakdown: Record<string, number>;
+  countryBreakdown: Record<string, number>;
+  entityTypeBreakdown: Record<string, number>;
+  sectorGroupBreakdown: Record<string, number>;
+  tenantDetails: {
+    id: number;
+    name: string;
+    sector: string;
+    country: string | null;
+    entityType: string;
+    sectorGroup: string;
+    status: string;
+    complianceScore: number;
+    userCount: number;
+  }[];
+}
+
 const K_ANONYMITY_THRESHOLD = 5;
 
 function applyKAnonymity(data: { sector: string; count: number }[]): { sector: string; count: number }[] {
@@ -108,12 +127,19 @@ const TASK_COLORS: Record<string, string> = {
   "BLOCKED": "#ef4444",
 };
 
+const COUNTRY_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#22c55e", "#f59e0b", "#ef4444", "#ec4899", "#84cc16", "#14b8a6", "#f97316"];
+const SECTOR_GROUP_COLORS = ["#6366f1", "#0ea5e9"];
+
 export default function AdminDashboard() {
   const [isExporting, setIsExporting] = useState(false);
   const [sortBy, setSortBy] = useState<"compliance" | "maturity" | "name">("compliance");
   const { toast } = useToast();
   const { data, isLoading } = useQuery<AdminDashboardData>({
     queryKey: ["/api/admin/dashboard"],
+  });
+
+  const { data: analytics } = useQuery<AnalyticsData>({
+    queryKey: ["/api/admin/analytics"],
   });
 
   const handleExportCSV = async () => {
@@ -350,6 +376,80 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {analytics && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <h3 className="font-semibold">Tenants by Country</h3>
+              <p className="text-xs text-muted-foreground">Geographic distribution of registered organizations</p>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const countryData = Object.entries(analytics.countryBreakdown)
+                  .map(([country, count]) => ({ country, count }))
+                  .sort((a, b) => b.count - a.count);
+                return countryData.length > 0 ? (
+                  <>
+                    <div className="h-56" data-testid="chart-country-breakdown">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={countryData} layout="vertical">
+                          <XAxis type="number" fontSize={11} allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                          <YAxis dataKey="country" type="category" fontSize={10} width={120} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                          <Tooltip />
+                          <Bar dataKey="count" name="Tenants" radius={[0, 4, 4, 0]} barSize={18}>
+                            {countryData.map((_, i) => <Cell key={i} fill={COUNTRY_COLORS[i % COUNTRY_COLORS.length]} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No country data available</p>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <h3 className="font-semibold">Annex Classification</h3>
+              <p className="text-xs text-muted-foreground">Distribution by NIS2 Annex I (high criticality) vs Annex II (other critical)</p>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const sgData = Object.entries(analytics.sectorGroupBreakdown)
+                  .map(([group, count]) => ({ group, count }));
+                return sgData.length > 0 ? (
+                  <>
+                    <div className="h-56" data-testid="chart-sector-group-breakdown">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={sgData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={4} dataKey="count" nameKey="group">
+                            {sgData.map((_, i) => <Cell key={i} fill={SECTOR_GROUP_COLORS[i % SECTOR_GROUP_COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-wrap gap-3 justify-center">
+                      {sgData.map((item, i) => (
+                        <div key={item.group} className="flex items-center gap-2 text-xs">
+                          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: SECTOR_GROUP_COLORS[i % SECTOR_GROUP_COLORS.length] }} />
+                          <span className="text-muted-foreground">{item.group.replace(/_/g, " ")}</span>
+                          <span className="font-medium">{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No sector group data available</p>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">

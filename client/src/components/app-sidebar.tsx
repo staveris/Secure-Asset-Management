@@ -32,6 +32,7 @@ import {
   ChevronDown,
   Users,
   Settings,
+  Mail,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -58,6 +59,7 @@ const adminMenuItems = [
   { title: "Tenants", url: "/admin/tenants", icon: Building2 },
   { title: "Requirements", url: "/admin/requirements", icon: BookOpen },
   { title: "Audit Log", url: "/admin/audit-log", icon: ScrollText },
+  { title: "Email Settings", url: "/admin/email-settings", icon: Mail },
 ];
 
 export function AppSidebar() {
