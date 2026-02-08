@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight, Building2, Lock, Mail, User, Check, X, Shield, FileCheck, AlertTriangle, BarChart3 } from "lucide-react";
+import { ArrowRight, Building2, Lock, Mail, User, Check, X, Shield, FileCheck, AlertTriangle, BarChart3, Globe, CheckCircle2 } from "lucide-react";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
 import faviconLogo from "@assets/browser_1770569283054.png";
 
@@ -61,18 +61,25 @@ const features = [
   {
     icon: AlertTriangle,
     title: "Incident Management",
-    description: "EU reporting timeline tracking with early warning, notification & final report workflows",
+    description: "EU reporting timeline tracking with early warning & final report workflows",
   },
   {
     icon: FileCheck,
     title: "Evidence & Audit",
-    description: "Secure evidence vault with smart linking, file uploads, and print-ready compliance reports",
+    description: "Secure evidence vault with smart linking and print-ready compliance reports",
   },
   {
     icon: BarChart3,
     title: "Compliance Analytics",
-    description: "Real-time dashboards, trend analysis, and maturity scoring across your organization",
+    description: "Real-time dashboards, trend analysis, and maturity scoring",
   },
+];
+
+const stats = [
+  { value: "27", label: "EU Member States" },
+  { value: "18", label: "NIS2 Sectors" },
+  { value: "41", label: "Control Objectives" },
+  { value: "100%", label: "Audit Ready" },
 ];
 
 export default function AuthPage() {
@@ -144,85 +151,119 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row" data-testid="auth-page">
-      {/* Left branded panel */}
-      <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden bg-neutral-950">
-        {/* Geometric pattern overlay */}
-        <div className="absolute inset-0 opacity-[0.04]" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 17.32v34.64L30 60 0 51.96V17.32z' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E")`,
-          backgroundSize: '60px 60px',
-        }} />
-        {/* Gradient accents */}
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-white/[0.02] blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-white/[0.03] blur-3xl translate-y-1/2 -translate-x-1/2" />
+    <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 dark:bg-neutral-950" data-testid="auth-page">
+      {/* Left branded panel - gradient instead of solid black */}
+      <div className="hidden lg:flex lg:w-[54%] relative overflow-hidden" style={{
+        background: "linear-gradient(135deg, #1e293b 0%, #334155 40%, #475569 100%)",
+      }}>
+        {/* Decorative circles */}
+        <div className="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full border border-white/[0.06]" />
+        <div className="absolute -top-20 -left-20 w-[700px] h-[700px] rounded-full border border-white/[0.04]" />
+        <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] rounded-full border border-white/[0.05]" />
+        <div className="absolute top-1/4 right-10 w-[300px] h-[300px] rounded-full bg-sky-500/[0.06] blur-3xl" />
+        <div className="absolute bottom-1/4 left-10 w-[250px] h-[250px] rounded-full bg-indigo-500/[0.05] blur-3xl" />
 
-        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          {/* Top: Logo & branding */}
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <img src={faviconLogo} alt="Tools of Tech" className="h-10 w-10 invert" data-testid="img-hero-icon" />
-              <div>
-                <span className="text-white text-lg font-semibold tracking-wide">TOOLS OF TECH</span>
-                <span className="block text-neutral-500 text-xs tracking-[0.2em] uppercase">Innovation & Strategy</span>
-              </div>
+        {/* Grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: '40px 40px',
+        }} />
+
+        <div className="relative z-10 flex flex-col justify-between p-10 xl:p-14 w-full">
+          {/* Top: Logo */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-11 h-11 rounded-lg bg-white/10 backdrop-blur-sm">
+              <img src={faviconLogo} alt="Tools of Tech" className="h-7 w-7 invert" data-testid="img-hero-icon" />
+            </div>
+            <div>
+              <span className="text-white font-semibold tracking-wide">TOOLS OF TECH</span>
+              <span className="block text-slate-400 text-[10px] tracking-[0.2em] uppercase">Innovation & Strategy</span>
             </div>
           </div>
 
           {/* Center: Hero content */}
-          <div className="flex-1 flex flex-col justify-center max-w-lg">
-            <div className="mb-2">
-              <span className="inline-block px-3 py-1 text-xs font-medium tracking-wider uppercase text-neutral-400 border border-neutral-800 rounded-full">
+          <div className="flex-1 flex flex-col justify-center max-w-xl py-8">
+            <div className="flex items-center gap-2 mb-5">
+              <Globe className="w-4 h-4 text-sky-400" />
+              <span className="text-sky-400 text-xs font-medium tracking-wider uppercase">
                 EU Directive 2022/2555
               </span>
             </div>
-            <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-4 tracking-tight">
-              NIS2 Compliance<br />
-              <span className="text-neutral-400">Made Simple</span>
+            <h1 className="text-4xl xl:text-[2.75rem] font-bold text-white leading-[1.15] mb-4 tracking-tight">
+              Your Path to<br />
+              NIS2 Compliance
             </h1>
-            <p className="text-neutral-400 text-lg leading-relaxed mb-10">
-              The complete platform for assessing, tracking, and demonstrating your organization's cybersecurity readiness under the NIS2 Directive.
+            <p className="text-slate-300 text-base xl:text-lg leading-relaxed mb-8 max-w-md">
+              Assess, track, and demonstrate your organization's cybersecurity readiness with a platform built for the NIS2 Directive.
             </p>
 
-            {/* Feature grid */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Stats row */}
+            <div className="flex gap-6 mb-10">
+              {stats.map((stat) => (
+                <div key={stat.label}>
+                  <div className="text-2xl font-bold text-white">{stat.value}</div>
+                  <div className="text-slate-400 text-xs mt-0.5">{stat.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Feature list */}
+            <div className="grid grid-cols-2 gap-3">
               {features.map((feature) => (
-                <div key={feature.title} className="group p-4 rounded-lg border border-neutral-800/60 bg-white/[0.02]">
-                  <feature.icon className="w-5 h-5 text-neutral-500 mb-2.5" />
-                  <h3 className="text-white text-sm font-medium mb-1">{feature.title}</h3>
-                  <p className="text-neutral-500 text-xs leading-relaxed">{feature.description}</p>
+                <div key={feature.title} className="p-4 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/[0.08]">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                      <feature.icon className="w-4 h-4 text-sky-400" />
+                    </div>
+                    <h3 className="text-white text-sm font-medium">{feature.title}</h3>
+                  </div>
+                  <p className="text-slate-400 text-xs leading-relaxed">{feature.description}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Bottom: Trust indicators */}
-          <div className="flex items-center gap-6 text-neutral-600 text-xs">
-            <span>Multi-tenant SaaS</span>
-            <span className="w-1 h-1 rounded-full bg-neutral-700" />
-            <span>GDPR Compliant</span>
-            <span className="w-1 h-1 rounded-full bg-neutral-700" />
-            <span>27 EU Member States</span>
+          {/* Bottom: Trust & compliance */}
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-2 text-slate-400 text-xs">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>GDPR Compliant</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-400 text-xs">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Multi-tenant</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-400 text-xs">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Encrypted & Secure</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Right form panel */}
-      <div className="flex-1 flex flex-col min-h-screen bg-background">
+      <div className="flex-1 flex flex-col min-h-screen">
         {/* Mobile header */}
-        <div className="lg:hidden flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-2">
-            <img src={faviconLogo} alt="Tools of Tech" className="h-7 w-7 dark:invert" data-testid="img-mobile-icon" />
-            <span className="font-semibold text-sm">NIS2 Platform</span>
+        <div className="lg:hidden flex items-center justify-between p-4 border-b bg-background">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
+              <img src={faviconLogo} alt="Tools of Tech" className="h-5 w-5 invert" data-testid="img-mobile-icon" />
+            </div>
+            <div>
+              <span className="font-semibold text-sm">NIS2 Platform</span>
+              <span className="block text-[10px] text-muted-foreground">by Tools of Tech</span>
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground px-2 py-0.5 border rounded-full">by Tools of Tech</span>
         </div>
 
-        <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+        <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-background">
           <div className="w-full max-w-[420px]">
             {/* Form header */}
             <div className="mb-8">
-              <div className="hidden lg:flex items-center gap-2 mb-6">
-                <img src={faviconLogo} alt="" className="h-6 w-6 dark:invert" />
+              <div className="hidden lg:flex items-center gap-2.5 mb-8">
+                <div className="w-8 h-8 rounded-lg bg-slate-800 dark:bg-slate-200 flex items-center justify-center">
+                  <img src={faviconLogo} alt="" className="h-5 w-5 dark:invert-0 invert-0 dark:brightness-0" style={{ filter: "invert(1)" }} />
+                </div>
                 <span className="text-xs text-muted-foreground font-medium tracking-wider uppercase">NIS2 Readiness Platform</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight" data-testid="text-form-title">
@@ -231,7 +272,7 @@ export default function AuthPage() {
               <p className="text-muted-foreground mt-1.5 text-sm">
                 {isLogin
                   ? "Sign in to continue to your compliance dashboard"
-                  : "Create your account and start your NIS2 compliance journey"
+                  : "Create your account and begin your NIS2 compliance journey"
                 }
               </p>
             </div>
@@ -248,7 +289,7 @@ export default function AuthPage() {
                       placeholder="you@company.com"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 bg-white dark:bg-neutral-900"
                       required
                       data-testid="input-login-email"
                     />
@@ -264,17 +305,22 @@ export default function AuthPage() {
                       placeholder="Enter your password"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 bg-white dark:bg-neutral-900"
                       required
                       data-testid="input-login-password"
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 no-default-hover-elevate" disabled={loading} data-testid="button-login">
+                <Button
+                  type="submit"
+                  className="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-300 text-white no-default-hover-elevate"
+                  disabled={loading}
+                  data-testid="button-login"
+                >
                   {loading ? "Signing in..." : "Sign in"}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
-                <div className="text-center pt-2">
+                <div className="text-center pt-3">
                   <button
                     type="button"
                     onClick={() => setIsLogin(false)}
@@ -296,7 +342,7 @@ export default function AuthPage() {
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
                       placeholder="Your full name"
-                      className="pl-10"
+                      className="pl-10 bg-white dark:bg-neutral-900"
                       required
                       data-testid="input-reg-name"
                     />
@@ -312,7 +358,7 @@ export default function AuthPage() {
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       placeholder="you@company.com"
-                      className="pl-10"
+                      className="pl-10 bg-white dark:bg-neutral-900"
                       required
                       data-testid="input-reg-email"
                     />
@@ -328,7 +374,7 @@ export default function AuthPage() {
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
                       placeholder="Create a strong password"
-                      className="pl-10"
+                      className="pl-10 bg-white dark:bg-neutral-900"
                       required
                       data-testid="input-reg-password"
                     />
@@ -345,7 +391,7 @@ export default function AuthPage() {
                       value={regConfirmPassword}
                       onChange={(e) => setRegConfirmPassword(e.target.value)}
                       placeholder="Re-enter your password"
-                      className="pl-10"
+                      className="pl-10 bg-white dark:bg-neutral-900"
                       required
                       data-testid="input-reg-confirm-password"
                     />
@@ -366,18 +412,23 @@ export default function AuthPage() {
                       value={regCompany}
                       onChange={(e) => setRegCompany(e.target.value)}
                       placeholder="Your company name"
-                      className="pl-10"
+                      className="pl-10 bg-white dark:bg-neutral-900"
                       required
                       data-testid="input-reg-company"
                     />
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 no-default-hover-elevate" disabled={loading || !isPasswordValid || !passwordsMatch} data-testid="button-register">
+                <Button
+                  type="submit"
+                  className="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-300 text-white no-default-hover-elevate"
+                  disabled={loading || !isPasswordValid || !passwordsMatch}
+                  data-testid="button-register"
+                >
                   {loading ? "Creating account..." : "Create account"}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
-                <div className="text-center pt-2">
+                <div className="text-center pt-3">
                   <button
                     type="button"
                     onClick={() => setIsLogin(true)}
@@ -393,7 +444,7 @@ export default function AuthPage() {
         </div>
 
         {/* Footer */}
-        <div className="p-4 text-center border-t">
+        <div className="p-4 text-center border-t bg-background">
           <p className="text-xs text-muted-foreground">
             Powered by <span className="font-medium">Tools of Tech</span> &middot; Innovation & Strategy
           </p>
