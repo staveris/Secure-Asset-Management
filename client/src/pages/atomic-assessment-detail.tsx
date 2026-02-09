@@ -47,7 +47,7 @@ interface AtomicAssessmentDetail {
 }
 
 interface AtomicControlsPage {
-  controls: AtomicControl[];
+  data: AtomicControl[];
   total: number;
   page: number;
   limit: number;
@@ -233,7 +233,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
   });
 
   const { data: controlsData, isLoading: controlsLoading } = useQuery<AtomicControlsPage>({
-    queryKey: ["/api/atomic-controls?page=1&limit=200"],
+    queryKey: ["/api/atomic-controls?page=1&limit=500"],
   });
 
   const generateTasksMutation = useMutation({
@@ -264,7 +264,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
     },
   });
 
-  const controls = controlsData?.controls || [];
+  const controls = controlsData?.data || [];
   const responses = assessment?.responses || [];
 
   const responseMap = useMemo(() => {

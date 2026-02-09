@@ -2290,12 +2290,19 @@ export async function registerRoutes(
       if (!enabled) return res.status(403).json({ message: "Not enabled" });
     }
     const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
     const offset = (page - 1) * limit;
     const sourceKey = req.query.sourceKey as string | undefined;
     const domain = req.query.domain as string | undefined;
     const search = req.query.search as string | undefined;
-    const result = await storage.getAtomicControlsPaginated(offset, limit, sourceKey, domain, search);
+
+    let tenantSubsector: string | null | undefined = undefined;
+    if (user.role !== "PLATFORM_ADMIN" && user.tenantId) {
+      const tenant = await storage.getTenant(user.tenantId);
+      tenantSubsector = tenant?.subsector || null;
+    }
+
+    const result = await storage.getAtomicControlsPaginated(offset, limit, sourceKey, domain, search, tenantSubsector);
     res.json({ ...result, page, limit });
   });
 

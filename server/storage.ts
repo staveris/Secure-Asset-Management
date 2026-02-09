@@ -203,7 +203,7 @@ export interface IStorage {
   getAtomicControlByControlId(controlId: string): Promise<AtomicControl | undefined>;
   getAllAtomicControls(): Promise<AtomicControl[]>;
   getAtomicControlsBySource(sourceKey: string): Promise<AtomicControl[]>;
-  getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string): Promise<{ data: AtomicControl[]; total: number; stats: { totalAll: number; activeAll: number; nis2All: number; cirAll: number } }>;
+  getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string, tenantSubsector?: string | null): Promise<{ data: AtomicControl[]; total: number; stats: { totalAll: number; activeAll: number; nis2All: number; cirAll: number } }>;
   updateAtomicControl(id: number, data: Partial<InsertAtomicControl>): Promise<AtomicControl | undefined>;
 
   createControlPackVersion(data: InsertControlPackVersion): Promise<ControlPackVersion>;
@@ -983,8 +983,30 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(atomicControls).where(eq(atomicControls.sourceKey, sourceKey));
   }
 
-  async getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string): Promise<{ data: AtomicControl[]; total: number; stats: { totalAll: number; activeAll: number; nis2All: number; cirAll: number } }> {
+  async getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string, tenantSubsector?: string | null): Promise<{ data: AtomicControl[]; total: number; stats: { totalAll: number; activeAll: number; nis2All: number; cirAll: number } }> {
+    const CIR_SUBSECTOR_MAP: Record<string, string> = {
+      "DNS service providers": "DNS",
+      "TLD name registries": "TLD",
+      "Cloud computing service providers": "CLOUD",
+      "Data centre service providers": "DC",
+      "Content delivery network providers": "CDN",
+      "Trust service providers": "TRUST",
+      "Managed service providers": "MSP",
+      "Managed security service providers": "MSSP",
+      "Online marketplaces": "ONLINE_PLATFORM",
+      "Online search engines": "ONLINE_PLATFORM",
+      "Social networking services platforms": "ONLINE_PLATFORM",
+    };
+
+    const isTenantFiltering = tenantSubsector !== undefined;
+    const tenantCirCode = tenantSubsector ? CIR_SUBSECTOR_MAP[tenantSubsector] || null : null;
+    const excludeCir = isTenantFiltering && !tenantCirCode;
+
     const conditions: any[] = [];
+    conditions.push(eq(atomicControls.isActive, true));
+    if (excludeCir) {
+      conditions.push(sql`${atomicControls.sourceKey} != 'CIR_2024_2690'`);
+    }
     if (sourceKey) {
       conditions.push(eq(atomicControls.sourceKey, sourceKey));
     }
@@ -1006,12 +1028,18 @@ export class DatabaseStorage implements IStorage {
     const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(atomicControls).where(whereClause);
     const data = await db.select().from(atomicControls).where(whereClause).orderBy(asc(atomicControls.controlId)).offset(offset).limit(limit);
 
+    const statsConditions: any[] = [eq(atomicControls.isActive, true)];
+    if (excludeCir) {
+      statsConditions.push(sql`${atomicControls.sourceKey} != 'CIR_2024_2690'`);
+    }
+    const statsWhere = and(...statsConditions);
+
     const [globalStats] = await db.select({
       totalAll: sql<number>`count(*)`,
       activeAll: sql<number>`count(*) filter (where ${atomicControls.isActive} = true)`,
       nis2All: sql<number>`count(*) filter (where ${atomicControls.sourceKey} = 'NIS2_2022_2555')`,
       cirAll: sql<number>`count(*) filter (where ${atomicControls.sourceKey} = 'CIR_2024_2690')`,
-    }).from(atomicControls);
+    }).from(atomicControls).where(statsWhere);
 
     return {
       data,
