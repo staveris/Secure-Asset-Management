@@ -30,7 +30,6 @@ import {
   AlertTriangle,
   FileCheck,
   Download,
-  ShieldAlert,
   TrendingUp,
   CheckCircle,
   Ban,
@@ -100,23 +99,6 @@ interface AnalyticsData {
   }[];
 }
 
-const K_ANONYMITY_THRESHOLD = 5;
-
-function applyKAnonymity(data: { sector: string; count: number }[]): { sector: string; count: number }[] {
-  const safe: { sector: string; count: number }[] = [];
-  let otherCount = 0;
-  for (const item of data) {
-    if (item.count >= K_ANONYMITY_THRESHOLD) {
-      safe.push(item);
-    } else {
-      otherCount += item.count;
-    }
-  }
-  if (otherCount > 0) {
-    safe.push({ sector: "Other (aggregated)", count: otherCount });
-  }
-  return safe;
-}
 
 const COMPLIANCE_COLORS = ["#ef4444", "#f97316", "#3b82f6", "#22c55e"];
 const ENTITY_COLORS = ["#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
@@ -189,8 +171,7 @@ export default function AdminDashboard() {
     { label: "Suppliers & Risks", value: `${data.totalSuppliers} / ${data.totalRisks}`, sub: "suppliers / risk items", icon: Shield, color: "text-amber-600 dark:text-amber-400" },
   ];
 
-  const safeSectorBreakdown = applyKAnonymity(data.sectorBreakdown);
-  const hasAggregation = safeSectorBreakdown.some(s => s.sector === "Other (aggregated)");
+  const safeSectorBreakdown = data.sectorBreakdown;
 
   const sortedTenants = [...data.tenantSummaries].sort((a, b) => {
     if (sortBy === "compliance") return b.complianceScore - a.complianceScore;
@@ -285,16 +266,9 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <div>
-              <h3 className="font-semibold">Tenants by Sector</h3>
-              {hasAggregation && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                  <ShieldAlert className="w-3 h-3" />
-                  k-anonymity applied (threshold: {K_ANONYMITY_THRESHOLD})
-                </p>
-              )}
-            </div>
+          <CardHeader className="pb-2">
+            <h3 className="font-semibold">Tenants by Sector</h3>
+            <p className="text-xs text-muted-foreground">Distribution across NIS2 sectors</p>
           </CardHeader>
           <CardContent>
             <div className="h-56" data-testid="chart-sector-breakdown">
