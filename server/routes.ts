@@ -861,17 +861,17 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/auth/profile", requireAuth, async (req, res) => {
+  app.patch("/api/auth/profile", requirePlatformAdmin, async (req, res) => {
     try {
-      const user = await getAuthUser(req);
-      if (!user) return res.status(401).json({ message: "Not authenticated" });
+      const adminUser = await getAuthUser(req);
+      if (!adminUser) return res.status(401).json({ message: "Not authenticated" });
 
       const { fullName, email } = req.body;
       const updates: any = {};
       if (fullName !== undefined && fullName.trim()) updates.fullName = fullName.trim();
       if (email !== undefined && email.trim()) {
         const existing = await storage.getUserByEmail(email.trim());
-        if (existing && existing.id !== user.id) {
+        if (existing && existing.id !== adminUser.id) {
           return res.status(400).json({ message: "Email is already in use" });
         }
         updates.email = email.trim();
@@ -880,7 +880,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "No changes provided" });
       }
 
-      await storage.updateUserProfile(user.id, updates);
+      await storage.updateUserProfile(adminUser.id, updates);
       res.json({ message: "Profile updated successfully" });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -1878,18 +1878,30 @@ export async function registerRoutes(
     if (!targetUser || targetUser.tenantId !== tenantId) {
       return res.status(404).json({ message: "User not found in this tenant" });
     }
-    const { fullAccessEnabled } = req.body;
+    const { fullAccessEnabled, fullName, email } = req.body;
     const updates: any = {};
     if (fullAccessEnabled !== undefined) updates.fullAccessEnabled = fullAccessEnabled;
+    if (fullName !== undefined && fullName.trim()) updates.fullName = fullName.trim();
+    if (email !== undefined && email.trim()) {
+      const existing = await storage.getUserByEmail(email.trim());
+      if (existing && existing.id !== userId) {
+        return res.status(400).json({ message: "Email is already in use by another user" });
+      }
+      updates.email = email.trim();
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No changes provided" });
+    }
     const updated = await storage.updateUser(userId, updates);
     const adminUser = await getAuthUser(req);
+    const action = (fullName || email) ? "UPDATE_USER_PROFILE" : "UPDATE_USER_ACCESS";
     await storage.createAuditLog({
       tenantId,
       actorUserId: adminUser!.id,
-      action: "UPDATE_USER_ACCESS",
+      action,
       entityType: "USER",
       entityId: String(userId),
-      details: JSON.stringify({ fullAccessEnabled }),
+      details: JSON.stringify({ fullAccessEnabled, fullName, email }),
     });
     res.json(updated);
   });

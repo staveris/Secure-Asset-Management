@@ -37,7 +37,7 @@ import {
 import { Switch as SwitchUI } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom } from "lucide-react";
+import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom, Pencil } from "lucide-react";
 
 interface TenantInfo {
   id: number;
@@ -80,6 +80,9 @@ export default function AdminTenants() {
   const [deleteTarget, setDeleteTarget] = useState<TenantInfo | null>(null);
   const [newTenant, setNewTenant] = useState({ name: "", sector: "energy", entityType: "essential", country: "" });
   const [expandedTenant, setExpandedTenant] = useState<number | null>(null);
+  const [editUser, setEditUser] = useState<{ tenantId: number; user: TenantUser } | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
 
   const { data: tenants, isLoading } = useQuery<TenantInfo[]>({
     queryKey: ["/api/admin/tenants"],
@@ -122,6 +125,45 @@ export default function AdminTenants() {
       toast({ title: "Error", description: "Failed to update user access", variant: "destructive" });
     },
   });
+
+  const editUserProfileMutation = useMutation({
+    mutationFn: async ({ tenantId, userId, fullName, email }: { tenantId: number; userId: number; fullName: string; email: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/tenants/${tenantId}/users/${userId}`, { fullName, email });
+      return await res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/tenants/${vars.tenantId}/users`] });
+      toast({ title: "User profile updated", description: "The user's details have been saved." });
+      setEditUser(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleOpenEditUser = (tenantId: number, user: TenantUser) => {
+    setEditFullName(user.fullName);
+    setEditEmail(user.email);
+    setEditUser({ tenantId, user });
+  };
+
+  const handleSaveEditUser = () => {
+    if (!editUser) return;
+    if (!editFullName.trim()) {
+      toast({ title: "Validation", description: "Full name is required.", variant: "destructive" });
+      return;
+    }
+    if (!editEmail.trim() || !editEmail.includes("@")) {
+      toast({ title: "Validation", description: "A valid email address is required.", variant: "destructive" });
+      return;
+    }
+    editUserProfileMutation.mutate({
+      tenantId: editUser.tenantId,
+      userId: editUser.user.id,
+      fullName: editFullName.trim(),
+      email: editEmail.trim(),
+    });
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof newTenant) => {
@@ -436,6 +478,19 @@ export default function AdminTenants() {
                             {!u.fullAccessEnabled && (
                               <Badge variant="secondary" className="text-xs shrink-0">Restricted</Badge>
                             )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleOpenEditUser(tenant.id, u)}
+                                  data-testid={`admin-button-edit-user-${u.id}`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Edit user details</TooltipContent>
+                            </Tooltip>
                             {u.role !== "PLATFORM_ADMIN" && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -506,6 +561,56 @@ export default function AdminTenants() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!editUser} onOpenChange={(open) => !open && setEditUser(null)}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-edit-user">
+          <DialogHeader>
+            <DialogTitle>Edit User Details</DialogTitle>
+            <DialogDescription>
+              Update profile information for {editUser?.user.fullName}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="editFullName">Full Name</Label>
+              <Input
+                id="editFullName"
+                value={editFullName}
+                onChange={(e) => setEditFullName(e.target.value)}
+                placeholder="Enter full name"
+                data-testid="input-edit-user-fullname"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editEmail">Email Address</Label>
+              <Input
+                id="editEmail"
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                placeholder="Enter email address"
+                data-testid="input-edit-user-email"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Role</Label>
+              <Badge variant="secondary">{editUser?.user.role}</Badge>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditUser(null)} data-testid="button-cancel-edit-user">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEditUser}
+              disabled={editUserProfileMutation.isPending}
+              data-testid="button-save-edit-user"
+            >
+              {editUserProfileMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -10,14 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { User, KeyRound, Mail, Save, ShieldCheck, ShieldOff, Copy, CheckCircle2 } from "lucide-react";
+import { User, KeyRound, Mail, Save, ShieldCheck, ShieldOff, Copy, CheckCircle2, Info } from "lucide-react";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, isPlatformAdmin } = useAuth();
   const { toast } = useToast();
-
-  const [fullName, setFullName] = useState(user?.fullName || "");
-  const [email, setEmail] = useState(user?.email || "");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -29,20 +26,6 @@ export default function SettingsPage() {
   const [showDisable2FA, setShowDisable2FA] = useState(false);
   const [disablePassword, setDisablePassword] = useState("");
   const [copiedSecret, setCopiedSecret] = useState(false);
-
-  const profileMutation = useMutation({
-    mutationFn: async (data: { fullName?: string; email?: string }) => {
-      const res = await apiRequest("PATCH", "/api/auth/profile", data);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      toast({ title: "Profile Updated", description: "Your profile has been updated successfully." });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
 
   const passwordMutation = useMutation({
     mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
@@ -107,17 +90,6 @@ export default function SettingsPage() {
     },
   });
 
-  const handleSaveProfile = () => {
-    const updates: { fullName?: string; email?: string } = {};
-    if (fullName.trim() && fullName !== user?.fullName) updates.fullName = fullName.trim();
-    if (email.trim() && email !== user?.email) updates.email = email.trim();
-    if (Object.keys(updates).length === 0) {
-      toast({ title: "No Changes", description: "No changes detected.", variant: "destructive" });
-      return;
-    }
-    profileMutation.mutate(updates);
-  };
-
   const handleChangePassword = () => {
     if (!currentPassword) {
       toast({ title: "Required", description: "Please enter your current password.", variant: "destructive" });
@@ -148,7 +120,7 @@ export default function SettingsPage() {
     <div className="p-6 space-y-6 max-w-2xl" data-testid="settings-page">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Account Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your profile and security credentials</p>
+        <p className="text-muted-foreground mt-1">View your profile and manage security credentials</p>
       </div>
 
       <Card>
@@ -160,47 +132,36 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name</Label>
-            <Input
-              id="fullName"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Your full name"
-              data-testid="input-fullname"
-            />
+            <Label className="text-xs text-muted-foreground">Full Name</Label>
+            <p className="text-sm font-medium" data-testid="text-fullname">{user?.fullName || "—"}</p>
           </div>
 
+          <Separator />
+
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              data-testid="input-email"
-            />
+            <Label className="text-xs text-muted-foreground">Email Address</Label>
+            <p className="text-sm font-medium" data-testid="text-email">{user?.email || "—"}</p>
           </div>
+
+          <Separator />
 
           <div className="flex items-center gap-4 flex-wrap">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Role</Label>
-              <Badge variant="secondary" data-testid="badge-role">{user?.role}</Badge>
+              <div><Badge variant="secondary" data-testid="badge-role">{user?.role}</Badge></div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Organization</Label>
-              <Badge variant="outline" data-testid="badge-org">{(user as any)?.tenantName || "N/A"}</Badge>
+              <div><Badge variant="outline" data-testid="badge-org">{(user as any)?.tenantName || "N/A"}</Badge></div>
             </div>
           </div>
 
-          <Button
-            onClick={handleSaveProfile}
-            disabled={profileMutation.isPending}
-            data-testid="button-save-profile"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {profileMutation.isPending ? "Saving..." : "Save Changes"}
-          </Button>
+          {!isPlatformAdmin && (
+            <div className="flex items-start gap-2 p-3 rounded-md bg-muted/50 text-sm text-muted-foreground" data-testid="text-profile-readonly-notice">
+              <Info className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>Profile details can only be edited by a platform administrator. Contact your admin if you need to update your name or email.</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
