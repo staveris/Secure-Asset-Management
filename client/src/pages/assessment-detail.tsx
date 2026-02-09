@@ -285,28 +285,41 @@ function ControlCard({
   const config = statusConfig[edits.implementationStatus] || statusConfig.NOT_STARTED;
   const StatusIcon = config.icon;
 
+  const typeConfig = isCir
+    ? { stripColor: "bg-purple-500", label: "CIR Control", icon: Shield, iconColor: "text-purple-500", badgeClass: "border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300" }
+    : isNis2Atomic
+      ? { stripColor: "bg-emerald-500", label: "NIS2 Atomic Control", icon: Target, iconColor: "text-emerald-500", badgeClass: "border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300" }
+      : { stripColor: "bg-blue-500", label: "NIS2 Objective", icon: ClipboardCheck, iconColor: "text-blue-500", badgeClass: "border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300" };
+
+  const TypeIcon = typeConfig.icon;
+
   return (
     <Card data-testid={`control-card-${isCir ? "cir" : isNis2Atomic ? "nis2-atomic" : "nis2"}-${response.id}`}>
-      <CardContent className="p-4 space-y-4">
-        <div className="flex items-start gap-3">
-          <div className={`p-1.5 rounded-md ${config.bg} shrink-0 mt-0.5`}>
-            <StatusIcon className={`w-4 h-4 ${config.color}`} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
-              {isCir && <Badge variant="secondary" className="text-xs">CIR</Badge>}
-              {isNis2Atomic && <Badge variant="secondary" className="text-xs">NIS2 Atomic</Badge>}
-              <span className="text-sm font-medium">{response.controlTitle}</span>
+      <CardContent className="p-0">
+        <div className="flex">
+          <div className={`w-1 shrink-0 rounded-l-md ${typeConfig.stripColor}`} />
+          <div className="flex-1 p-4 space-y-4 min-w-0">
+            <div className="flex items-start gap-3">
+              <div className={`p-1.5 rounded-md ${config.bg} shrink-0 mt-0.5`}>
+                <StatusIcon className={`w-4 h-4 ${config.color}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className={`text-[10px] ${typeConfig.badgeClass}`}>
+                    <TypeIcon className={`w-3 h-3 mr-1 ${typeConfig.iconColor}`} />
+                    {typeConfig.label}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
+                  <span className="text-sm font-medium">{response.controlTitle}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">{response.controlDescription}</p>
+                {response.guidance && (
+                  <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md italic">
+                    {response.guidance}
+                  </p>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{response.controlDescription}</p>
-            {response.guidance && (
-              <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md italic">
-                {response.guidance}
-              </p>
-            )}
-          </div>
-        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-10">
           <div className="space-y-1.5">
@@ -592,10 +605,13 @@ function ControlCard({
             </DialogContent>
           </Dialog>
         </div>}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
 }
+
 
 export default function AssessmentDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
@@ -948,11 +964,20 @@ export default function AssessmentDetail({ id }: { id: string }) {
               : 0;
             const groupCompletionPct = responses.length > 0 ? Math.round((groupImplemented / responses.length) * 100) : 0;
 
+            const hasObjectives = responses.some(r => r.sourceKey === "NIS2_OBJECTIVE" || (!r.sourceKey && r.source !== "CIR"));
+            const hasAtomic = responses.some(r => r.sourceKey === "NIS2_2022_2555");
+            const hasCirInGroup = responses.some(r => r.sourceKey === "CIR_2024_2690");
+
             return (
               <AccordionItem key={groupName} value={groupName} className="border rounded-md px-4">
                 <AccordionTrigger className="hover:no-underline py-3" data-testid={`accordion-${groupName}`}>
                   <div className="flex items-center gap-3 flex-1 flex-wrap">
                     <span className="font-semibold text-sm">{groupName}</span>
+                    <div className="flex items-center gap-1">
+                      {hasObjectives && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" title="NIS2 Objectives" />}
+                      {hasAtomic && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="NIS2 Atomic Controls" />}
+                      {hasCirInGroup && <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" title="CIR Controls" />}
+                    </div>
                     <Badge variant="outline" className="text-xs">
                       {groupImplemented}/{responses.length}
                     </Badge>
