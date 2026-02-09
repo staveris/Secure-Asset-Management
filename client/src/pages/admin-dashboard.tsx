@@ -27,7 +27,6 @@ import {
   Users,
   Target,
   ListTodo,
-  AlertTriangle,
   FileCheck,
   Download,
   TrendingUp,
@@ -50,9 +49,6 @@ interface AdminDashboardData {
   overdueTasksCount: number;
   completedTasksCount: number;
   totalTasks: number;
-  openIncidentsCount: number;
-  criticalIncidents: number;
-  totalIncidents: number;
   evidenceCount: number;
   totalAssessments: number;
   totalSuppliers: number;
@@ -73,7 +69,6 @@ interface AdminDashboardData {
     taskCount: number;
     userCount: number;
     assessmentCount: number;
-    incidentCount: number;
     evidenceCount: number;
     overdueTasks: number;
   }[];
@@ -166,7 +161,6 @@ export default function AdminDashboard() {
     { label: "Avg Compliance", value: `${data.avgComplianceScore}%`, sub: `Maturity: ${data.avgMaturity.toFixed(1)}/5`, icon: Target, color: "text-purple-600 dark:text-purple-400" },
     { label: "Assessments", value: data.totalAssessments, sub: "across all tenants", icon: ClipboardCheck, color: "text-indigo-600 dark:text-indigo-400" },
     { label: "Tasks", value: data.totalTasks, sub: `${data.completedTasksCount} done, ${data.overdueTasksCount} overdue`, icon: ListTodo, color: data.overdueTasksCount > 0 ? "text-orange-600 dark:text-orange-400" : "text-green-600 dark:text-green-400" },
-    { label: "Incidents", value: data.totalIncidents, sub: `${data.openIncidentsCount} open, ${data.criticalIncidents} critical`, icon: AlertTriangle, color: data.criticalIncidents > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400" },
     { label: "Evidence Items", value: data.evidenceCount, sub: "uploaded platform-wide", icon: FileCheck, color: "text-teal-600 dark:text-teal-400" },
     { label: "Suppliers & Risks", value: `${data.totalSuppliers} / ${data.totalRisks}`, sub: "suppliers / risk items", icon: Shield, color: "text-amber-600 dark:text-amber-400" },
   ];
@@ -461,8 +455,7 @@ export default function AdminDashboard() {
                     <th className="text-right py-2 px-3 font-medium text-muted-foreground">Users</th>
                     <th className="text-right py-2 px-3 font-medium text-muted-foreground">Assessments</th>
                     <th className="text-right py-2 px-3 font-medium text-muted-foreground">Tasks</th>
-                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Evidence</th>
-                    <th className="text-right py-2 pl-3 font-medium text-muted-foreground">Incidents</th>
+                    <th className="text-right py-2 pl-3 font-medium text-muted-foreground">Evidence</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -505,8 +498,7 @@ export default function AdminDashboard() {
                           <Badge variant="destructive" className="ml-1.5 text-xs">{tenant.overdueTasks} overdue</Badge>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 text-right tabular-nums">{tenant.evidenceCount}</td>
-                      <td className="py-2.5 pl-3 text-right tabular-nums">{tenant.incidentCount}</td>
+                      <td className="py-2.5 pl-3 text-right tabular-nums">{tenant.evidenceCount}</td>
                     </tr>
                   ))}
                 </tbody>

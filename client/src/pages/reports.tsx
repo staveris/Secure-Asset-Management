@@ -26,7 +26,6 @@ interface DashboardData {
   categoryScores: { category: string; score: number }[];
   activeTasks: number;
   overdueTasks: number;
-  openIncidents: number;
   evidenceCount: number;
   recentActivity: any[];
   maturityTrend: any[];
@@ -205,7 +204,6 @@ export default function Reports() {
   });
 
   const { data: tasks } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
-  const { data: incidents } = useQuery<any[]>({ queryKey: ["/api/incidents"] });
   const { data: suppliers } = useQuery<any[]>({ queryKey: ["/api/suppliers"] });
   const { data: risks } = useQuery<any[]>({ queryKey: ["/api/risks"] });
 
@@ -248,8 +246,6 @@ export default function Reports() {
   const openTasks = tasks?.filter((t: any) => t.status !== "COMPLETED" && t.status !== "CANCELLED" && t.status !== "DONE")?.length ?? dashboard.activeTasks;
   const completedTasks = tasks?.filter((t: any) => t.status === "COMPLETED" || t.status === "DONE")?.length ?? 0;
   const overdueTasks = dashboard.overdueTasks ?? 0;
-  const openIncidentCount = incidents?.filter((i: any) => i.status !== "CLOSED" && i.status !== "RESOLVED")?.length ?? dashboard.openIncidents;
-
   const objTotal = dashboard.nis2ObjectiveControls ?? dashboard.nis2Controls ?? 0;
   const objImpl = dashboard.nis2ObjectiveImplemented ?? dashboard.nis2Implemented ?? 0;
   const objMaturity = dashboard.nis2ObjectiveMaturity ?? maturity;
@@ -430,7 +426,7 @@ export default function Reports() {
                 <p className="text-sm text-muted-foreground print:text-gray-600 leading-relaxed">
                   This report presents the NIS2 Directive (EU 2022/2555){hasCirControls ? " and Commission Implementing Regulation (CIR 2024/2690)" : ""} compliance
                   readiness status for <span className="font-semibold text-foreground print:text-gray-900">{user?.tenantName || "the organization"}</span> as
-                  of {reportDate}. The assessment evaluates governance, risk management, incident handling, business continuity, supply chain security,
+                  of {reportDate}. The assessment evaluates governance, risk management, business continuity, supply chain security,
                   and technical cybersecurity controls across {categories.length} compliance domains
                   {hasMultipleControlSets ? `, spanning ${hasAtomicControls && hasCirControls ? "three" : "two"} independent control sets` : ""}.
                 </p>
@@ -453,9 +449,9 @@ export default function Reports() {
                   <div className="text-xs font-semibold mt-1" style={{ color: "#16a34a" }} data-testid="text-implemented-controls">{implementedControls} Implemented</div>
                 </div>
                 <div className="flex flex-col items-center justify-center">
-                  <div className="text-3xl font-bold" data-testid="text-open-items" style={openTasks > 0 || openIncidentCount > 0 ? { color: "#ca8a04" } : {}}>{openTasks + openIncidentCount}</div>
-                  <div className="text-[10px] text-muted-foreground text-center print:text-gray-500 uppercase tracking-wider">Open Items</div>
-                  <div className="text-[10px] text-muted-foreground mt-1 print:text-gray-400">{openTasks} tasks, {openIncidentCount} incidents</div>
+                  <div className="text-3xl font-bold" data-testid="text-open-items" style={openTasks > 0 ? { color: "#ca8a04" } : {}}>{openTasks}</div>
+                  <div className="text-[10px] text-muted-foreground text-center print:text-gray-500 uppercase tracking-wider">Open Tasks</div>
+                  <div className="text-[10px] text-muted-foreground mt-1 print:text-gray-400">{overdueTasks} overdue</div>
                 </div>
               </div>
 
@@ -772,7 +768,7 @@ export default function Reports() {
             <section className="print-section" data-testid="section-operational-summary">
               <SectionHeader number={nextSection()} title="Operational Summary" testId="heading-operational" />
               <p className="text-sm text-muted-foreground mb-4 print:text-gray-600">
-                Overview of ongoing compliance operations including task management, incident handling, evidence collection, and third-party oversight.
+                Overview of ongoing compliance operations including task management, evidence collection, and third-party oversight.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -796,22 +792,6 @@ export default function Reports() {
                     <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100 dark:border-neutral-800 print:border-gray-200">
                       <span className="text-xs font-medium">Total</span>
                       <span className="text-xs font-bold">{tasks?.length ?? 0}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border rounded-md p-4 print:border-gray-300">
-                  <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3 h-3" /> Incident Management
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs">Open Incidents</span>
-                      <span className="text-xs font-bold" style={openIncidentCount > 0 ? { color: "#dc2626" } : {}}>{openIncidentCount}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs">Total Incidents</span>
-                      <span className="text-xs font-bold">{incidents?.length ?? 0}</span>
                     </div>
                   </div>
                 </div>

@@ -68,7 +68,6 @@ interface LinkableEntity {
 interface LinkableEntities {
   assessments: LinkableEntity[];
   tasks: LinkableEntity[];
-  incidents: LinkableEntity[];
   controls: LinkableEntity[];
 }
 
@@ -276,7 +275,7 @@ export default function Evidence() {
             <DialogHeader>
               <DialogTitle>Upload Evidence</DialogTitle>
               <DialogDescription>
-                Upload a file and link it to an existing assessment, task, incident, or control.
+                Upload a file and link it to an existing assessment, task, or control.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-2">
@@ -299,7 +298,6 @@ export default function Evidence() {
                   <SelectContent>
                     <SelectItem value="Assessment">Assessment</SelectItem>
                     <SelectItem value="Task">Task</SelectItem>
-                    <SelectItem value="Incident">Incident</SelectItem>
                     <SelectItem value="Control">Control</SelectItem>
                   </SelectContent>
                 </Select>
@@ -441,7 +439,6 @@ export default function Evidence() {
             <SelectItem value="ALL">All Types</SelectItem>
             <SelectItem value="Assessment">Assessment</SelectItem>
             <SelectItem value="Task">Task</SelectItem>
-            <SelectItem value="Incident">Incident</SelectItem>
             <SelectItem value="Control">Control</SelectItem>
           </SelectContent>
         </Select>

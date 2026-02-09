@@ -29,7 +29,6 @@ import {
 import {
   ClipboardCheck,
   ListTodo,
-  AlertTriangle,
   TrendingUp,
   TrendingDown,
   Clock,
@@ -67,7 +66,6 @@ interface DashboardData {
   cirImplemented?: number;
   activeTasks: number;
   overdueTasks: number;
-  openIncidents: number;
   evidenceCount: number;
   statusDistribution: StatusItem[];
   objectiveStatusDistribution?: StatusItem[];
@@ -88,7 +86,6 @@ interface Snapshot {
   maturityAvg: number;
   overdueTasks: number;
   evidenceCoverage: number;
-  incidentsOpen: number;
 }
 
 interface AssessmentHistoryItem {
@@ -228,13 +225,6 @@ export default function Dashboard() {
       icon: ListTodo,
       trend: <span className="text-xs text-muted-foreground">{data.overdueTasks} overdue</span>,
       color: data.overdueTasks > 0 ? "text-orange-600 dark:text-orange-400" : "text-green-600 dark:text-green-400",
-    },
-    {
-      label: "Open Incidents",
-      value: data.openIncidents,
-      icon: AlertTriangle,
-      trend: <span className="text-xs text-muted-foreground">{data.openIncidents === 0 ? "All clear" : "Requires attention"}</span>,
-      color: data.openIncidents > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400",
     },
   ];
 
