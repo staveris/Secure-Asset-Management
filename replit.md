@@ -1,162 +1,53 @@
 # NIS2 Readiness Platform
 
 ## Overview
-Multi-tenant compliance SaaS for NIS2 Directive readiness. Companies can assess their cybersecurity posture, track compliance progress, manage incidents with EU reporting timelines, and produce audit-ready reports.
+The NIS2 Readiness Platform is a multi-tenant SaaS solution designed to help companies achieve and maintain compliance with the NIS2 Directive. It provides tools for cybersecurity posture assessment, compliance tracking, incident management with integrated EU reporting timelines, and the generation of audit-ready reports. The platform aims to streamline the compliance process, reduce manual effort, and ensure organizations can effectively meet their regulatory obligations, thereby enhancing their market position and reducing legal risks.
 
-## Tech Stack
-- **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui + Recharts
-- **Backend**: Express.js + TypeScript
-- **Database**: PostgreSQL with Drizzle ORM
-- **Auth**: bcryptjs password hashing + express-session with PostgreSQL session store + TOTP 2FA (otpauth)
-- **Security**: helmet (secure headers + CSP), express-rate-limit (auth rate limiting), READONLY_AUDITOR write enforcement, CSRF protection, account lockout, session timeout
-- **Routing**: wouter (frontend), Express (backend)
-- **File Upload**: multer with size/type validation
+## User Preferences
+I prefer that the agent focuses on the implementation details and adheres to the established architecture. When making changes, please prioritize security considerations and ensure that any new features are integrated seamlessly without introducing regressions. I value clear and concise communication, especially when discussing technical decisions or potential trade-offs. I prefer iterative development with small, testable changes.
 
-## Architecture
-- `shared/schema.ts` - Drizzle schemas and Zod validation for all 15 entities
-- `server/db.ts` - PostgreSQL connection pool
-- `server/storage.ts` - DatabaseStorage class implementing IStorage interface
-- `server/routes.ts` - All API endpoints with auth middleware, tenant isolation, rate limiting
-- `server/seed.ts` - NIS2 requirement library + demo data seeding
-- `client/src/lib/auth.tsx` - React auth context with login/register/logout
-- `client/src/lib/theme.tsx` - Light/dark theme provider
-- `client/src/components/app-sidebar.tsx` - Navigation sidebar with role-based menus
-- `client/src/pages/` - All page components
+## System Architecture
+The platform is built with a modern web stack, featuring React, TypeScript, Vite, TailwindCSS, and shadcn/ui for the frontend, and Express.js with TypeScript for the backend. PostgreSQL with Drizzle ORM serves as the database. Authentication uses bcryptjs, express-session, and TOTP 2FA. Security measures include helmet, express-rate-limit, CSRF protection, account lockout, and session timeout.
 
-## Key Entities
-- Tenants, Users (with roles: PLATFORM_ADMIN, TENANT_ADMIN, TENANT_MANAGER, TENANT_USER, READONLY_AUDITOR)
-- Requirements, ControlObjectives (NIS2 library)
-- Controls (tenant-scoped implementation tracking with maturity levels)
-- Assessments, AssessmentResponses
-- Tasks, EvidenceItems (with file upload), IncidentCases
-- IncidentNotifications (EARLY_WARNING, NOTIFICATION, FINAL_REPORT drafts)
-- Suppliers, RiskItems, AuditLogs
-- TenantDailySnapshots (compliance metrics over time)
+**Key Features:**
+- **Multi-tenancy:** Isolated environments for each company.
+- **Role-Based Access Control (RBAC):** Granular permissions for PLATFORM_ADMIN, TENANT_ADMIN, TENANT_MANAGER, TENANT_USER, and READONLY_AUDITOR roles.
+- **NIS2 & CIR Compliance:** Comprehensive library of NIS2 requirements and CIR 2024/2690 controls, supporting both standard and atomic assessments.
+- **Incident Management:** Tracking incidents with EU reporting deadlines (EARLY_WARNING, NOTIFICATION, FINAL_REPORT drafts).
+- **Evidence Management:** Secure vault for storing evidence items with file upload capabilities (validation for type and size).
+- **Reporting:** Generation of print-friendly NIS2 readiness reports.
+- **Audit Logging:** Detailed logging of all CRUD operations and security-related events.
+- **Security Hardening:** Implementation of various security features including secure headers, rate limiting, input sanitization, CSRF protection, account lockout, 2FA, session management, and file upload scanning.
+- **Atomic Controls Add-on:** A feature-flagged system for managing and assessing atomic-level controls derived from legal sources. This includes an importer for efficient data management.
+- **Unified Assessments:** Automated creation and linking of CIR assessments for applicable sectors, providing a combined compliance view.
+- **Storage Quota System:** Enforces storage limits per tenant and maximum file sizes.
+- **Email Verification:** Mandates email verification for new users before platform access, with an admin-configurable email service.
 
-## Demo Accounts
-- Platform Admin: admin@nis2platform.eu / admin123
-- Tenant User: demo@acmecorp.com / demo1234
+**Frontend Pages & Components:**
+- **Dashboard:** KPIs, charts, and compliance trends.
+- **Assessments:** Management and detail views for standard and atomic assessments.
+- **Tasks:** Task management with filtering.
+- **Evidence Vault:** Centralized evidence storage and upload.
+- **Incidents:** Incident tracking and notification drafting.
+- **Suppliers & Risks:** Registers for managing third-party suppliers and risks.
+- **Reports:** Generation of compliance reports.
+- **Onboarding Wizard:** Guided setup for new tenants.
+- **Admin Pages:** Platform analytics, tenant management, requirement library, audit logs, and atomic controls management.
+- **Security Components:** Idle timeout warning, cookie consent banner, contact popups for locked features, demo mode banner.
 
-## API Routes
-All routes prefixed with `/api/`:
-- Auth: POST login, register (rate-limited), logout; GET me
-- Dashboard: GET /dashboard (tenant), GET /admin/dashboard (admin)
-- Assessments: GET/POST /assessments, GET /assessments/:id, PATCH /assessment-responses/:id
-- Tasks: GET/POST /tasks, PATCH /tasks/:id
-- Evidence: GET /evidence, POST /evidence/upload (multipart)
-- Incidents: GET/POST /incidents, PATCH /incidents/:id
-- Incident Notifications: GET/POST /incidents/:id/notifications
-- Suppliers: GET/POST /suppliers
-- Risks: GET/POST /risks
-- Admin: GET /admin/tenants, /admin/requirements, /admin/audit-logs, /admin/csv-export
-
-## Frontend Pages
-- `/` - Dashboard (compliance KPIs, charts, trends)
-- `/assessments` - Assessment list and creation
-- `/assessments/:id` - Assessment detail with control-level scoring
-- `/tasks` - Task management with filters
-- `/evidence` - Evidence vault with file upload
-- `/incidents` - Incident management with EU deadline tracking and notification drafts
-- `/suppliers` - Supplier register
-- `/risks` - Risk register
-- `/reports` - Print-friendly NIS2 readiness report
-- `/onboarding` - New tenant setup wizard
-- `/admin` - Platform admin analytics with CSV export
-- `/admin/tenants` - Tenant management
-- `/admin/requirements` - NIS2 requirements library
-- `/admin/audit-log` - Platform audit log
-
-## Security Features
-- Helmet secure headers
-- Rate limiting on auth endpoints (15 attempts / 15 minutes)
-- READONLY_AUDITOR role enforcement on all mutation endpoints
-- Tenant isolation (IDOR prevention) on all update endpoints
-- Session management with PostgreSQL store
-- File upload validation (type, size limits)
-- Audit logging for all CRUD operations
-
-## Recent Changes
-- 2026-02-08: Initial MVP build - full schema, all pages, auth, NIS2 seed data, dashboard charts
-- 2026-02-08: Security hardening - helmet, rate limiting, READONLY_AUDITOR enforcement
-- 2026-02-08: Added Controls, IncidentNotifications, TenantDailySnapshots entities
-- 2026-02-08: Evidence vault with file upload, incident notification workflow
-- 2026-02-08: Reports page, onboarding wizard, admin CSV export
-- 2026-02-08: Company logo (Tools of Tech) integrated
-- 2026-02-08: Fixed CSV export credentials, registration redirect to onboarding, error handling
-- 2026-02-08: Assessment history API and dashboard trend charts (line chart, radar chart, assessment history table)
-- 2026-02-08: Platform admin sidebar restricted to Administration only (no Compliance section)
-- 2026-02-08: Separate AdminRouter/TenantRouter with role-based routing
-- 2026-02-08: Tenant management: add, suspend/reactivate, delete tenants with cascading data removal
-- 2026-02-08: Tenant status field (active/suspended) with login blocking for suspended tenants
-- 2026-02-08: Enhanced admin analytics: 8 KPI cards, compliance distribution, entity type breakdown, task status, role breakdown, sortable tenant overview table
-- 2026-02-08: Evidence delete functionality with locked-evidence protection and audit logging
-- 2026-02-08: Evidence upload linked to real entities (assessments, tasks, incidents, controls) via dropdown selection
-- 2026-02-08: Assessment detail page shows evidence per control with upload shortcut to Evidence Vault
-- 2026-02-08: Evidence search and type filtering in Evidence Vault
-- 2026-02-08: Email verification system: verify-email page, dashboard banner, resend verification endpoint
-- 2026-02-08: Simplified registration form (removed NIS2 fields, added password strength indicator)
-- 2026-02-08: Admin email settings page (SendGrid/Resend provider configuration)
-- 2026-02-08: Enhanced admin analytics: per-country breakdown chart, annex classification (Annex I/II) chart
-- 2026-02-08: Email service consolidated to use JSON config from platform_settings table
-- 2026-02-08: Storage quota system: 10 GB per tenant, 100 MB max file, 10 users per tenant, admin Storage & Quotas page
-- 2026-02-08: Country field made required during onboarding (frontend + backend validation)
-- 2026-02-08: Reports page redesigned: professional print layout with SVG gauges, gradient header, domain progress bars, recommendations section, operational summary
-- 2026-02-08: Email verification enforcement: new users must verify email before accessing platform; verification-pending gate page with resend and auto-refresh; PLATFORM_ADMIN bypasses gate
-- 2026-02-08: Restricted user access: new users (TENANT_USER, TENANT_MANAGER, READONLY_AUDITOR) default to assessments-only access; fullAccessEnabled toggle in User Management; sidebar shows locked items with Lock icon; RestrictedPage on protected routes; backend requireFullAccess middleware on tasks/evidence/incidents/suppliers/risks; PLATFORM_ADMIN bypasses restrictions
-- 2026-02-08: Access hierarchy: Platform Admin grants access to Tenant Admins via admin tenants page; Tenant Admins grant access to their own users via user management; admin tenant page has expandable user list with per-user access toggles
-- 2026-02-08: GDPR Cookie Consent banner: appears on first visit (login and authenticated pages), Accept All / Essential Only options, persists in localStorage
-- 2026-02-08: Contact popup for locked features: clicking locked sidebar items opens dialog with Tools of Tech P.C. contact info (email, phone)
-- 2026-02-08: Demo mode banner: restricted users see persistent top banner indicating they are using the Demo Version with contact link
-- 2026-02-08: RestrictedPage updated: shows "Feature Not Available in Demo" with Tools of Tech P.C. contact details and mailto CTA
-- 2026-02-08: Password reset: forgot-password flow on login page, reset-password page with token validation, hashed reset tokens, 1hr expiry, server-side password complexity enforcement
-- 2026-02-09: Security hardening phase 2:
-  - Session invalidation on password reset/change (destroys all active sessions for the user)
-  - Account lockout: 5 failed login attempts = 30 minute lockout, with lockout dialog on frontend
-  - CSRF protection: token-based validation on all state-changing API requests (X-CSRF-Token header)
-  - Enhanced security audit logging: LOGIN_SUCCESS, LOGIN_FAILED, ACCOUNT_LOCKED, LOGIN_BLOCKED_LOCKOUT, PASSWORD_RESET_REQUESTED, PASSWORD_RESET, PASSWORD_CHANGED events logged to audit_logs table and server console
-  - Consistent password complexity enforcement on all password-setting endpoints
-- 2026-02-09: Security hardening phase 3:
-  - Two-factor authentication (2FA/TOTP): setup/enable/disable via Settings page; QR code generation with otpauth library; TOTP verification step during login; audit logging for TOTP_ENABLED/TOTP_DISABLED events
-  - Session timeout / idle logout: 15-minute rolling session with frontend idle detection; warning dialog at 14 minutes; auto-logout at 15 minutes; throttled activity tracking
-  - Content Security Policy (CSP) headers: default-src 'self'; script-src/style-src with 'unsafe-inline'; font-src for Google Fonts; frame-src/object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests
-  - New schema fields: totpSecret (text), totpEnabled (boolean) on users table
-  - New API endpoints: POST /api/auth/totp-setup, /api/auth/totp-enable, /api/auth/totp-disable, /api/auth/totp-verify
-  - New frontend component: client/src/components/idle-timeout.tsx (IdleTimeoutWarning)
-- 2026-02-09: Security hardening phase 4:
-  - Input sanitization: sanitize-html middleware strips all HTML tags from text inputs on all API endpoints; password fields excluded from sanitization
-  - Password history: password_history table stores last 5 hashes per user; prevents reuse on password change and reset; initial password recorded on registration
-  - API response stripping: middleware automatically removes sensitive fields (passwordHash, totpSecret, resetToken, etc.) from all JSON API responses
-  - File upload scanning: magic byte validation verifies file content matches declared MIME type (PDF, PNG, JPEG, DOCX, XLSX); rejects mismatched files with security logging
-  - Database query parameterization audit: confirmed all queries use Drizzle ORM parameterized queries or pg pool parameterized queries ($1 placeholders); no raw string interpolation found
-  - CSRF path fix: corrected exemption paths in verifyCsrf middleware (removed /api prefix for mounted middleware)
-- 2026-02-09: Atomic Controls Add-on (feature-flagged):
-  - Schema: 9 new tables (featureFlags, legalSources, controlPackVersions, atomicControls, controlObjectiveAtomicMaps, atomicAssessments, atomicAssessmentResponses, atomicSnapshots, taskAtomicLinks)
-  - Seed data: 40 atomic controls (23 NIS2 Articles 20-29, 17 CIR 2024/2690 Articles 3-13) with legal text
-  - Feature flag system: per-tenant ATOMIC_ASSESSMENTS flag, admin toggle on tenant management page
-  - Admin UI: /admin/atomic-library page with filters, pagination, stats, collapsible legal sources/versions
-  - Tenant UI: /atomic-assessments list + create, /atomic-assessments/:id detail with domain-grouped controls, inline response forms (status/maturity/confidence/notes), task generation for gaps
-  - Navigation guards: sidebar hides Atomic Assessments when flag disabled; route guard shows "Feature Not Available" page
-  - Backend: 40+ storage methods, feature flag enforcement on all tenant atomic endpoints, audit logging
-  - New API routes: /api/admin/feature-flags, /api/feature-flags/check/:key, /api/admin/atomic-controls, /api/admin/legal-sources, /api/admin/control-pack-versions, /api/admin/atomic-maps, /api/atomic-controls, /api/atomic-assessments (CRUD + responses + task generation)
-- 2026-02-09: Atomic Controls Importer (Option B / Maximal):
-  - Schema: import_runs table for tracking import history; content_hash column on atomic_controls for diff detection
-  - Data: /data/atomic_controls_nis2_optionB.json (124 leaf-level NIS2 Directive controls covering Art. 3, 20, 21, 23, 25-29, 32-33)
-  - Data: /data/legal_sources.json (NIS2 Directive source metadata)
-  - Import service: server/import-service.ts with Zod validation, sha256 hashing, canonicalized diff calculation, transactional upsert
-  - Two modes: IMPORT (merge - upsert only, no deactivation) and SYNC (authoritative - upsert + deactivate missing controls)
-  - Idempotent: repeated imports produce unchangedCount, not duplicates
-  - Admin UI: /admin/atomic-import page with load repo file, upload JSON, validate, preview diff, import/sync buttons, confirmation dialog for sync, import history table
-  - API routes: POST /api/admin/atomic-import/validate, /preview, /run; GET /history, /repo-file (all PLATFORM_ADMIN only, rate-limited)
-  - CLI: npx tsx scripts/atomic-import.ts (merge) / npx tsx scripts/atomic-import.ts --sync (authoritative)
-  - Audit logging for all import actions
-  - DB now has 141 active NIS2 controls + 17 CIR controls = 158 total atomic controls
-- 2026-02-09: Unified NIS2+CIR Assessments & Enhanced Company Details:
-  - Auto-linked CIR assessments: POST /api/assessments auto-creates linked CIR atomic assessment (via parentAssessmentId) for tenants in CIR-applicable sectors (Digital infrastructure, ICT service management B2B, Digital providers)
-  - Assessment creation dialog: removed type selector; single assessment type auto-includes CIR controls when applicable
-  - Assessment list: removed Standard/Atomic filter tabs; shows NIS2+CIR badge when CIR linked; combined weighted completion percentage
-  - Cascading delete: DELETE /api/assessments/:id cascades to linked CIR atomic assessment with audit logging
-  - Dashboard: combined NIS2+CIR metrics (compliance score, maturity average, status distribution, category scores); NIS2/CIR breakdown cards when CIR controls present
-  - Reports: updated to "NIS2 + CIR Compliance" branding; executive summary references CIR 2024/2690 when applicable; total controls show NIS2|CIR breakdown
-  - Company Details: contactEmail display (derived from tenant admin user); subsector dropdown with sector-dependent options using full NIS2 sector/subsector data
-  - Schema: parentAssessmentId column on atomic_assessments table; getAtomicAssessmentByParent storage method
-  - Backend: getAtomicControlsBySource("CIR_2024_2690") filters CIR controls for auto-creation; getDashboardData aggregates both NIS2+CIR responses
+## External Dependencies
+- **PostgreSQL:** Primary database for all application data and session storage.
+- **bcryptjs:** For password hashing.
+- **express-session:** Session management with PostgreSQL store.
+- **otpauth:** For TOTP 2FA generation and verification.
+- **helmet:** Middleware for securing HTTP headers.
+- **express-rate-limit:** For rate limiting API requests.
+- **multer:** For handling multipart/form-data, primarily file uploads.
+- **TailwindCSS:** Utility-first CSS framework for styling.
+- **shadcn/ui:** UI component library.
+- **Recharts:** For data visualization and charting.
+- **wouter:** Frontend routing library.
+- **Zod:** For schema validation.
+- **Drizzle ORM:** TypeScript ORM for PostgreSQL.
+- **sanitize-html:** For input sanitization.
+- **SendGrid/Resend (Configurable):** For email services (e.g., verification, password resets).
