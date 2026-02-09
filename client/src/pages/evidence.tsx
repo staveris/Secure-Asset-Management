@@ -127,8 +127,11 @@ export default function Evidence() {
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
+      const { getCsrfToken } = await import("@/lib/queryClient");
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/evidence/upload", {
         method: "POST",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
         body: formData,
         credentials: "include",
       });

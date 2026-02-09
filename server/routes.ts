@@ -65,10 +65,30 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 30 * 60 * 1000;
+
 declare module "express-session" {
   interface SessionData {
     userId: number;
+    csrfToken: string;
   }
+}
+
+async function destroyUserSessions(userId: number): Promise<void> {
+  try {
+    await pool.query(
+      `DELETE FROM "session" WHERE sess::jsonb->>'userId' = $1`,
+      [String(userId)]
+    );
+  } catch (err) {
+    console.error("[Security] Failed to destroy user sessions:", err);
+  }
+}
+
+function logSecurityEvent(event: string, details: Record<string, any>) {
+  const timestamp = new Date().toISOString();
+  console.log(`[SECURITY] ${timestamp} | ${event} | ${JSON.stringify(details)}`);
 }
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -135,6 +155,30 @@ export async function registerRoutes(
     })
   );
 
+  app.get("/api/auth/csrf-token", (req, res) => {
+    if (!req.session.csrfToken) {
+      req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+    }
+    res.json({ csrfToken: req.session.csrfToken });
+  });
+
+  function verifyCsrf(req: Request, res: Response, next: NextFunction) {
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
+      return next();
+    }
+    if (req.path.startsWith("/api/auth/login") || req.path.startsWith("/api/auth/register") || req.path.startsWith("/api/auth/forgot-password") || req.path.startsWith("/api/auth/reset-password") || req.path.startsWith("/api/auth/verify-email") || req.path.startsWith("/api/auth/resend-verification") || req.path.startsWith("/api/auth/logout")) {
+      return next();
+    }
+    const token = req.headers["x-csrf-token"] as string;
+    if (!req.session.csrfToken || !token || token !== req.session.csrfToken) {
+      logSecurityEvent("CSRF_VALIDATION_FAILED", { path: req.path, ip: req.ip, userId: req.session.userId || null });
+      return res.status(403).json({ message: "Invalid CSRF token" });
+    }
+    next();
+  }
+
+  app.use("/api", verifyCsrf);
+
   app.post("/api/auth/register", authLimiter, async (req, res) => {
     try {
       const data = registerSchema.parse(req.body);
@@ -198,19 +242,97 @@ export async function registerRoutes(
   app.post("/api/auth/login", authLimiter, async (req, res) => {
     try {
       const data = loginSchema.parse(req.body);
+      const clientIp = req.ip || req.headers["x-forwarded-for"] || "unknown";
       const user = await storage.getUserByEmail(data.email);
-      if (!user || !user.isActive) return res.status(401).json({ message: "Invalid credentials" });
+
+      if (!user || !user.isActive) {
+        logSecurityEvent("LOGIN_FAILED", { email: data.email, reason: "invalid_credentials", ip: clientIp });
+        await storage.createAuditLog({
+          tenantId: null,
+          actorUserId: null,
+          action: "LOGIN_FAILED",
+          entityType: "AUTH",
+          entityId: data.email,
+          details: { reason: "invalid_credentials", ip: clientIp },
+        });
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+        const minutesLeft = Math.ceil((new Date(user.lockedUntil).getTime() - Date.now()) / 60000);
+        logSecurityEvent("LOGIN_BLOCKED_LOCKOUT", { email: data.email, ip: clientIp, minutesLeft });
+        await storage.createAuditLog({
+          tenantId: user.tenantId,
+          actorUserId: user.id,
+          action: "LOGIN_BLOCKED_LOCKOUT",
+          entityType: "AUTH",
+          entityId: String(user.id),
+          details: { ip: clientIp, minutesLeft },
+        });
+        return res.status(423).json({ message: `Account temporarily locked due to too many failed login attempts. Please try again in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}.` });
+      }
 
       const valid = await bcrypt.compare(data.password, user.passwordHash);
-      if (!valid) return res.status(401).json({ message: "Invalid credentials" });
+      if (!valid) {
+        const newAttempts = (user.failedLoginAttempts || 0) + 1;
+        const updateData: any = { failedLoginAttempts: newAttempts };
+        if (newAttempts >= MAX_FAILED_ATTEMPTS) {
+          updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
+          logSecurityEvent("ACCOUNT_LOCKED", { email: data.email, ip: clientIp, attempts: newAttempts });
+          await storage.createAuditLog({
+            tenantId: user.tenantId,
+            actorUserId: user.id,
+            action: "ACCOUNT_LOCKED",
+            entityType: "AUTH",
+            entityId: String(user.id),
+            details: { ip: clientIp, attempts: newAttempts, lockedUntilMinutes: 30 },
+          });
+        }
+        await db.update(users).set(updateData).where(eq(users.id, user.id));
+        logSecurityEvent("LOGIN_FAILED", { email: data.email, reason: "wrong_password", ip: clientIp, attempts: newAttempts });
+        await storage.createAuditLog({
+          tenantId: user.tenantId,
+          actorUserId: user.id,
+          action: "LOGIN_FAILED",
+          entityType: "AUTH",
+          entityId: String(user.id),
+          details: { reason: "wrong_password", ip: clientIp, attempts: newAttempts },
+        });
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
 
       const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
       if (tenant && (tenant as any).status === "suspended" && user.role !== "PLATFORM_ADMIN") {
+        logSecurityEvent("LOGIN_BLOCKED_SUSPENDED", { email: data.email, ip: clientIp, tenantId: user.tenantId });
+        await storage.createAuditLog({
+          tenantId: user.tenantId,
+          actorUserId: user.id,
+          action: "LOGIN_BLOCKED_SUSPENDED",
+          entityType: "AUTH",
+          entityId: String(user.id),
+          details: { ip: clientIp },
+        });
         return res.status(403).json({ message: "Your organization's access has been suspended. Please contact your administrator." });
       }
 
+      if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+        await db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
+      }
+
       await storage.updateUserLastLogin(user.id);
+      req.session.csrfToken = crypto.randomBytes(32).toString("hex");
       req.session.userId = user.id;
+
+      logSecurityEvent("LOGIN_SUCCESS", { email: data.email, ip: clientIp, userId: user.id });
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "LOGIN_SUCCESS",
+        entityType: "AUTH",
+        entityId: String(user.id),
+        details: { ip: clientIp },
+      });
+
       res.json({
         id: user.id,
         email: user.email,
@@ -306,6 +428,16 @@ export async function registerRoutes(
 
       await sendPasswordResetEmail(user.email, user.fullName, rawToken);
 
+      logSecurityEvent("PASSWORD_RESET_REQUESTED", { email: user.email, userId: user.id, ip: req.ip });
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "PASSWORD_RESET_REQUESTED",
+        entityType: "AUTH",
+        entityId: String(user.id),
+        details: { ip: req.ip },
+      });
+
       res.json({ message: "If an account with that email exists, a password reset link has been sent." });
     } catch (err: any) {
       console.error("[Auth] Forgot password error:", err);
@@ -344,8 +476,20 @@ export async function registerRoutes(
 
       const newHash = await bcrypt.hash(password, 10);
       await db.update(users)
-        .set({ passwordHash: newHash, passwordResetToken: null, passwordResetExpires: null })
+        .set({ passwordHash: newHash, passwordResetToken: null, passwordResetExpires: null, failedLoginAttempts: 0, lockedUntil: null })
         .where(eq(users.id, user.id));
+
+      await destroyUserSessions(user.id);
+
+      logSecurityEvent("PASSWORD_RESET", { userId: user.id, email: user.email, ip: req.ip });
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "PASSWORD_RESET",
+        entityType: "AUTH",
+        entityId: String(user.id),
+        details: { method: "reset_link", ip: req.ip },
+      });
 
       res.json({ message: "Password has been reset successfully. You can now log in with your new password." });
     } catch (err: any) {
@@ -363,8 +507,11 @@ export async function registerRoutes(
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ message: "Current password and new password are required" });
       }
-      if (newPassword.length < 6) {
-        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      if (newPassword.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+      if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+        return res.status(400).json({ message: "Password must include uppercase, lowercase, number, and special character" });
       }
 
       const valid = await bcrypt.compare(currentPassword, user.passwordHash);
@@ -375,7 +522,31 @@ export async function registerRoutes(
       const newHash = await bcrypt.hash(newPassword, 10);
       await storage.updateUserPassword(user.id, newHash);
 
-      res.json({ message: "Password updated successfully" });
+      const currentSessionId = req.sessionID;
+      await destroyUserSessions(user.id);
+
+      logSecurityEvent("PASSWORD_CHANGED", { userId: user.id, email: user.email, ip: req.ip });
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "PASSWORD_CHANGED",
+        entityType: "AUTH",
+        entityId: String(user.id),
+        details: { method: "user_initiated", ip: req.ip },
+      });
+
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error("[Security] Session regenerate error:", err);
+          return res.json({ message: "Password updated successfully. Please log in again." });
+        }
+        req.session.userId = user.id;
+        req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+        req.session.save((saveErr) => {
+          if (saveErr) console.error("[Security] Session save error:", saveErr);
+          res.json({ message: "Password updated successfully. All other sessions have been signed out." });
+        });
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

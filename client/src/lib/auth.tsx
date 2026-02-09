@@ -1,6 +1,6 @@
 import { createContext, useContext, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest, getQueryFn } from "./queryClient";
+import { queryClient, apiRequest, getQueryFn, clearCsrfToken } from "./queryClient";
 import type { User } from "@shared/schema";
 
 type AuthUser = User & {
@@ -67,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await apiRequest("POST", "/api/auth/logout");
     },
     onSuccess: () => {
+      clearCsrfToken();
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
   });

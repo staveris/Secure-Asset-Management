@@ -185,8 +185,11 @@ function ControlCard({
       formData.append("file", file);
       formData.append("relatedType", "Control");
       formData.append("relatedId", String(response.controlObjectiveId));
+      const { getCsrfToken } = await import("@/lib/queryClient");
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/evidence/upload", {
         method: "POST",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
         body: formData,
         credentials: "include",
       });

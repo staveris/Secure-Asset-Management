@@ -90,6 +90,8 @@ export default function AuthPage() {
   const [forgotSent, setForgotSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
+  const [showLockedDialog, setShowLockedDialog] = useState(false);
+  const [lockedMessage, setLockedMessage] = useState("");
   const { login, register, user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -115,10 +117,15 @@ export default function AuthPage() {
       await login(loginEmail, loginPassword);
       navigate("/");
     } catch (err: any) {
-      if (err.message?.toLowerCase().includes("suspended")) {
+      const msg = err.message || "";
+      if (msg.toLowerCase().includes("suspended")) {
         setShowSuspendedDialog(true);
+      } else if (msg.includes("423") || msg.toLowerCase().includes("locked")) {
+        const cleanMsg = msg.replace(/^\d+:\s*/, "").replace(/[{}"]/g, "").replace(/message:/i, "").trim();
+        setShowLockedDialog(true);
+        setLockedMessage(cleanMsg || "Account temporarily locked due to too many failed attempts.");
       } else {
-        toast({ title: "Login failed", description: err.message, variant: "destructive" });
+        toast({ title: "Login failed", description: msg.replace(/^\d+:\s*/, "").replace(/[{}"]/g, "").replace(/message:/i, "").trim() || "Invalid credentials", variant: "destructive" });
       }
     } finally {
       setLoading(false);
@@ -577,6 +584,41 @@ export default function AuthPage() {
               variant="outline"
               onClick={() => setShowSuspendedDialog(false)}
               data-testid="button-suspended-close"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLockedDialog} onOpenChange={setShowLockedDialog}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-locked">
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-2">
+              <Lock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <DialogTitle className="text-center" data-testid="text-locked-title">Account Temporarily Locked</DialogTitle>
+            <DialogDescription className="text-center" data-testid="text-locked-description">
+              {lockedMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md bg-muted p-4 text-center space-y-2">
+            <p className="text-sm text-muted-foreground">
+              If you believe this is an error, please contact the administrator:
+            </p>
+            <a
+              href="mailto:info@toolsoftech.eu"
+              className="text-sm font-medium text-primary hover:underline"
+              data-testid="link-locked-email"
+            >
+              info@toolsoftech.eu
+            </a>
+          </div>
+          <DialogFooter className="sm:justify-center">
+            <Button
+              variant="outline"
+              onClick={() => setShowLockedDialog(false)}
+              data-testid="button-locked-close"
             >
               Close
             </Button>

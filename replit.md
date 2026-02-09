@@ -109,3 +109,9 @@ All routes prefixed with `/api/`:
 - 2026-02-08: Demo mode banner: restricted users see persistent top banner indicating they are using the Demo Version with contact link
 - 2026-02-08: RestrictedPage updated: shows "Feature Not Available in Demo" with Tools of Tech P.C. contact details and mailto CTA
 - 2026-02-08: Password reset: forgot-password flow on login page, reset-password page with token validation, hashed reset tokens, 1hr expiry, server-side password complexity enforcement
+- 2026-02-09: Security hardening phase 2:
+  - Session invalidation on password reset/change (destroys all active sessions for the user)
+  - Account lockout: 5 failed login attempts = 30 minute lockout, with lockout dialog on frontend
+  - CSRF protection: token-based validation on all state-changing API requests (X-CSRF-Token header)
+  - Enhanced security audit logging: LOGIN_SUCCESS, LOGIN_FAILED, ACCOUNT_LOCKED, LOGIN_BLOCKED_LOCKOUT, PASSWORD_RESET_REQUESTED, PASSWORD_RESET, PASSWORD_CHANGED events logged to audit_logs table and server console
+  - Consistent password complexity enforcement on all password-setting endpoints
