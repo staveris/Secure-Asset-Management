@@ -1063,19 +1063,56 @@ export async function registerRoutes(
         evidenceConfidence: r.evidenceConfidence,
         notes: r.notes,
         guidance: control?.guidance || null,
+        source: "NIS2" as const,
       };
     });
 
     const assessmentTasks = await storage.getTasksByAssessment(id);
 
+    let cirInfo: any = null;
+    const linkedAtomic = await storage.getAtomicAssessmentByParent(id);
+    if (linkedAtomic) {
+      const atomicResponses = await storage.getAtomicAssessmentResponses(linkedAtomic.id);
+      const allAtomicControls = await storage.getAllAtomicControls();
+      const atomicControlMap = new Map(allAtomicControls.map(c => [c.id, c]));
+
+      const cirResponses = atomicResponses.map((r) => {
+        const ctrl = atomicControlMap.get(r.atomicControlId);
+        return {
+          id: r.id,
+          atomicControlId: r.atomicControlId,
+          atomicAssessmentId: linkedAtomic.id,
+          controlTitle: ctrl?.shortTitle || "",
+          controlDescription: ctrl?.obligationText || "",
+          requirementCode: ctrl?.controlId || "",
+          requirementTitle: ctrl?.domain || "",
+          category: ctrl?.domain || "CIR 2024/2690",
+          domain: ctrl?.domain || "CIR 2024/2690",
+          weight: ctrl?.weight || 1,
+          implementationStatus: r.implementationStatus,
+          maturityLevel: r.maturityLevel,
+          evidenceConfidence: r.confidence,
+          notes: r.notes,
+          guidance: null,
+          source: "CIR" as const,
+        };
+      });
+
+      cirInfo = {
+        atomicAssessmentId: linkedAtomic.id,
+        responses: cirResponses,
+      };
+    }
+
     res.json({
-      id: assessment.id,
-      name: assessment.name,
-      scope: assessment.scope,
-      status: assessment.status,
-      createdAt: assessment.createdAt,
+      id: assessment!.id,
+      name: assessment!.name,
+      scope: assessment!.scope,
+      status: assessment!.status,
+      createdAt: assessment!.createdAt,
       responses: enrichedResponses,
       tasks: assessmentTasks,
+      cirInfo,
     });
   });
 

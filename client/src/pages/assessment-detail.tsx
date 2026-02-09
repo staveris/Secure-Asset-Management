@@ -54,7 +54,9 @@ import type { EvidenceItem, Task } from "@shared/schema";
 
 interface AssessmentResponse {
   id: number;
-  controlObjectiveId: number;
+  controlObjectiveId?: number;
+  atomicControlId?: number;
+  atomicAssessmentId?: number;
   controlTitle: string;
   controlDescription: string;
   requirementCode: string;
@@ -67,6 +69,12 @@ interface AssessmentResponse {
   evidenceConfidence: string;
   notes: string | null;
   guidance: string | null;
+  source?: "NIS2" | "CIR";
+}
+
+interface CirInfo {
+  atomicAssessmentId: number;
+  responses: AssessmentResponse[];
 }
 
 interface AssessmentDetail {
@@ -77,6 +85,7 @@ interface AssessmentDetail {
   createdAt: string;
   responses: AssessmentResponse[];
   tasks: Task[];
+  cirInfo?: CirInfo | null;
 }
 
 type GroupMode = "domain" | "category";
@@ -233,18 +242,30 @@ function ControlCard({
     edits.evidenceConfidence !== response.evidenceConfidence ||
     edits.notes !== (response.notes || "");
 
+  const isCir = response.source === "CIR";
+
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload: any = { responseId: response.id };
-      if (edits.implementationStatus !== response.implementationStatus)
-        payload.implementationStatus = edits.implementationStatus;
-      if (edits.maturityLevel !== response.maturityLevel)
-        payload.maturityLevel = edits.maturityLevel;
-      if (edits.evidenceConfidence !== response.evidenceConfidence)
-        payload.evidenceConfidence = edits.evidenceConfidence;
-      if (edits.notes !== (response.notes || ""))
-        payload.notes = edits.notes;
-      await apiRequest("PATCH", `/api/assessment-responses/${response.id}`, payload);
+      if (isCir && response.atomicAssessmentId && response.atomicControlId) {
+        await apiRequest("POST", `/api/atomic-assessments/${response.atomicAssessmentId}/responses`, {
+          atomicControlId: response.atomicControlId,
+          implementationStatus: edits.implementationStatus,
+          maturityLevel: edits.maturityLevel,
+          confidence: edits.evidenceConfidence,
+          notes: edits.notes || null,
+        });
+      } else {
+        const payload: any = { responseId: response.id };
+        if (edits.implementationStatus !== response.implementationStatus)
+          payload.implementationStatus = edits.implementationStatus;
+        if (edits.maturityLevel !== response.maturityLevel)
+          payload.maturityLevel = edits.maturityLevel;
+        if (edits.evidenceConfidence !== response.evidenceConfidence)
+          payload.evidenceConfidence = edits.evidenceConfidence;
+        if (edits.notes !== (response.notes || ""))
+          payload.notes = edits.notes;
+        await apiRequest("PATCH", `/api/assessment-responses/${response.id}`, payload);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
@@ -260,7 +281,7 @@ function ControlCard({
   const StatusIcon = config.icon;
 
   return (
-    <Card data-testid={`control-card-${response.id}`}>
+    <Card data-testid={`control-card-${isCir ? "cir" : "nis2"}-${response.id}`}>
       <CardContent className="p-4 space-y-4">
         <div className="flex items-start gap-3">
           <div className={`p-1.5 rounded-md ${config.bg} shrink-0 mt-0.5`}>
@@ -269,6 +290,7 @@ function ControlCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
+              {isCir && <Badge variant="secondary" className="text-xs">CIR</Badge>}
               <span className="text-sm font-medium">{response.controlTitle}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">{response.controlDescription}</p>
@@ -375,7 +397,7 @@ function ControlCard({
           </div>
         )}
 
-        <div className="pl-10 space-y-2" data-testid={`tasks-section-${response.id}`}>
+        {!isCir && <div className="pl-10 space-y-2" data-testid={`tasks-section-${response.id}`}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="text-xs flex items-center gap-1.5">
               <ListTodo className="w-3 h-3" />
@@ -483,9 +505,9 @@ function ControlCard({
               </div>
             </DialogContent>
           </Dialog>
-        </div>
+        </div>}
 
-        <div className="pl-10 space-y-2" data-testid={`evidence-section-${response.id}`}>
+        {!isCir && <div className="pl-10 space-y-2" data-testid={`evidence-section-${response.id}`}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="text-xs flex items-center gap-1.5">
               <FileText className="w-3 h-3" />
@@ -563,7 +585,7 @@ function ControlCard({
               </div>
             </DialogContent>
           </Dialog>
-        </div>
+        </div>}
       </CardContent>
     </Card>
   );
@@ -584,13 +606,22 @@ export default function AssessmentDetail({ id }: { id: string }) {
     queryKey: ["/api/evidence"],
   });
 
-  const getControlTasks = (controlObjectiveId: number): Task[] => {
-    if (!data?.tasks) return [];
+  const allResponses = useMemo(() => {
+    if (!data) return [];
+    const nis2 = data.responses.map(r => ({ ...r, source: (r.source || "NIS2") as "NIS2" | "CIR" }));
+    const cir = data.cirInfo?.responses?.map(r => ({ ...r, source: "CIR" as const })) || [];
+    return [...nis2, ...cir];
+  }, [data]);
+
+  const hasCir = !!data?.cirInfo;
+
+  const getControlTasks = (controlObjectiveId: number | undefined): Task[] => {
+    if (!data?.tasks || !controlObjectiveId) return [];
     return data.tasks.filter(t => t.controlObjectiveId === controlObjectiveId);
   };
 
-  const getControlEvidence = (controlObjectiveId: number): EvidenceItem[] => {
-    if (!evidenceItems) return [];
+  const getControlEvidence = (controlObjectiveId: number | undefined): EvidenceItem[] => {
+    if (!evidenceItems || !controlObjectiveId) return [];
     return evidenceItems.filter(
       e => (e.relatedType === "Control" && e.relatedId === controlObjectiveId) ||
            (e.relatedType === "Assessment" && e.relatedId === parseInt(id))
@@ -599,8 +630,10 @@ export default function AssessmentDetail({ id }: { id: string }) {
 
   const stats = useMemo(() => {
     if (!data) return null;
-    const r = data.responses;
+    const r = allResponses;
     const total = r.length;
+    const nis2Count = r.filter(x => x.source === "NIS2").length;
+    const cirCount = r.filter(x => x.source === "CIR").length;
     const notStarted = r.filter(x => x.implementationStatus === "NOT_STARTED").length;
     const inProgress = r.filter(x => x.implementationStatus === "IN_PROGRESS").length;
     const implemented = r.filter(x => x.implementationStatus === "IMPLEMENTED").length;
@@ -611,12 +644,11 @@ export default function AssessmentDetail({ id }: { id: string }) {
     const weightedMaturitySum = r.reduce((sum, x) => sum + x.maturityLevel * (x.weight || 1), 0);
     const totalWeight = r.reduce((sum, x) => sum + (x.weight || 1), 0);
     const weightedMaturityAvg = totalWeight > 0 ? parseFloat((weightedMaturitySum / totalWeight).toFixed(1)) : 0;
-    return { total, notStarted, inProgress, implemented, verified, completionPct, maturityAvg, weightedMaturityAvg };
-  }, [data]);
+    return { total, nis2Count, cirCount, notStarted, inProgress, implemented, verified, completionPct, maturityAvg, weightedMaturityAvg };
+  }, [data, allResponses]);
 
   const filteredResponses = useMemo(() => {
-    if (!data) return [];
-    let filtered = data.responses;
+    let filtered = allResponses;
     if (statusFilter !== "ALL") {
       filtered = filtered.filter(r => r.implementationStatus === statusFilter);
     }
@@ -630,7 +662,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
       );
     }
     return filtered;
-  }, [data, statusFilter, searchQuery]);
+  }, [allResponses, statusFilter, searchQuery]);
 
   const grouped = useMemo(() => {
     const groupKey = groupMode === "domain" ? "domain" : "category";
@@ -672,9 +704,13 @@ export default function AssessmentDetail({ id }: { id: string }) {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold tracking-tight truncate">{data.name}</h1>
             <Badge variant="outline">{data.status.replace("_", " ")}</Badge>
+            {hasCir && <Badge variant="secondary">NIS2 + CIR</Badge>}
           </div>
           <p className="text-muted-foreground text-sm mt-0.5">
             {data.scope || "Full NIS2 compliance assessment"}
+            {hasCir && (
+              <span className="ml-2 text-xs">({stats?.nis2Count} NIS2 + {stats?.cirCount} CIR controls)</span>
+            )}
           </p>
         </div>
       </div>
@@ -724,7 +760,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
           <Progress value={stats.completionPct} className="h-2.5" />
           <div className="flex items-center gap-4 flex-wrap pt-1">
             {Object.entries(statusConfig).map(([key, config]) => {
-              const count = data.responses.filter(r => r.implementationStatus === key).length;
+              const count = allResponses.filter(r => r.implementationStatus === key).length;
               return (
                 <div key={key} className="flex items-center gap-1.5 text-xs">
                   <div className={`w-2.5 h-2.5 rounded-full ${config.color.replace("text-", "bg-")}`} />
@@ -814,7 +850,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
                   <div className="space-y-3 pb-2">
                     {responses.map((response) => (
                       <ControlCard
-                        key={response.id}
+                        key={`${response.source || "NIS2"}-${response.id}`}
                         response={response}
                         assessmentId={id}
                         controlEvidence={getControlEvidence(response.controlObjectiveId)}
