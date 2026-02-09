@@ -14,6 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -23,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Truck, Building } from "lucide-react";
+import { Plus, Truck, Building, Pencil, Trash2 } from "lucide-react";
 import type { Supplier } from "@shared/schema";
 
 const criticalityColors: Record<string, string> = {
@@ -39,6 +41,15 @@ export default function Suppliers() {
   const [criticality, setCriticality] = useState("medium");
   const [services, setServices] = useState("");
   const [notes, setNotes] = useState("");
+
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCriticality, setEditCriticality] = useState("medium");
+  const [editServices, setEditServices] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+
+  const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
+
   const { toast } = useToast();
 
   const { data: suppliers, isLoading } = useQuery<Supplier[]>({
@@ -68,6 +79,49 @@ export default function Suppliers() {
     },
   });
 
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingSupplier) return;
+      await apiRequest("PATCH", `/api/suppliers/${editingSupplier.id}`, {
+        name: editName,
+        criticality: editCriticality,
+        services: editServices || null,
+        notes: editNotes || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      setEditingSupplier(null);
+      toast({ title: "Supplier updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!deletingSupplier) return;
+      await apiRequest("DELETE", `/api/suppliers/${deletingSupplier.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      setDeletingSupplier(null);
+      toast({ title: "Supplier deleted" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const openEdit = (supplier: Supplier) => {
+    setEditName(supplier.name);
+    setEditCriticality(supplier.criticality);
+    setEditServices(supplier.services || "");
+    setEditNotes(supplier.notes || "");
+    setEditingSupplier(supplier);
+  };
+
   return (
     <div className="p-6 space-y-6" data-testid="suppliers-page">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -86,7 +140,7 @@ export default function Suppliers() {
             <DialogHeader><DialogTitle>Add Supplier</DialogTitle></DialogHeader>
             <div className="space-y-4 mt-2">
               <div className="space-y-2">
-                <Label>Supplier Name</Label>
+                <Label>Supplier Name <span className="text-red-500">*</span></Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Company name" data-testid="input-supplier-name" />
               </div>
               <div className="space-y-2">
@@ -127,13 +181,21 @@ export default function Suppliers() {
             <Card key={supplier.id} data-testid={`card-supplier-${supplier.id}`}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <Building className="w-4 h-4 text-muted-foreground" />
-                    <h3 className="font-semibold text-sm">{supplier.name}</h3>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <h3 className="font-semibold text-sm truncate">{supplier.name}</h3>
                   </div>
-                  <Badge variant={criticalityColors[supplier.criticality] as any} className="text-xs shrink-0">
-                    {supplier.criticality}
-                  </Badge>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge variant={criticalityColors[supplier.criticality] as any} className="text-xs">
+                      {supplier.criticality}
+                    </Badge>
+                    <Button size="icon" variant="ghost" onClick={() => openEdit(supplier)} data-testid={`button-edit-supplier-${supplier.id}`}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => setDeletingSupplier(supplier)} data-testid={`button-delete-supplier-${supplier.id}`}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
                 {supplier.services && <p className="text-xs text-muted-foreground mb-1">{supplier.services}</p>}
                 {supplier.notes && <p className="text-xs text-muted-foreground italic">{supplier.notes}</p>}
@@ -159,6 +221,70 @@ export default function Suppliers() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!editingSupplier} onOpenChange={(open) => { if (!open) setEditingSupplier(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Supplier</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label>Supplier Name <span className="text-red-500">*</span></Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} data-testid="input-edit-supplier-name" />
+            </div>
+            <div className="space-y-2">
+              <Label>Criticality</Label>
+              <Select value={editCriticality} onValueChange={setEditCriticality}>
+                <SelectTrigger data-testid="select-edit-supplier-criticality"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Services Provided</Label>
+              <Input value={editServices} onChange={(e) => setEditServices(e.target.value)} data-testid="input-edit-supplier-services" />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} data-testid="input-edit-supplier-notes" />
+            </div>
+            <Button
+              onClick={() => editMutation.mutate()}
+              disabled={!editName || editMutation.isPending}
+              className="w-full"
+              data-testid="button-save-edit-supplier"
+            >
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingSupplier} onOpenChange={(open) => { if (!open) setDeletingSupplier(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Supplier</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{deletingSupplier?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeletingSupplier(null)} data-testid="button-cancel-delete-supplier">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete-supplier"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

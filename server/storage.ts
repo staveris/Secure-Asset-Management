@@ -171,9 +171,15 @@ export interface IStorage {
 
   createSupplier(data: InsertSupplier): Promise<Supplier>;
   getSuppliersByTenant(tenantId: number): Promise<Supplier[]>;
+  getSupplier(id: number): Promise<Supplier | undefined>;
+  updateSupplier(id: number, data: Partial<InsertSupplier>): Promise<Supplier | undefined>;
+  deleteSupplier(id: number): Promise<void>;
 
   createRiskItem(data: InsertRiskItem): Promise<RiskItem>;
   getRisksByTenant(tenantId: number): Promise<RiskItem[]>;
+  getRiskItem(id: number): Promise<RiskItem | undefined>;
+  updateRiskItem(id: number, data: Partial<InsertRiskItem>): Promise<RiskItem | undefined>;
+  deleteRiskItem(id: number): Promise<void>;
 
   createAuditLog(data: { tenantId?: number | null; actorUserId?: number | null; action: string; entityType: string; entityId?: string; details?: any }): Promise<AuditLog>;
   getAuditLogs(limit?: number): Promise<AuditLog[]>;
@@ -624,6 +630,20 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(suppliers).where(eq(suppliers.tenantId, tenantId));
   }
 
+  async getSupplier(id: number): Promise<Supplier | undefined> {
+    const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, id));
+    return supplier;
+  }
+
+  async updateSupplier(id: number, data: Partial<InsertSupplier>): Promise<Supplier | undefined> {
+    const [supplier] = await db.update(suppliers).set(data).where(eq(suppliers.id, id)).returning();
+    return supplier;
+  }
+
+  async deleteSupplier(id: number): Promise<void> {
+    await db.delete(suppliers).where(eq(suppliers.id, id));
+  }
+
   async createRiskItem(data: InsertRiskItem): Promise<RiskItem> {
     const [risk] = await db.insert(riskItems).values(data).returning();
     return risk;
@@ -631,6 +651,20 @@ export class DatabaseStorage implements IStorage {
 
   async getRisksByTenant(tenantId: number): Promise<RiskItem[]> {
     return db.select().from(riskItems).where(eq(riskItems.tenantId, tenantId));
+  }
+
+  async getRiskItem(id: number): Promise<RiskItem | undefined> {
+    const [risk] = await db.select().from(riskItems).where(eq(riskItems.id, id));
+    return risk;
+  }
+
+  async updateRiskItem(id: number, data: Partial<InsertRiskItem>): Promise<RiskItem | undefined> {
+    const [risk] = await db.update(riskItems).set(data).where(eq(riskItems.id, id)).returning();
+    return risk;
+  }
+
+  async deleteRiskItem(id: number): Promise<void> {
+    await db.delete(riskItems).where(eq(riskItems.id, id));
   }
 
   async createAuditLog(data: { tenantId?: number | null; actorUserId?: number | null; action: string; entityType: string; entityId?: string; details?: any }): Promise<AuditLog> {

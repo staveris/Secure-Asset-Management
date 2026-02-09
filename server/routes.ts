@@ -1417,7 +1417,7 @@ export async function registerRoutes(
       const commenter = allUsers.find(u => u.id === c.userId);
       return {
         ...c,
-        userName: commenter ? `${commenter.firstName} ${commenter.lastName}` : "Unknown",
+        userName: commenter ? commenter.fullName : "Unknown",
       };
     });
     res.json(enriched);
@@ -1746,6 +1746,62 @@ export async function registerRoutes(
     res.json(supplier);
   });
 
+  app.patch("/api/suppliers/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    const id = parseInt(req.params.id);
+    const existing = await storage.getSupplier(id);
+    if (!existing || (existing.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    const { name, criticality, services, notes } = req.body;
+    if (name !== undefined && !name.trim()) return res.status(400).json({ message: "Name cannot be empty" });
+    const validCriticalities = ["low", "medium", "high", "critical"];
+    if (criticality !== undefined && !validCriticalities.includes(criticality)) return res.status(400).json({ message: "Invalid criticality" });
+
+    const updated = await storage.updateSupplier(id, {
+      ...(name !== undefined && { name: name.trim() }),
+      ...(criticality !== undefined && { criticality }),
+      ...(services !== undefined && { services }),
+      ...(notes !== undefined && { notes }),
+    });
+
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "UPDATE",
+      entityType: "SUPPLIER",
+      entityId: String(id),
+    });
+
+    res.json(updated);
+  });
+
+  app.delete("/api/suppliers/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    const id = parseInt(req.params.id);
+    const existing = await storage.getSupplier(id);
+    if (!existing || (existing.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    await storage.deleteSupplier(id);
+
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "DELETE",
+      entityType: "SUPPLIER",
+      entityId: String(id),
+    });
+
+    res.json({ message: "Supplier deleted" });
+  });
+
   app.get("/api/risks", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -1779,6 +1835,67 @@ export async function registerRoutes(
     });
 
     res.json(risk);
+  });
+
+  app.patch("/api/risks/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    const id = parseInt(req.params.id);
+    const existing = await storage.getRiskItem(id);
+    if (!existing || (existing.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    const { title, likelihood, impact, treatment, status } = req.body;
+    if (title !== undefined && !title.trim()) return res.status(400).json({ message: "Title cannot be empty" });
+    const validTreatments = ["ACCEPT", "MITIGATE", "TRANSFER", "AVOID"];
+    if (treatment !== undefined && !validTreatments.includes(treatment)) return res.status(400).json({ message: "Invalid treatment" });
+    const validStatuses = ["IDENTIFIED", "ASSESSING", "TREATING", "MONITORED", "CLOSED"];
+    if (status !== undefined && !validStatuses.includes(status)) return res.status(400).json({ message: "Invalid status" });
+    if (likelihood !== undefined && (likelihood < 1 || likelihood > 5)) return res.status(400).json({ message: "Likelihood must be 1-5" });
+    if (impact !== undefined && (impact < 1 || impact > 5)) return res.status(400).json({ message: "Impact must be 1-5" });
+
+    const updated = await storage.updateRiskItem(id, {
+      ...(title !== undefined && { title: title.trim() }),
+      ...(likelihood !== undefined && { likelihood }),
+      ...(impact !== undefined && { impact }),
+      ...(treatment !== undefined && { treatment }),
+      ...(status !== undefined && { status }),
+    });
+
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "UPDATE",
+      entityType: "RISK",
+      entityId: String(id),
+    });
+
+    res.json(updated);
+  });
+
+  app.delete("/api/risks/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    const id = parseInt(req.params.id);
+    const existing = await storage.getRiskItem(id);
+    if (!existing || (existing.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    await storage.deleteRiskItem(id);
+
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "DELETE",
+      entityType: "RISK",
+      entityId: String(id),
+    });
+
+    res.json({ message: "Risk deleted" });
   });
 
   app.get("/api/incidents/:id/notifications", requireAuth, requireFullAccess, async (req, res) => {
