@@ -1378,6 +1378,81 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  app.delete("/api/tasks/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    const id = parseInt(req.params.id);
+    const existingTask = await storage.getTask(id);
+    if (!existingTask || (existingTask.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    await storage.deleteTask(id);
+
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "DELETE",
+      entityType: "TASK",
+      entityId: String(id),
+    });
+
+    res.json({ message: "Task deleted" });
+  });
+
+  app.get("/api/tasks/:id/comments", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    const taskId = parseInt(req.params.id);
+    const task = await storage.getTask(taskId);
+    if (!task || (task.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    const comments = await storage.getTaskComments(taskId);
+    const allUsers = await storage.getUsersByTenant(user.tenantId);
+    const enriched = comments.map(c => {
+      const commenter = allUsers.find(u => u.id === c.userId);
+      return {
+        ...c,
+        userName: commenter ? `${commenter.firstName} ${commenter.lastName}` : "Unknown",
+      };
+    });
+    res.json(enriched);
+  });
+
+  app.post("/api/tasks/:id/comments", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+
+    const taskId = parseInt(req.params.id);
+    const task = await storage.getTask(taskId);
+    if (!task || (task.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    const { content } = req.body;
+    if (!content || !content.trim()) return res.status(400).json({ message: "Content is required" });
+
+    const comment = await storage.createTaskComment({
+      taskId,
+      userId: user.id,
+      content: content.trim(),
+    });
+
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "CREATE",
+      entityType: "TASK_COMMENT",
+      entityId: String(comment.id),
+    });
+
+    res.json(comment);
+  });
+
   app.get("/api/evidence", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -1528,21 +1603,35 @@ export async function registerRoutes(
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
-      const [assessments, tasks, incidents, allControlObjectives] = await Promise.all([
+      const [assessmentList, tasks] = await Promise.all([
         storage.getAssessmentsByTenant(user.tenantId),
         storage.getTasksByTenant(user.tenantId),
-        storage.getIncidentsByTenant(user.tenantId),
-        db.select({
-          id: controlObjectives.id,
-          title: controlObjectives.title,
-        }).from(controlObjectives),
       ]);
       res.json({
-        assessments: assessments.map(a => ({ id: a.id, label: a.name })),
+        assessments: assessmentList.map(a => ({ id: a.id, label: a.name })),
         tasks: tasks.map(t => ({ id: t.id, label: t.title })),
-        incidents: incidents.map(i => ({ id: i.id, label: i.title })),
-        controls: allControlObjectives.map(c => ({ id: c.id, label: c.title || `Control #${c.id}` })),
       });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/assessments/:id/controls", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      const assessmentId = parseInt(req.params.id);
+      const assessment = await storage.getAssessment(assessmentId);
+      if (!assessment || assessment.tenantId !== user.tenantId) {
+        return res.status(404).json({ message: "Assessment not found" });
+      }
+      const responses = await storage.getAssessmentResponses(assessmentId);
+      const allControls = await storage.getAllControlObjectives();
+      const controlIds = responses.map(r => r.controlObjectiveId);
+      const controls = allControls
+        .filter(c => controlIds.includes(c.id))
+        .map(c => ({ id: c.id, title: c.title }));
+      res.json(controls);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

@@ -83,6 +83,8 @@ export default function Evidence() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [relatedType, setRelatedType] = useState(linkType);
   const [relatedId, setRelatedId] = useState(linkId);
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState("");
+  const [selectedControlId, setSelectedControlId] = useState("");
 
   useEffect(() => {
     if (linkType && linkId) {
@@ -111,6 +113,11 @@ export default function Evidence() {
 
   const { data: linkableEntities } = useQuery<LinkableEntities>({
     queryKey: ["/api/evidence/linkable-entities"],
+  });
+
+  const { data: assessmentControls, isLoading: controlsLoading } = useQuery<{ id: number; title: string }[]>({
+    queryKey: ["/api/assessments", selectedAssessmentId, "controls"],
+    enabled: !!selectedAssessmentId && relatedType === "Assessment",
   });
 
   interface StorageInfo {
@@ -150,6 +157,8 @@ export default function Evidence() {
       setSelectedFile(null);
       setRelatedType("");
       setRelatedId("");
+      setSelectedAssessmentId("");
+      setSelectedControlId("");
     },
     onError: (error: Error) => {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
@@ -219,18 +228,19 @@ export default function Evidence() {
   });
 
   const handleUpload = () => {
-    if (!selectedFile || !relatedType || !relatedId) return;
+    if (!selectedFile || !relatedType) return;
     const formData = new FormData();
     formData.append("file", selectedFile);
-    formData.append("relatedType", relatedType);
-    formData.append("relatedId", relatedId);
+    if (relatedType === "Assessment") {
+      if (!selectedControlId) return;
+      formData.append("relatedType", "Control");
+      formData.append("relatedId", selectedControlId);
+    } else {
+      if (!relatedId) return;
+      formData.append("relatedType", relatedType);
+      formData.append("relatedId", relatedId);
+    }
     uploadMutation.mutate(formData);
-  };
-
-  const getEntityOptions = (): LinkableEntity[] => {
-    if (!linkableEntities || !relatedType) return [];
-    const key = relatedType.toLowerCase() + "s" as keyof LinkableEntities;
-    return linkableEntities[key] || [];
   };
 
   const getLinkedLabel = (type: string, id: number): string | null => {
@@ -264,7 +274,7 @@ export default function Evidence() {
           <h1 className="text-2xl font-bold tracking-tight">Evidence Vault</h1>
           <p className="text-muted-foreground mt-1">Manage compliance evidence and documentation</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setRelatedType(""); setRelatedId(""); setSelectedFile(null); } }}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setRelatedType(""); setRelatedId(""); setSelectedFile(null); setSelectedAssessmentId(""); setSelectedControlId(""); } }}>
           <DialogTrigger asChild>
             <Button data-testid="button-upload-evidence">
               <Plus className="w-4 h-4 mr-2" />
@@ -275,7 +285,7 @@ export default function Evidence() {
             <DialogHeader>
               <DialogTitle>Upload Evidence</DialogTitle>
               <DialogDescription>
-                Upload a file and link it to an existing assessment, task, or control.
+                Upload a file and link it to an assessment control or task.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-2">
@@ -291,31 +301,80 @@ export default function Evidence() {
               </div>
               <div className="space-y-2">
                 <Label>Link To</Label>
-                <Select value={relatedType} onValueChange={(v) => { setRelatedType(v); setRelatedId(""); }}>
+                <Select value={relatedType} onValueChange={(v) => { setRelatedType(v); setRelatedId(""); setSelectedAssessmentId(""); setSelectedControlId(""); }}>
                   <SelectTrigger data-testid="select-related-type">
                     <SelectValue placeholder="Select entity type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Assessment">Assessment</SelectItem>
                     <SelectItem value="Task">Task</SelectItem>
-                    <SelectItem value="Control">Control</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              {relatedType && (
+              {relatedType === "Assessment" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Select Assessment</Label>
+                    {linkableEntities?.assessments && linkableEntities.assessments.length === 0 ? (
+                      <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">
+                        No assessments found. Create one first before uploading evidence.
+                      </p>
+                    ) : (
+                      <Select value={selectedAssessmentId} onValueChange={(v) => { setSelectedAssessmentId(v); setSelectedControlId(""); }}>
+                        <SelectTrigger data-testid="select-evidence-assessment">
+                          <SelectValue placeholder="Select an assessment..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {linkableEntities?.assessments?.map(a => (
+                            <SelectItem key={a.id} value={String(a.id)}>
+                              {a.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  {selectedAssessmentId && (
+                    <div className="space-y-2">
+                      <Label>Select Control</Label>
+                      {controlsLoading ? (
+                        <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">Loading controls...</p>
+                      ) : assessmentControls && assessmentControls.length === 0 ? (
+                        <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">
+                          No controls found for this assessment.
+                        </p>
+                      ) : (
+                        <Select value={selectedControlId} onValueChange={setSelectedControlId}>
+                          <SelectTrigger data-testid="select-evidence-control">
+                            <SelectValue placeholder="Select a control..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-64">
+                            {assessmentControls?.map(c => (
+                              <SelectItem key={c.id} value={String(c.id)}>
+                                {c.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+              {relatedType === "Task" && (
                 <div className="space-y-2">
-                  <Label>Select {relatedType}</Label>
-                  {getEntityOptions().length === 0 ? (
+                  <Label>Select Task</Label>
+                  {linkableEntities?.tasks && linkableEntities.tasks.length === 0 ? (
                     <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">
-                      No {relatedType.toLowerCase()}s found. Create one first before uploading evidence.
+                      No tasks found. Create one first before uploading evidence.
                     </p>
                   ) : (
                     <Select value={relatedId} onValueChange={setRelatedId}>
                       <SelectTrigger data-testid="select-related-entity">
-                        <SelectValue placeholder={`Select ${relatedType.toLowerCase()}`} />
+                        <SelectValue placeholder="Select a task..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {getEntityOptions().map(entity => (
+                        {linkableEntities?.tasks?.map(entity => (
                           <SelectItem key={entity.id} value={String(entity.id)}>
                             #{entity.id} - {entity.label}
                           </SelectItem>
@@ -327,7 +386,11 @@ export default function Evidence() {
               )}
               <Button
                 onClick={handleUpload}
-                disabled={!selectedFile || !relatedType || !relatedId || uploadMutation.isPending}
+                disabled={
+                  !selectedFile || !relatedType || uploadMutation.isPending ||
+                  (relatedType === "Assessment" && !selectedControlId) ||
+                  (relatedType === "Task" && !relatedId)
+                }
                 className="w-full"
                 data-testid="button-submit-upload"
               >

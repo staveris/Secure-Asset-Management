@@ -91,6 +91,9 @@ import {
   type TenantDailyAtomicSnapshot,
   type ImportRun,
   type InsertImportRun,
+  taskComments,
+  type TaskComment,
+  type InsertTaskComment,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -145,6 +148,10 @@ export interface IStorage {
   getTasksByAssessment(assessmentId: number): Promise<Task[]>;
   getIncompleteTasksByTenant(tenantId: number): Promise<Task[]>;
   updateTask(id: number, data: Partial<InsertTask>): Promise<Task | undefined>;
+  deleteTask(id: number): Promise<void>;
+
+  getTaskComments(taskId: number): Promise<TaskComment[]>;
+  createTaskComment(data: InsertTaskComment): Promise<TaskComment>;
 
   getEvidenceByTenant(tenantId: number): Promise<EvidenceItem[]>;
   createEvidenceItem(data: InsertEvidenceItem): Promise<EvidenceItem>;
@@ -509,6 +516,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tasks.id, id))
       .returning();
     return task;
+  }
+
+  async deleteTask(id: number): Promise<void> {
+    await db.delete(tasks).where(eq(tasks.id, id));
+  }
+
+  async getTaskComments(taskId: number): Promise<TaskComment[]> {
+    return db.select().from(taskComments).where(eq(taskComments.taskId, taskId)).orderBy(asc(taskComments.createdAt));
+  }
+
+  async createTaskComment(data: InsertTaskComment): Promise<TaskComment> {
+    const [comment] = await db.insert(taskComments).values(data).returning();
+    return comment;
   }
 
   async getEvidenceByTenant(tenantId: number): Promise<EvidenceItem[]> {

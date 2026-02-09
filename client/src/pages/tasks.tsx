@@ -14,6 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -26,7 +28,10 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ListTodo, Clock, CheckCircle2, Circle, Eye, Calendar, Shield, ClipboardList } from "lucide-react";
+import {
+  Plus, ListTodo, Clock, CheckCircle2, Circle, Eye, Calendar,
+  Shield, ClipboardList, Pencil, Trash2, MessageSquare, Send,
+} from "lucide-react";
 import type { Task } from "@shared/schema";
 
 type EnrichedTask = Task & {
@@ -53,6 +58,15 @@ type AssessmentSummary = {
   createdAt: string;
 };
 
+type EnrichedComment = {
+  id: number;
+  taskId: number;
+  userId: number;
+  content: string;
+  createdAt: string;
+  userName: string;
+};
+
 const priorityColors: Record<string, string> = {
   CRITICAL: "destructive",
   HIGH: "destructive",
@@ -67,6 +81,84 @@ const statusDisplay: Record<string, { label: string; icon: any }> = {
   DONE: { label: "Done", icon: CheckCircle2 },
 };
 
+function TaskComments({ taskId }: { taskId: number }) {
+  const [content, setContent] = useState("");
+  const { toast } = useToast();
+
+  const { data: comments, isLoading } = useQuery<EnrichedComment[]>({
+    queryKey: ["/api/tasks", taskId, "comments"],
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/${taskId}/comments`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load comments");
+      return res.json();
+    },
+  });
+
+  const addComment = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/tasks/${taskId}/comments`, { content: content.trim() });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId, "comments"] });
+      setContent("");
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <MessageSquare className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-medium">Comments</span>
+        {comments && comments.length > 0 && (
+          <Badge variant="secondary" className="text-xs">{comments.length}</Badge>
+        )}
+      </div>
+
+      {isLoading ? (
+        <Skeleton className="h-16" />
+      ) : comments && comments.length > 0 ? (
+        <div className="space-y-2 max-h-48 overflow-y-auto">
+          {comments.map((c) => (
+            <div key={c.id} className="p-2 rounded-md bg-muted/50 space-y-0.5" data-testid={`comment-${c.id}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium" data-testid={`text-comment-author-${c.id}`}>{c.userName}</span>
+                <span className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</span>
+              </div>
+              <p className="text-sm" data-testid={`text-comment-content-${c.id}`}>{c.content}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">No comments yet</p>
+      )}
+
+      <div className="flex gap-2">
+        <Input
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Add a comment..."
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && content.trim()) addComment.mutate();
+          }}
+          data-testid={`input-comment-${taskId}`}
+        />
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => addComment.mutate()}
+          disabled={!content.trim() || addComment.isPending}
+          data-testid={`button-send-comment-${taskId}`}
+        >
+          <Send className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function Tasks() {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
@@ -76,6 +168,17 @@ export default function Tasks() {
   const [controlObjectiveId, setControlObjectiveId] = useState("");
   const [assessmentId, setAssessmentId] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+
+  const [editingTask, setEditingTask] = useState<EnrichedTask | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPriority, setEditPriority] = useState("MEDIUM");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editStatus, setEditStatus] = useState("TODO");
+
+  const [deletingTask, setDeletingTask] = useState<EnrichedTask | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
+
   const { toast } = useToast();
 
   const { data: tasks, isLoading } = useQuery<EnrichedTask[]>({
@@ -143,6 +246,53 @@ export default function Tasks() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
     },
   });
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingTask) return;
+      await apiRequest("PATCH", `/api/tasks/${editingTask.id}`, {
+        title: editTitle,
+        description: editDescription || null,
+        priority: editPriority,
+        status: editStatus,
+        dueDate: editDueDate ? new Date(editDueDate).toISOString() : null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setEditingTask(null);
+      toast({ title: "Task updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!deletingTask) return;
+      await apiRequest("DELETE", `/api/tasks/${deletingTask.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setDeletingTask(null);
+      toast({ title: "Task deleted" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const openEdit = (task: EnrichedTask) => {
+    setEditTitle(task.title);
+    setEditDescription(task.description || "");
+    setEditPriority(task.priority);
+    setEditStatus(task.status);
+    setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : "");
+    setEditingTask(task);
+  };
 
   const filteredTasks = tasks?.filter((t) => {
     if (activeTab === "all") return true;
@@ -285,6 +435,7 @@ export default function Tasks() {
             const statusInfo = statusDisplay[task.status];
             const StatusIcon = statusInfo?.icon || Circle;
             const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
+            const isExpanded = expandedTaskId === task.id;
 
             return (
               <Card key={task.id} data-testid={`card-task-${task.id}`}>
@@ -304,7 +455,11 @@ export default function Tasks() {
                         <SelectItem value="DONE">Done</SelectItem>
                       </SelectContent>
                     </Select>
-                    <div className="flex-1 min-w-0">
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
+                      data-testid={`button-expand-task-${task.id}`}
+                    >
                       <p className={`text-sm font-medium ${task.status === "DONE" ? "line-through text-muted-foreground" : ""}`}>
                         {task.title}
                       </p>
@@ -340,8 +495,41 @@ export default function Tasks() {
                       <Badge variant={priorityColors[task.priority] as any} className="text-xs">
                         {task.priority}
                       </Badge>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
+                        data-testid={`button-comments-toggle-${task.id}`}
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => openEdit(task)}
+                        data-testid={`button-edit-task-${task.id}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setDeletingTask(task)}
+                        data-testid={`button-delete-task-${task.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
+
+                  {isExpanded && (
+                    <div className="mt-4 pt-3 border-t">
+                      {task.description && (
+                        <p className="text-sm text-muted-foreground mb-3">{task.description}</p>
+                      )}
+                      <TaskComments taskId={task.id} />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -360,6 +548,103 @@ export default function Tasks() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!editingTask} onOpenChange={(open) => { if (!open) setEditingTask(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label>Title <span className="text-red-500">*</span></Label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                data-testid="input-edit-task-title"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                data-testid="input-edit-task-description"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select value={editPriority} onValueChange={setEditPriority}>
+                  <SelectTrigger data-testid="select-edit-task-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">Low</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="CRITICAL">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={editStatus} onValueChange={setEditStatus}>
+                  <SelectTrigger data-testid="select-edit-task-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODO">To Do</SelectItem>
+                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                    <SelectItem value="IN_REVIEW">In Review</SelectItem>
+                    <SelectItem value="DONE">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date</Label>
+              <Input
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                data-testid="input-edit-task-due-date"
+              />
+            </div>
+            <Button
+              onClick={() => editMutation.mutate()}
+              disabled={!editTitle || editMutation.isPending}
+              className="w-full"
+              data-testid="button-save-edit-task"
+            >
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingTask} onOpenChange={(open) => { if (!open) setDeletingTask(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{deletingTask?.title}"? This will also remove all comments. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeletingTask(null)} data-testid="button-cancel-delete">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

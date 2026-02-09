@@ -251,6 +251,23 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const taskComments = pgTable("task_comments", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id")
+    .references(() => tasks.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: integer("user_id")
+    .references(() => users.id)
+    .notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const evidenceItems = pgTable("evidence_items", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id")
@@ -495,6 +512,8 @@ export type InsertAssessmentResponse = z.infer<
 >;
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type TaskComment = typeof taskComments.$inferSelect;
+export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
 export type EvidenceItem = typeof evidenceItems.$inferSelect;
 export type InsertEvidenceItem = z.infer<typeof insertEvidenceItemSchema>;
 export type EvidenceAccessLog = typeof evidenceAccessLogs.$inferSelect;
