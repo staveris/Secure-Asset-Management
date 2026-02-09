@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Switch as SwitchUI } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, UserPlus, Mail, Shield, Clock, Lock, Unlock, Building2, MapPin, Globe, Save, Pencil } from "lucide-react";
+import { Users, UserPlus, Mail, Shield, Clock, Lock, Unlock, Building2, MapPin } from "lucide-react";
 
 interface TenantUser {
   id: number;
@@ -92,47 +92,9 @@ const NIS2_SECTOR_DATA: { group: string; sector: string; subsectors: string[] }[
 ];
 
 function CompanyDetailsPanel() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const isAdmin = user?.role === "TENANT_ADMIN" || user?.role === "PLATFORM_ADMIN";
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<Partial<TenantDetails>>({});
-
   const { data: tenant, isLoading } = useQuery<TenantDetails>({
     queryKey: ["/api/tenant/details"],
   });
-
-  const updateMutation = useMutation({
-    mutationFn: async (data: Partial<TenantDetails>) => {
-      const res = await apiRequest("PATCH", "/api/tenant/details", data);
-      return await res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Company details updated" });
-      queryClient.invalidateQueries({ queryKey: ["/api/tenant/details"] });
-      setEditing(false);
-    },
-    onError: (err: Error) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const startEditing = () => {
-    if (tenant) {
-      setForm({
-        name: tenant.name,
-        sector: tenant.sector,
-        subsector: tenant.subsector,
-        entityType: tenant.entityType,
-        country: tenant.country,
-      });
-    }
-    setEditing(true);
-  };
-
-  const handleSave = () => {
-    updateMutation.mutate(form);
-  };
 
   if (isLoading) {
     return (
@@ -147,7 +109,6 @@ function CompanyDetailsPanel() {
 
   const sectorEntry = NIS2_SECTOR_DATA.find(s => s.sector === tenant.sector);
   const sectorGroup = sectorEntry?.group || null;
-  const availableSubsectors = NIS2_SECTOR_DATA.find(s => s.sector === (editing ? form.sector : tenant.sector))?.subsectors || [];
 
   return (
     <div className="space-y-6">
@@ -164,147 +125,61 @@ function CompanyDetailsPanel() {
               </p>
             </div>
           </div>
-          {isAdmin && !editing && (
-            <Button variant="outline" size="sm" onClick={startEditing} data-testid="button-edit-company">
-              <Pencil className="w-3.5 h-3.5 mr-1.5" />
-              Edit
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
-          {editing ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Company Name</Label>
-                  <Input
-                    value={form.name || ""}
-                    onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                    data-testid="input-company-name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Country</Label>
-                  <Select value={form.country || ""} onValueChange={(v) => setForm(prev => ({ ...prev, country: v }))}>
-                    <SelectTrigger data-testid="select-company-country">
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EU_COUNTRIES.map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Sector</Label>
-                  <Select value={form.sector || ""} onValueChange={(v) => setForm(prev => ({ ...prev, sector: v, subsector: null }))}>
-                    <SelectTrigger data-testid="select-company-sector">
-                      <SelectValue placeholder="Select sector" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {NIS2_SECTOR_DATA.map(s => (
-                        <SelectItem key={s.sector} value={s.sector}>{s.sector} ({s.group})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Subsector</Label>
-                  {availableSubsectors.length > 0 ? (
-                    <Select value={form.subsector || ""} onValueChange={(v) => setForm(prev => ({ ...prev, subsector: v }))}>
-                      <SelectTrigger data-testid="select-company-subsector">
-                        <SelectValue placeholder="Select subsector" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableSubsectors.map(sub => (
-                          <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      value={form.subsector || ""}
-                      onChange={(e) => setForm(prev => ({ ...prev, subsector: e.target.value }))}
-                      placeholder="No subsectors for this sector"
-                      disabled={!form.sector}
-                      data-testid="input-company-subsector"
-                    />
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Entity Type</Label>
-                  <Select value={form.entityType || ""} onValueChange={(v) => setForm(prev => ({ ...prev, entityType: v }))}>
-                    <SelectTrigger data-testid="select-entity-type">
-                      <SelectValue placeholder="Select entity type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ESSENTIAL">Essential Entity</SelectItem>
-                      <SelectItem value="IMPORTANT">Important Entity</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Sector</p>
+                <p className="text-sm font-medium" data-testid="text-company-sector">{tenant.sector || "Not set"}</p>
               </div>
-              <div className="flex items-center gap-2 justify-end">
-                <Button variant="outline" size="sm" onClick={() => setEditing(false)} data-testid="button-cancel-edit">
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending} data-testid="button-save-company">
-                  <Save className="w-3.5 h-3.5 mr-1.5" />
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
-                </Button>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Subsector</p>
+                <p className="text-sm font-medium" data-testid="text-company-subsector">{tenant.subsector || "Not set"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Entity Type</p>
+                <p className="text-sm font-medium" data-testid="text-company-entity-type">
+                  {tenant.entityType === "ESSENTIAL" ? "Essential Entity" : tenant.entityType === "IMPORTANT" ? "Important Entity" : tenant.entityType || "Not set"}
+                </p>
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-0.5">Sector</p>
-                  <p className="text-sm font-medium" data-testid="text-company-sector">{tenant.sector || "Not set"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-0.5">Subsector</p>
-                  <p className="text-sm font-medium" data-testid="text-company-subsector">{tenant.subsector || "Not set"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-0.5">Entity Type</p>
-                  <p className="text-sm font-medium" data-testid="text-company-entity-type">
-                    {tenant.entityType === "ESSENTIAL" ? "Essential Entity" : tenant.entityType === "IMPORTANT" ? "Important Entity" : tenant.entityType || "Not set"}
-                  </p>
-                </div>
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Country</p>
+                <p className="text-sm font-medium flex items-center gap-1.5" data-testid="text-company-country">
+                  <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                  {tenant.country || "Not set"}
+                </p>
               </div>
-              <div className="space-y-3">
+              {tenant.contactEmail && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-0.5">Country</p>
-                  <p className="text-sm font-medium flex items-center gap-1.5" data-testid="text-company-country">
-                    <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                    {tenant.country || "Not set"}
+                  <p className="text-xs text-muted-foreground mb-0.5">Contact Email</p>
+                  <p className="text-sm font-medium flex items-center gap-1.5" data-testid="text-company-contact-email">
+                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                    {tenant.contactEmail}
                   </p>
                 </div>
-                {tenant.contactEmail && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Contact Email</p>
-                    <p className="text-sm font-medium flex items-center gap-1.5" data-testid="text-company-contact-email">
-                      <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                      {tenant.contactEmail}
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-0.5">Status</p>
-                  <Badge variant={tenant.status === "active" ? "default" : "destructive"} data-testid="text-company-status">
-                    {tenant.status}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-0.5">Registered</p>
-                  <p className="text-sm font-medium" data-testid="text-company-registered">
-                    {new Date(tenant.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Status</p>
+                <Badge variant={tenant.status === "active" ? "default" : "destructive"} data-testid="text-company-status">
+                  {tenant.status}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Registered</p>
+                <p className="text-sm font-medium" data-testid="text-company-registered">
+                  {new Date(tenant.createdAt).toLocaleDateString()}
+                </p>
               </div>
             </div>
-          )}
+          </div>
+          <div className="mt-4 p-3 rounded-md bg-muted/50 border border-border">
+            <p className="text-xs text-muted-foreground" data-testid="text-company-readonly-notice">
+              Company details can only be edited by a platform administrator. Contact your admin if updates are needed.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

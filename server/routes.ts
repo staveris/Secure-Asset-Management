@@ -1711,10 +1711,11 @@ export async function registerRoutes(
     const result = await Promise.all(
       allTenants.map(async (t) => {
         const users = await storage.getUsersByTenant(t.id);
+        const tenantOnlyUsers = users.filter(u => u.role !== "PLATFORM_ADMIN");
         const dashData = await storage.getDashboardData(t.id);
         return {
           ...t,
-          userCount: users.length,
+          userCount: tenantOnlyUsers.length,
           complianceScore: dashData.complianceScore,
           storageQuotaBytes: t.storageQuotaBytes,
           storageUsedBytes: t.storageUsedBytes,
@@ -1768,6 +1769,38 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
       }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/admin/tenants/:id/details", requirePlatformAdmin, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.id);
+      if (isNaN(tenantId)) return res.status(400).json({ message: "Invalid tenant ID" });
+      const tenant = await storage.getTenant(tenantId);
+      if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+      const { name, sectorGroup, sector, subsector, entityType, country } = req.body;
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (sectorGroup !== undefined) updates.sectorGroup = sectorGroup;
+      if (sector !== undefined) updates.sector = sector;
+      if (subsector !== undefined) updates.subsector = subsector;
+      if (entityType !== undefined) updates.entityType = entityType;
+      if (country !== undefined) updates.country = country;
+      const updated = await storage.updateTenant(tenantId, updates);
+      const user = await getAuthUser(req);
+      if (user) {
+        await storage.createAuditLog({
+          tenantId: tenantId,
+          actorUserId: user.id,
+          action: "UPDATE",
+          entityType: "TENANT",
+          entityId: String(tenantId),
+          details: updates,
+        });
+      }
+      res.json(updated);
+    } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
   });
@@ -1864,7 +1897,8 @@ export async function registerRoutes(
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
     const users = await storage.getUsersByTenant(tenantId);
-    res.json(users.map(u => ({
+    const filteredUsers = users.filter(u => u.role !== "PLATFORM_ADMIN");
+    res.json(filteredUsers.map(u => ({
       id: u.id, email: u.email, fullName: u.fullName, role: u.role,
       isActive: u.isActive, fullAccessEnabled: u.fullAccessEnabled,
       createdAt: u.createdAt, lastLoginAt: u.lastLoginAt,
@@ -2035,13 +2069,11 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/tenant/profile", requireAuth, requireWriteAccess, async (req, res) => {
+  app.patch("/api/tenant/profile", requirePlatformAdmin, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
-      if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
-        return res.status(403).json({ message: "Only tenant admins can update profile" });
-      }
+
 
       const { sectorGroup, sector, subsector, entityType, country, applicabilityProfile } = req.body;
       if (country !== undefined && (!country || typeof country !== "string" || country.trim().length === 0)) {
@@ -2077,7 +2109,8 @@ export async function registerRoutes(
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const tenantUsers = await storage.getUsersByTenant(user.tenantId);
-    res.json(tenantUsers.map(u => ({
+    const filteredUsers = tenantUsers.filter(u => u.role !== "PLATFORM_ADMIN");
+    res.json(filteredUsers.map(u => ({
       id: u.id, email: u.email, fullName: u.fullName, role: u.role, isActive: u.isActive, fullAccessEnabled: u.fullAccessEnabled, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt,
     })));
   });
@@ -2722,13 +2755,11 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/tenant/details", requireAuth, requireWriteAccess, async (req, res) => {
+  app.patch("/api/tenant/details", requirePlatformAdmin, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
-      if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
-        return res.status(403).json({ message: "Only admins can update company details" });
-      }
+
       const { name, sectorGroup, sector, subsector, entityType, country } = req.body;
       const updates: any = {};
       if (name !== undefined) updates.name = name;

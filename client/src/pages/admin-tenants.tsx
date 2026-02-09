@@ -43,6 +43,7 @@ interface TenantInfo {
   id: number;
   name: string;
   sector: string;
+  subsector: string | null;
   entityType: string;
   country: string | null;
   status: string;
@@ -72,6 +73,34 @@ const SECTORS = [
   "chemicals", "food", "manufacturing", "digital_providers", "research",
 ];
 
+const NIS2_SECTOR_DATA: { group: string; sector: string; subsectors: string[] }[] = [
+  { group: "Annex I", sector: "Energy", subsectors: ["Electricity", "District heating and cooling", "Oil", "Gas", "Hydrogen"] },
+  { group: "Annex I", sector: "Transport", subsectors: ["Air", "Rail", "Water", "Road"] },
+  { group: "Annex I", sector: "Banking", subsectors: [] },
+  { group: "Annex I", sector: "Financial market infrastructures", subsectors: [] },
+  { group: "Annex I", sector: "Health", subsectors: [] },
+  { group: "Annex I", sector: "Drinking water", subsectors: [] },
+  { group: "Annex I", sector: "Waste water", subsectors: [] },
+  { group: "Annex I", sector: "Digital infrastructure", subsectors: ["Internet Exchange Point providers", "DNS service providers", "TLD name registries", "Cloud computing service providers", "Data centre service providers", "Content delivery network providers", "Trust service providers", "Providers of public electronic communications networks", "Providers of publicly available electronic communications services"] },
+  { group: "Annex I", sector: "ICT service management (B2B)", subsectors: ["Managed service providers", "Managed security service providers"] },
+  { group: "Annex I", sector: "Public administration", subsectors: ["Central government entities", "Regional level entities"] },
+  { group: "Annex I", sector: "Space", subsectors: ["Operators of ground-based infrastructure"] },
+  { group: "Annex II", sector: "Postal and courier services", subsectors: [] },
+  { group: "Annex II", sector: "Waste management", subsectors: [] },
+  { group: "Annex II", sector: "Chemicals", subsectors: ["Manufacturing", "Production", "Distribution"] },
+  { group: "Annex II", sector: "Food", subsectors: ["Production", "Processing", "Distribution"] },
+  { group: "Annex II", sector: "Manufacturing", subsectors: ["Medical devices", "Computer & electronic products", "Electrical equipment", "Machinery & equipment", "Motor vehicles & transport equipment"] },
+  { group: "Annex II", sector: "Digital providers", subsectors: ["Online marketplaces", "Online search engines", "Social networking services platforms"] },
+  { group: "Annex II", sector: "Research", subsectors: [] },
+];
+
+const EU_COUNTRIES = [
+  "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czech Republic",
+  "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary",
+  "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta", "Netherlands",
+  "Poland", "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden",
+];
+
 export default function AdminTenants() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -83,6 +112,8 @@ export default function AdminTenants() {
   const [editUser, setEditUser] = useState<{ tenantId: number; user: TenantUser } | null>(null);
   const [editFullName, setEditFullName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editTenant, setEditTenant] = useState<TenantInfo | null>(null);
+  const [editTenantForm, setEditTenantForm] = useState<{ name: string; sector: string; subsector: string; entityType: string; country: string }>({ name: "", sector: "", subsector: "", entityType: "", country: "" });
 
   const { data: tenants, isLoading } = useQuery<TenantInfo[]>({
     queryKey: ["/api/admin/tenants"],
@@ -140,6 +171,43 @@ export default function AdminTenants() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const editTenantDetailsMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: typeof editTenantForm }) => {
+      const res = await apiRequest("PATCH", `/api/admin/tenants/${id}/details`, data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants"] });
+      toast({ title: "Tenant updated", description: "Company details have been saved." });
+      setEditTenant(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleOpenEditTenant = (tenant: TenantInfo) => {
+    setEditTenantForm({
+      name: tenant.name || "",
+      sector: tenant.sector || "",
+      subsector: tenant.subsector || "",
+      entityType: tenant.entityType || "",
+      country: tenant.country || "",
+    });
+    setEditTenant(tenant);
+  };
+
+  const handleSaveEditTenant = () => {
+    if (!editTenant) return;
+    if (!editTenantForm.name.trim()) {
+      toast({ title: "Validation", description: "Company name is required.", variant: "destructive" });
+      return;
+    }
+    editTenantDetailsMutation.mutate({ id: editTenant.id, data: editTenantForm });
+  };
+
+  const editTenantSubsectors = NIS2_SECTOR_DATA.find(s => s.sector === editTenantForm.sector)?.subsectors || [];
 
   const handleOpenEditUser = (tenantId: number, user: TenantUser) => {
     setEditFullName(user.fullName);
@@ -403,6 +471,15 @@ export default function AdminTenants() {
                     <Button
                       size="icon"
                       variant="ghost"
+                      onClick={() => handleOpenEditTenant(tenant)}
+                      data-testid={`button-edit-tenant-${tenant.id}`}
+                      title="Edit company details"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
                       onClick={() => setExpandedTenant(expandedTenant === tenant.id ? null : tenant.id)}
                       data-testid={`button-expand-users-${tenant.id}`}
                       title="Manage user access"
@@ -607,6 +684,104 @@ export default function AdminTenants() {
               data-testid="button-save-edit-user"
             >
               {editUserProfileMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editTenant} onOpenChange={(open) => !open && setEditTenant(null)}>
+        <DialogContent className="sm:max-w-lg" data-testid="dialog-edit-tenant">
+          <DialogHeader>
+            <DialogTitle>Edit Company Details</DialogTitle>
+            <DialogDescription>
+              Update organization details for {editTenant?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="editTenantName">Company Name</Label>
+              <Input
+                id="editTenantName"
+                value={editTenantForm.name}
+                onChange={(e) => setEditTenantForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter company name"
+                data-testid="input-edit-tenant-name"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Sector</Label>
+                <Select value={editTenantForm.sector} onValueChange={(v) => setEditTenantForm(prev => ({ ...prev, sector: v, subsector: "" }))}>
+                  <SelectTrigger data-testid="select-edit-tenant-sector">
+                    <SelectValue placeholder="Select sector" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NIS2_SECTOR_DATA.map(s => (
+                      <SelectItem key={s.sector} value={s.sector}>{s.sector} ({s.group})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Subsector</Label>
+                {editTenantSubsectors.length > 0 ? (
+                  <Select value={editTenantForm.subsector} onValueChange={(v) => setEditTenantForm(prev => ({ ...prev, subsector: v }))}>
+                    <SelectTrigger data-testid="select-edit-tenant-subsector">
+                      <SelectValue placeholder="Select subsector" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {editTenantSubsectors.map(sub => (
+                        <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={editTenantForm.subsector}
+                    onChange={(e) => setEditTenantForm(prev => ({ ...prev, subsector: e.target.value }))}
+                    placeholder="N/A"
+                    disabled
+                    data-testid="input-edit-tenant-subsector"
+                  />
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Entity Type</Label>
+                <Select value={editTenantForm.entityType} onValueChange={(v) => setEditTenantForm(prev => ({ ...prev, entityType: v }))}>
+                  <SelectTrigger data-testid="select-edit-tenant-entity-type">
+                    <SelectValue placeholder="Select entity type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="essential">Essential Entity</SelectItem>
+                    <SelectItem value="important">Important Entity</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Select value={editTenantForm.country} onValueChange={(v) => setEditTenantForm(prev => ({ ...prev, country: v }))}>
+                  <SelectTrigger data-testid="select-edit-tenant-country">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EU_COUNTRIES.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditTenant(null)} data-testid="button-cancel-edit-tenant">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEditTenant}
+              disabled={editTenantDetailsMutation.isPending}
+              data-testid="button-save-edit-tenant"
+            >
+              {editTenantDetailsMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
