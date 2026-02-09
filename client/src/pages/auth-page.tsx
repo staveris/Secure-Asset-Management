@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { ArrowRight, Building2, Lock, Mail, User, Check, X, Shield, FileCheck, AlertTriangle, BarChart3, Globe, CheckCircle2, Ban } from "lucide-react";
-import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
+import { ArrowRight, Building2, Lock, Mail, User, Check, X, Shield, FileCheck, AlertTriangle, BarChart3, Globe, CheckCircle2, Ban, Layers, Scale } from "lucide-react";
 import faviconLogo from "@assets/browser_1770569283054.png";
 
 function PasswordStrength({ password }: { password: string }) {
@@ -56,31 +55,41 @@ function PasswordStrength({ password }: { password: string }) {
 const features = [
   {
     icon: Shield,
-    title: "NIS2 + CIR Unified",
-    description: "Combined NIS2 Directive and CIR 2024/2690 assessments with sector-specific controls",
+    title: "NIS2 Directive Compliance",
+    description: "41 control objectives from Directive 2022/2555 covering governance, risk management, and incident response",
+  },
+  {
+    icon: Scale,
+    title: "CIR 2024/2690 Controls",
+    description: "17 sector-specific requirements for digital infrastructure, ICT services, and digital providers",
   },
   {
     icon: AlertTriangle,
     title: "Incident Management",
-    description: "EU reporting timeline tracking with early warning & final report workflows",
+    description: "EU reporting timeline tracking with automated early warning, notification, and final report workflows",
   },
   {
     icon: FileCheck,
-    title: "Evidence & Audit",
-    description: "Secure evidence vault with smart linking and print-ready compliance reports",
+    title: "Evidence & Audit Readiness",
+    description: "Secure evidence vault with smart linking to controls and generation of print-ready compliance reports",
+  },
+  {
+    icon: Layers,
+    title: "Atomic-Level Assessments",
+    description: "Granular control breakdowns with obligation-level tracking filtered by entity type and subsector",
   },
   {
     icon: BarChart3,
-    title: "Sector-Aware Controls",
-    description: "Automatic CIR control mapping for Digital Infrastructure, ICT & Digital Providers",
+    title: "Compliance Analytics",
+    description: "Real-time dashboards, trend analysis, and gap identification across your entire compliance posture",
   },
 ];
 
 const stats = [
-  { value: "18", label: "NIS2 Sectors" },
-  { value: "41", label: "NIS2 Controls" },
-  { value: "17", label: "CIR Controls" },
-  { value: "11", label: "CIR Subsectors" },
+  { value: "18", label: "NIS2 Sectors", accent: "text-blue-400" },
+  { value: "41", label: "Control Objectives", accent: "text-sky-400" },
+  { value: "17", label: "CIR Controls", accent: "text-violet-400" },
+  { value: "27", label: "EU Countries", accent: "text-emerald-400" },
 ];
 
 export default function AuthPage() {
@@ -208,109 +217,120 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 dark:bg-neutral-950" data-testid="auth-page">
-      {/* Left branded panel - gradient instead of solid black */}
-      <div className="hidden lg:flex lg:w-[54%] relative overflow-hidden" style={{
-        background: "linear-gradient(135deg, #1e293b 0%, #334155 40%, #475569 100%)",
-      }}>
-        {/* Decorative circles */}
-        <div className="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full border border-white/[0.06]" />
-        <div className="absolute -top-20 -left-20 w-[700px] h-[700px] rounded-full border border-white/[0.04]" />
-        <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] rounded-full border border-white/[0.05]" />
-        <div className="absolute top-1/4 right-10 w-[300px] h-[300px] rounded-full bg-sky-500/[0.06] blur-3xl" />
-        <div className="absolute bottom-1/4 left-10 w-[250px] h-[250px] rounded-full bg-indigo-500/[0.05] blur-3xl" />
+    <div className="min-h-screen flex flex-col lg:flex-row" data-testid="auth-page">
 
-        {/* Grid pattern */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-          backgroundSize: '40px 40px',
+      {/* Left branded panel */}
+      <div className="hidden lg:flex lg:w-[56%] relative overflow-hidden" style={{
+        background: "linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)",
+      }}>
+        {/* Subtle radial accents */}
+        <div className="absolute top-0 left-0 w-full h-full" style={{
+          background: "radial-gradient(ellipse 80% 60% at 20% 30%, rgba(56,189,248,0.06) 0%, transparent 70%), radial-gradient(ellipse 60% 50% at 80% 70%, rgba(139,92,246,0.05) 0%, transparent 70%)",
         }} />
 
+        {/* Fine grid pattern */}
+        <div className="absolute inset-0 opacity-[0.025]" style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)`,
+          backgroundSize: '48px 48px',
+        }} />
+
+        {/* Decorative elements */}
+        <div className="absolute top-[15%] right-[10%] w-64 h-64 rounded-full border border-white/[0.04]" />
+        <div className="absolute top-[15%] right-[10%] w-96 h-96 rounded-full border border-white/[0.03]" />
+        <div className="absolute bottom-[20%] left-[5%] w-48 h-48 rounded-full border border-white/[0.04]" />
+
         <div className="relative z-10 flex flex-col justify-between p-10 xl:p-14 w-full">
-          {/* Top: Logo */}
+          {/* Top: Brand */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-11 h-11 rounded-lg bg-white/10 backdrop-blur-sm">
-              <img src={faviconLogo} alt="Tools of Tech" className="h-7 w-7 invert" data-testid="img-hero-icon" />
+            <div className="flex items-center justify-center w-10 h-10 rounded-md bg-white/[0.08] border border-white/[0.08]">
+              <img src={faviconLogo} alt="Tools of Tech" className="h-6 w-6 invert" data-testid="img-hero-icon" />
             </div>
             <div>
-              <span className="text-white font-semibold tracking-wide">TOOLS OF TECH</span>
-              <span className="block text-slate-400 text-[10px] tracking-[0.2em] uppercase">Innovation & Strategy</span>
+              <span className="text-white/90 font-semibold text-sm tracking-wide">TOOLS OF TECH</span>
+              <span className="block text-slate-500 text-[10px] tracking-[0.15em] uppercase">Innovation & Strategy</span>
             </div>
           </div>
 
           {/* Center: Hero content */}
-          <div className="flex-1 flex flex-col justify-center max-w-xl py-8">
-            <div className="flex items-center gap-2 mb-5 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-sky-400" />
-                <span className="text-sky-400 text-xs font-medium tracking-wider uppercase">
-                  NIS2 Directive 2022/2555
-                </span>
-              </div>
-              <span className="text-slate-500 text-xs">+</span>
-              <span className="text-sky-400 text-xs font-medium tracking-wider uppercase">
-                CIR 2024/2690
+          <div className="flex-1 flex flex-col justify-center max-w-xl py-10">
+            {/* Regulation badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.08] w-fit mb-6">
+              <Globe className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-sky-400/90 text-[11px] font-medium tracking-wider uppercase">
+                EU Directive 2022/2555 & CIR 2024/2690
               </span>
             </div>
-            <h1 className="text-4xl xl:text-[2.75rem] font-bold text-white leading-[1.15] mb-4 tracking-tight">
-              NIS2 + CIR<br />
-              Compliance Platform
+
+            <h1 className="text-4xl xl:text-5xl font-bold text-white leading-[1.1] mb-5 tracking-tight">
+              NIS2 Readiness<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-violet-400">
+                Compliance Platform
+              </span>
             </h1>
-            <p className="text-slate-300 text-base xl:text-lg leading-relaxed mb-8 max-w-md">
-              Unified assessments covering the NIS2 Directive and the Commission Implementing Regulation (CIR) 2024/2690 with sector-aware controls for your organization.
+            <p className="text-slate-400 text-base xl:text-[17px] leading-relaxed mb-10 max-w-md">
+              Streamline your path to NIS2 and CIR compliance with unified assessments, automated reporting timelines, and audit-ready evidence management.
             </p>
 
             {/* Stats row */}
-            <div className="flex gap-6 mb-10">
+            <div className="flex gap-8 mb-12" data-testid="hero-stats">
               {stats.map((stat) => (
-                <div key={stat.label}>
-                  <div className="text-2xl font-bold text-white">{stat.value}</div>
-                  <div className="text-slate-400 text-xs mt-0.5">{stat.label}</div>
+                <div key={stat.label} className="text-center" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                  <div className={`text-3xl font-bold ${stat.accent}`}>{stat.value}</div>
+                  <div className="text-slate-500 text-[11px] mt-1 tracking-wide uppercase">{stat.label}</div>
                 </div>
               ))}
             </div>
 
-            {/* Feature list */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Feature grid */}
+            <div className="grid grid-cols-2 gap-3" data-testid="hero-features">
               {features.map((feature) => (
-                <div key={feature.title} className="p-4 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/[0.08]">
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                <div
+                  key={feature.title}
+                  className="group p-4 rounded-lg bg-white/[0.03] border border-white/[0.06]"
+                  style={{ backdropFilter: "blur(4px)" }}
+                  data-testid={`feature-${feature.title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`}
+                >
+                  <div className="flex items-start gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-md bg-gradient-to-br from-sky-500/20 to-violet-500/20 border border-white/[0.08] flex items-center justify-center shrink-0 mt-0.5">
                       <feature.icon className="w-4 h-4 text-sky-400" />
                     </div>
-                    <h3 className="text-white text-sm font-medium">{feature.title}</h3>
+                    <h3 className="text-white/90 text-[13px] font-medium leading-snug pt-1">{feature.title}</h3>
                   </div>
-                  <p className="text-slate-400 text-xs leading-relaxed">{feature.description}</p>
+                  <p className="text-slate-500 text-[11px] leading-relaxed pl-11">{feature.description}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Bottom: Trust & compliance */}
-          <div className="flex items-center gap-5 flex-wrap">
-            <div className="flex items-center gap-2 text-slate-400 text-xs">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+          {/* Bottom: Trust badges */}
+          <div className="flex items-center gap-6 flex-wrap" data-testid="trust-badges">
+            <div className="flex items-center gap-2 text-slate-500 text-[11px] tracking-wide" data-testid="badge-nis2-cir">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
               <span>NIS2 + CIR Ready</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-400 text-xs">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Multi-tenant</span>
+            <div className="flex items-center gap-2 text-slate-500 text-[11px] tracking-wide" data-testid="badge-multi-tenant">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
+              <span>Multi-Tenant Architecture</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-400 text-xs">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Encrypted & Secure</span>
+            <div className="flex items-center gap-2 text-slate-500 text-[11px] tracking-wide" data-testid="badge-encryption">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
+              <span>End-to-End Encryption</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-500 text-[11px] tracking-wide" data-testid="badge-rbac">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
+              <span>RBAC & 2FA</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right form panel */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen bg-background">
         {/* Mobile header */}
-        <div className="lg:hidden flex items-center justify-between p-4 border-b bg-background">
+        <div className="lg:hidden flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
-              <img src={faviconLogo} alt="Tools of Tech" className="h-5 w-5 invert" data-testid="img-mobile-icon" />
+            <div className="w-8 h-8 rounded-md bg-slate-900 dark:bg-slate-100 flex items-center justify-center">
+              <img src={faviconLogo} alt="Tools of Tech" className="h-5 w-5 dark:invert-0 invert" data-testid="img-mobile-icon" />
             </div>
             <div>
               <span className="font-semibold text-sm">NIS2 Platform</span>
@@ -319,24 +339,24 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-background">
-          <div className="w-full max-w-[420px]">
+        <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+          <div className="w-full max-w-[400px]">
             {/* Form header */}
             <div className="mb-8">
-              <div className="hidden lg:flex items-center gap-2.5 mb-8">
-                <div className="w-8 h-8 rounded-lg bg-slate-800 dark:bg-slate-200 flex items-center justify-center">
-                  <img src={faviconLogo} alt="" className="h-5 w-5 dark:invert-0 invert-0 dark:brightness-0" style={{ filter: "invert(1)" }} />
+              <div className="hidden lg:flex items-center gap-2.5 mb-10">
+                <div className="w-8 h-8 rounded-md bg-slate-900 dark:bg-white/10 flex items-center justify-center">
+                  <img src={faviconLogo} alt="" className="h-5 w-5" style={{ filter: "invert(1)" }} />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium tracking-wider uppercase">NIS2 Readiness Platform</span>
+                <span className="text-[11px] text-muted-foreground font-medium tracking-[0.12em] uppercase">NIS2 Readiness Platform</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight" data-testid="text-form-title">
                 {showTotpStep ? "Two-Factor Authentication" : showForgotPassword ? "Reset your password" : isLogin ? "Welcome back" : "Get started"}
               </h2>
-              <p className="text-muted-foreground mt-1.5 text-sm">
+              <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
                 {showTotpStep
                   ? "Enter the 6-digit code from your authenticator app"
                   : showForgotPassword
-                    ? "Enter your email and we'll send you a link to reset your password"
+                    ? "Enter your email and we'll send you a reset link"
                     : isLogin
                       ? "Sign in to continue to your compliance dashboard"
                       : "Create your account and begin your NIS2 compliance journey"
@@ -345,9 +365,9 @@ export default function AuthPage() {
             </div>
 
             {showTotpStep ? (
-              <form onSubmit={handleTotpVerify} className="space-y-4" data-testid="form-totp-verify">
-                <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                  <Shield className="w-6 h-6 text-primary" />
+              <form onSubmit={handleTotpVerify} className="space-y-5" data-testid="form-totp-verify">
+                <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Shield className="w-7 h-7 text-primary" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="totp-code">Verification Code</Label>
@@ -360,7 +380,7 @@ export default function AuthPage() {
                       placeholder="000000"
                       value={totpCode}
                       onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      className="pl-10 bg-white dark:bg-neutral-900 text-center text-lg tracking-widest"
+                      className="pl-10 text-center text-lg tracking-widest"
                       maxLength={6}
                       autoFocus
                       required
@@ -374,13 +394,13 @@ export default function AuthPage() {
                   disabled={totpCode.length !== 6 || totpLoading}
                   data-testid="button-totp-verify"
                 >
-                  {totpLoading ? "Verifying..." : "Verify"}
+                  {totpLoading ? "Verifying..." : "Verify & Continue"}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
                 <button
                   type="button"
                   onClick={() => { setShowTotpStep(false); setTotpCode(""); }}
-                  className="w-full text-sm text-muted-foreground hover:text-foreground text-center"
+                  className="w-full text-sm text-muted-foreground hover:text-foreground text-center transition-colors"
                   data-testid="link-back-from-totp"
                 >
                   Back to Login
@@ -388,12 +408,12 @@ export default function AuthPage() {
               </form>
             ) : showForgotPassword ? (
               forgotSent ? (
-                <div className="space-y-4 text-center" data-testid="forgot-password-sent">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <Mail className="w-6 h-6 text-green-600 dark:text-green-400" />
+                <div className="space-y-5 text-center" data-testid="forgot-password-sent">
+                  <div className="mx-auto w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <Mail className="w-7 h-7 text-green-600 dark:text-green-400" />
                   </div>
                   <h3 className="text-base font-semibold" data-testid="text-forgot-sent-title">Check your email</h3>
-                  <p className="text-sm text-muted-foreground" data-testid="text-forgot-sent-message">
+                  <p className="text-sm text-muted-foreground leading-relaxed" data-testid="text-forgot-sent-message">
                     If an account with that email exists, we've sent a password reset link. Please check your inbox and spam folder.
                   </p>
                   <button
@@ -406,7 +426,7 @@ export default function AuthPage() {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleForgotPassword} className="space-y-4" data-testid="form-forgot-password">
+                <form onSubmit={handleForgotPassword} className="space-y-5" data-testid="form-forgot-password">
                   <div className="space-y-2">
                     <Label htmlFor="forgot-email">Email address</Label>
                     <div className="relative">
@@ -417,7 +437,7 @@ export default function AuthPage() {
                         placeholder="you@company.com"
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
-                        className="pl-10 bg-white dark:bg-neutral-900"
+                        className="pl-10"
                         required
                         data-testid="input-forgot-email"
                       />
@@ -425,13 +445,14 @@ export default function AuthPage() {
                   </div>
                   <Button
                     type="submit"
-                    className="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-300 text-white no-default-hover-elevate"
+                    className="w-full"
                     disabled={loading}
                     data-testid="button-forgot-submit"
                   >
                     {loading ? "Sending..." : "Send Reset Link"}
+                    <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
-                  <div className="text-center pt-3">
+                  <div className="text-center pt-2">
                     <button
                       type="button"
                       onClick={() => { setShowForgotPassword(false); setForgotEmail(""); }}
@@ -444,7 +465,7 @@ export default function AuthPage() {
                 </form>
               )
             ) : isLogin ? (
-              <form onSubmit={handleLogin} className="space-y-4" data-testid="form-login">
+              <form onSubmit={handleLogin} className="space-y-5" data-testid="form-login">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email address</Label>
                   <div className="relative">
@@ -455,7 +476,7 @@ export default function AuthPage() {
                       placeholder="you@company.com"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
-                      className="pl-10 bg-white dark:bg-neutral-900"
+                      className="pl-10"
                       required
                       data-testid="input-login-email"
                     />
@@ -481,7 +502,7 @@ export default function AuthPage() {
                       placeholder="Enter your password"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
-                      className="pl-10 bg-white dark:bg-neutral-900"
+                      className="pl-10"
                       required
                       data-testid="input-login-password"
                     />
@@ -489,7 +510,7 @@ export default function AuthPage() {
                 </div>
                 <Button
                   type="submit"
-                  className="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-300 text-white no-default-hover-elevate"
+                  className="w-full"
                   disabled={loading}
                   data-testid="button-login"
                 >
@@ -503,12 +524,13 @@ export default function AuthPage() {
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                     data-testid="link-switch-register"
                   >
-                    Don't have an account? <span className="font-medium underline underline-offset-4">Register your company</span>
+                    Don't have an account?{" "}
+                    <span className="font-medium text-foreground underline underline-offset-4">Register</span>
                   </button>
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleRegister} className="space-y-3.5" data-testid="form-register">
+              <form onSubmit={handleRegister} className="space-y-4" data-testid="form-register">
                 <div className="space-y-2">
                   <Label htmlFor="reg-name">Full Name</Label>
                   <div className="relative">
@@ -518,7 +540,7 @@ export default function AuthPage() {
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
                       placeholder="Your full name"
-                      className="pl-10 bg-white dark:bg-neutral-900"
+                      className="pl-10"
                       required
                       data-testid="input-reg-name"
                     />
@@ -534,7 +556,7 @@ export default function AuthPage() {
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       placeholder="you@company.com"
-                      className="pl-10 bg-white dark:bg-neutral-900"
+                      className="pl-10"
                       required
                       data-testid="input-reg-email"
                     />
@@ -550,7 +572,7 @@ export default function AuthPage() {
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
                       placeholder="Create a strong password"
-                      className="pl-10 bg-white dark:bg-neutral-900"
+                      className="pl-10"
                       required
                       data-testid="input-reg-password"
                     />
@@ -567,7 +589,7 @@ export default function AuthPage() {
                       value={regConfirmPassword}
                       onChange={(e) => setRegConfirmPassword(e.target.value)}
                       placeholder="Re-enter your password"
-                      className="pl-10 bg-white dark:bg-neutral-900"
+                      className="pl-10"
                       required
                       data-testid="input-reg-confirm-password"
                     />
@@ -588,7 +610,7 @@ export default function AuthPage() {
                       value={regCompany}
                       onChange={(e) => setRegCompany(e.target.value)}
                       placeholder="Your company name"
-                      className="pl-10 bg-white dark:bg-neutral-900"
+                      className="pl-10"
                       required
                       data-testid="input-reg-company"
                     />
@@ -597,7 +619,7 @@ export default function AuthPage() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-300 text-white no-default-hover-elevate"
+                  className="w-full"
                   disabled={loading || !isPasswordValid || !passwordsMatch}
                   data-testid="button-register"
                 >
@@ -611,7 +633,8 @@ export default function AuthPage() {
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                     data-testid="link-switch-login"
                   >
-                    Already have an account? <span className="font-medium underline underline-offset-4">Sign in</span>
+                    Already have an account?{" "}
+                    <span className="font-medium text-foreground underline underline-offset-4">Sign in</span>
                   </button>
                 </div>
               </form>
@@ -620,8 +643,8 @@ export default function AuthPage() {
         </div>
 
         {/* Footer */}
-        <div className="p-4 text-center border-t bg-background">
-          <p className="text-xs text-muted-foreground">
+        <div className="p-4 text-center border-t">
+          <p className="text-[11px] text-muted-foreground tracking-wide">
             Powered by <span className="font-medium">Tools of Tech</span> &middot; Innovation & Strategy
           </p>
         </div>
