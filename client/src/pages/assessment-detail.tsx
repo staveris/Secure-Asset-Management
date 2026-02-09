@@ -587,7 +587,7 @@ function ControlCard({
                   <Input
                     id={`evidence-file-${response.id}`}
                     type="file"
-                    accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.txt,.csv"
+                    accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.svg"
                     data-testid={`input-evidence-file-${response.id}`}
                     onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                   />

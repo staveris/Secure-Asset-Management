@@ -56,12 +56,11 @@ const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "image/png",
   "image/jpeg",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
-  "text/csv",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
 ];
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_FILE_SIZE = 150 * 1024 * 1024;
 
 const uploadStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
@@ -174,8 +173,8 @@ const FILE_MAGIC_BYTES: Record<string, Buffer[]> = {
   "application/pdf": [Buffer.from([0x25, 0x50, 0x44, 0x46])],
   "image/png": [Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])],
   "image/jpeg": [Buffer.from([0xFF, 0xD8, 0xFF])],
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [Buffer.from([0x50, 0x4B, 0x03, 0x04])],
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [Buffer.from([0x50, 0x4B, 0x03, 0x04])],
+  "image/gif": [Buffer.from([0x47, 0x49, 0x46, 0x38, 0x37, 0x61]), Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])],
+  "image/webp": [Buffer.from([0x52, 0x49, 0x46, 0x46])],
 };
 
 function validateFileMagicBytes(filePath: string, declaredMimeType: string): boolean {

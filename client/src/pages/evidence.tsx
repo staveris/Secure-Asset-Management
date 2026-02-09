@@ -294,7 +294,7 @@ export default function Evidence() {
                 <Input
                   id="evidence-file"
                   type="file"
-                  accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.txt,.csv"
+                  accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.svg"
                   data-testid="input-evidence-file"
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                 />
