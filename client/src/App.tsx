@@ -27,6 +27,9 @@ import AdminRequirements from "@/pages/admin-requirements";
 import AdminAuditLog from "@/pages/admin-audit-log";
 import AdminEmailSettings from "@/pages/admin-email-settings";
 import AdminStorage from "@/pages/admin-storage";
+import AdminAtomicLibrary from "@/pages/admin-atomic-library";
+import AtomicAssessments from "@/pages/atomic-assessments";
+import AtomicAssessmentDetail from "@/pages/atomic-assessment-detail";
 import Onboarding from "@/pages/onboarding";
 import VerifyEmail from "@/pages/verify-email";
 import VerificationPending from "@/pages/verification-pending";
@@ -82,6 +85,7 @@ function AdminRouter() {
       <Route path="/admin/storage" component={AdminStorage} />
       <Route path="/admin/requirements" component={AdminRequirements} />
       <Route path="/admin/audit-log" component={AdminAuditLog} />
+      <Route path="/admin/atomic-library" component={AdminAtomicLibrary} />
       <Route path="/admin/email-settings" component={AdminEmailSettings} />
       <Route path="/settings" component={SettingsPage} />
       <Route><Redirect to="/admin" /></Route>
@@ -96,6 +100,10 @@ function TenantRouter() {
       <Route path="/assessments" component={Assessments} />
       <Route path="/assessments/:id">
         {(params) => <AssessmentDetail id={params.id} />}
+      </Route>
+      <Route path="/atomic-assessments" component={AtomicAssessments} />
+      <Route path="/atomic-assessments/:id">
+        {(params) => <AtomicAssessmentDetail id={params.id} />}
       </Route>
       <Route path="/tasks">{() => <WithFullAccess component={Tasks} />}</Route>
       <Route path="/evidence">{() => <WithFullAccess component={Evidence} />}</Route>

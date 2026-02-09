@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, count, avg, ne } from "drizzle-orm";
+import { eq, and, desc, sql, count, avg, ne, like, or, isNull, asc } from "drizzle-orm";
 import { db } from "./db";
 import {
   tenants,
@@ -22,6 +22,15 @@ import {
   evidenceAccessLogs,
   evidenceUnlockRequests,
   passwordHistory,
+  featureFlags,
+  legalSources,
+  atomicControls,
+  controlPackVersions,
+  controlObjectiveAtomicMaps,
+  atomicAssessments,
+  atomicAssessmentResponses,
+  taskAtomicLinks,
+  tenantDailyAtomicSnapshots,
   type InsertTenant,
   type InsertUser,
   type InsertRequirement,
@@ -61,6 +70,24 @@ import {
   type InviteToken,
   type EvidenceAccessLog,
   type EvidenceUnlockRequest,
+  type InsertFeatureFlag,
+  type FeatureFlag,
+  type InsertLegalSource,
+  type LegalSource,
+  type InsertAtomicControl,
+  type AtomicControl,
+  type InsertControlPackVersion,
+  type ControlPackVersion,
+  type InsertControlObjectiveAtomicMap,
+  type ControlObjectiveAtomicMap,
+  type InsertAtomicAssessment,
+  type AtomicAssessment,
+  type InsertAtomicAssessmentResponse,
+  type AtomicAssessmentResponse,
+  type InsertTaskAtomicLink,
+  type TaskAtomicLink,
+  type InsertTenantDailyAtomicSnapshot,
+  type TenantDailyAtomicSnapshot,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -160,6 +187,46 @@ export interface IStorage {
   recalculateTenantStorageUsed(tenantId: number): Promise<void>;
   getTenantStorageInfo(tenantId: number): Promise<{ storageQuotaBytes: number; storageUsedBytes: number; maxUsers: number; maxFileSizeBytes: number; userCount: number; evidenceCount: number }>;
   updateTenantQuota(tenantId: number, data: { storageQuotaBytes?: number; maxUsers?: number; maxFileSizeBytes?: number }): Promise<Tenant | undefined>;
+
+  getFeatureFlags(tenantId?: number): Promise<FeatureFlag[]>;
+  getFeatureFlag(tenantId: number | null, key: string): Promise<FeatureFlag | undefined>;
+  setFeatureFlag(tenantId: number | null, key: string, enabled: boolean): Promise<FeatureFlag>;
+  isFeatureEnabled(tenantId: number, key: string): Promise<boolean>;
+
+  createLegalSource(data: InsertLegalSource): Promise<LegalSource>;
+  getAllLegalSources(): Promise<LegalSource[]>;
+
+  createAtomicControl(data: InsertAtomicControl): Promise<AtomicControl>;
+  getAtomicControlByControlId(controlId: string): Promise<AtomicControl | undefined>;
+  getAllAtomicControls(): Promise<AtomicControl[]>;
+  getAtomicControlsBySource(sourceKey: string): Promise<AtomicControl[]>;
+  getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string): Promise<{ data: AtomicControl[]; total: number }>;
+  updateAtomicControl(id: number, data: Partial<InsertAtomicControl>): Promise<AtomicControl | undefined>;
+
+  createControlPackVersion(data: InsertControlPackVersion): Promise<ControlPackVersion>;
+  getControlPackVersions(sourceKey?: string): Promise<ControlPackVersion[]>;
+
+  createControlObjectiveAtomicMap(data: InsertControlObjectiveAtomicMap): Promise<ControlObjectiveAtomicMap>;
+  getAtomicMapsForControlObjective(controlObjectiveId: number): Promise<ControlObjectiveAtomicMap[]>;
+  getAtomicMapsForAtomicControl(atomicControlId: number): Promise<ControlObjectiveAtomicMap[]>;
+  getAllControlObjectiveAtomicMaps(): Promise<ControlObjectiveAtomicMap[]>;
+  deleteControlObjectiveAtomicMap(id: number): Promise<void>;
+
+  createAtomicAssessment(data: InsertAtomicAssessment): Promise<AtomicAssessment>;
+  getAtomicAssessment(id: number): Promise<AtomicAssessment | undefined>;
+  getAtomicAssessmentsByTenant(tenantId: number): Promise<AtomicAssessment[]>;
+  updateAtomicAssessment(id: number, data: Partial<InsertAtomicAssessment>): Promise<AtomicAssessment | undefined>;
+
+  createAtomicAssessmentResponse(data: InsertAtomicAssessmentResponse): Promise<AtomicAssessmentResponse>;
+  getAtomicAssessmentResponses(atomicAssessmentId: number): Promise<AtomicAssessmentResponse[]>;
+  upsertAtomicAssessmentResponse(data: InsertAtomicAssessmentResponse): Promise<AtomicAssessmentResponse>;
+
+  createTaskAtomicLink(data: InsertTaskAtomicLink): Promise<TaskAtomicLink>;
+  getTaskAtomicLinks(taskId: number): Promise<TaskAtomicLink[]>;
+  getTasksForAtomicControl(atomicControlId: number): Promise<TaskAtomicLink[]>;
+
+  createTenantDailyAtomicSnapshot(data: InsertTenantDailyAtomicSnapshot): Promise<TenantDailyAtomicSnapshot>;
+  getAtomicSnapshotsByTenant(tenantId: number, limit?: number): Promise<TenantDailyAtomicSnapshot[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -846,6 +913,203 @@ export class DatabaseStorage implements IStorage {
     if (data.maxFileSizeBytes !== undefined) updateData.maxFileSizeBytes = data.maxFileSizeBytes;
     const [tenant] = await db.update(tenants).set(updateData).where(eq(tenants.id, tenantId)).returning();
     return tenant;
+  }
+
+  async getFeatureFlags(tenantId?: number): Promise<FeatureFlag[]> {
+    if (tenantId !== undefined) {
+      return db.select().from(featureFlags).where(
+        or(eq(featureFlags.tenantId, tenantId), isNull(featureFlags.tenantId))
+      );
+    }
+    return db.select().from(featureFlags);
+  }
+
+  async getFeatureFlag(tenantId: number | null, key: string): Promise<FeatureFlag | undefined> {
+    const condition = tenantId === null
+      ? and(isNull(featureFlags.tenantId), eq(featureFlags.key, key))
+      : and(eq(featureFlags.tenantId, tenantId), eq(featureFlags.key, key));
+    const [flag] = await db.select().from(featureFlags).where(condition);
+    return flag;
+  }
+
+  async setFeatureFlag(tenantId: number | null, key: string, enabled: boolean): Promise<FeatureFlag> {
+    const existing = await this.getFeatureFlag(tenantId, key);
+    if (existing) {
+      const [updated] = await db.update(featureFlags).set({ enabled }).where(eq(featureFlags.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(featureFlags).values({ tenantId, key, enabled }).returning();
+    return created;
+  }
+
+  async isFeatureEnabled(tenantId: number, key: string): Promise<boolean> {
+    const tenantFlag = await this.getFeatureFlag(tenantId, key);
+    if (tenantFlag) return tenantFlag.enabled;
+    const globalFlag = await this.getFeatureFlag(null, key);
+    if (globalFlag) return globalFlag.enabled;
+    return false;
+  }
+
+  async createLegalSource(data: InsertLegalSource): Promise<LegalSource> {
+    const [source] = await db.insert(legalSources).values(data).returning();
+    return source;
+  }
+
+  async getAllLegalSources(): Promise<LegalSource[]> {
+    return db.select().from(legalSources);
+  }
+
+  async createAtomicControl(data: InsertAtomicControl): Promise<AtomicControl> {
+    const [control] = await db.insert(atomicControls).values(data as any).returning();
+    return control;
+  }
+
+  async getAtomicControlByControlId(controlId: string): Promise<AtomicControl | undefined> {
+    const [control] = await db.select().from(atomicControls).where(eq(atomicControls.controlId, controlId));
+    return control;
+  }
+
+  async getAllAtomicControls(): Promise<AtomicControl[]> {
+    return db.select().from(atomicControls);
+  }
+
+  async getAtomicControlsBySource(sourceKey: string): Promise<AtomicControl[]> {
+    return db.select().from(atomicControls).where(eq(atomicControls.sourceKey, sourceKey));
+  }
+
+  async getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string): Promise<{ data: AtomicControl[]; total: number }> {
+    const conditions: any[] = [];
+    if (sourceKey) {
+      conditions.push(eq(atomicControls.sourceKey, sourceKey));
+    }
+    if (domain) {
+      conditions.push(eq(atomicControls.domain, domain));
+    }
+    if (search) {
+      const searchPattern = `%${search}%`;
+      conditions.push(
+        or(
+          like(atomicControls.shortTitle, searchPattern),
+          like(atomicControls.controlId, searchPattern),
+          like(atomicControls.obligationText, searchPattern)
+        )
+      );
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(atomicControls).where(whereClause);
+    const data = await db.select().from(atomicControls).where(whereClause).orderBy(asc(atomicControls.controlId)).offset(offset).limit(limit);
+
+    return { data, total: Number(totalResult.count) };
+  }
+
+  async updateAtomicControl(id: number, data: Partial<InsertAtomicControl>): Promise<AtomicControl | undefined> {
+    const [control] = await db.update(atomicControls).set({ ...data, updatedAt: new Date() } as any).where(eq(atomicControls.id, id)).returning();
+    return control;
+  }
+
+  async createControlPackVersion(data: InsertControlPackVersion): Promise<ControlPackVersion> {
+    const [version] = await db.insert(controlPackVersions).values(data).returning();
+    return version;
+  }
+
+  async getControlPackVersions(sourceKey?: string): Promise<ControlPackVersion[]> {
+    if (sourceKey) {
+      return db.select().from(controlPackVersions).where(eq(controlPackVersions.sourceKey, sourceKey)).orderBy(desc(controlPackVersions.generatedAt));
+    }
+    return db.select().from(controlPackVersions).orderBy(desc(controlPackVersions.generatedAt));
+  }
+
+  async createControlObjectiveAtomicMap(data: InsertControlObjectiveAtomicMap): Promise<ControlObjectiveAtomicMap> {
+    const [map] = await db.insert(controlObjectiveAtomicMaps).values(data).returning();
+    return map;
+  }
+
+  async getAtomicMapsForControlObjective(controlObjectiveId: number): Promise<ControlObjectiveAtomicMap[]> {
+    return db.select().from(controlObjectiveAtomicMaps).where(eq(controlObjectiveAtomicMaps.controlObjectiveId, controlObjectiveId));
+  }
+
+  async getAtomicMapsForAtomicControl(atomicControlId: number): Promise<ControlObjectiveAtomicMap[]> {
+    return db.select().from(controlObjectiveAtomicMaps).where(eq(controlObjectiveAtomicMaps.atomicControlId, atomicControlId));
+  }
+
+  async getAllControlObjectiveAtomicMaps(): Promise<ControlObjectiveAtomicMap[]> {
+    return db.select().from(controlObjectiveAtomicMaps);
+  }
+
+  async deleteControlObjectiveAtomicMap(id: number): Promise<void> {
+    await db.delete(controlObjectiveAtomicMaps).where(eq(controlObjectiveAtomicMaps.id, id));
+  }
+
+  async createAtomicAssessment(data: InsertAtomicAssessment): Promise<AtomicAssessment> {
+    const [assessment] = await db.insert(atomicAssessments).values(data).returning();
+    return assessment;
+  }
+
+  async getAtomicAssessment(id: number): Promise<AtomicAssessment | undefined> {
+    const [assessment] = await db.select().from(atomicAssessments).where(eq(atomicAssessments.id, id));
+    return assessment;
+  }
+
+  async getAtomicAssessmentsByTenant(tenantId: number): Promise<AtomicAssessment[]> {
+    return db.select().from(atomicAssessments).where(eq(atomicAssessments.tenantId, tenantId)).orderBy(desc(atomicAssessments.createdAt));
+  }
+
+  async updateAtomicAssessment(id: number, data: Partial<InsertAtomicAssessment>): Promise<AtomicAssessment | undefined> {
+    const [assessment] = await db.update(atomicAssessments).set(data).where(eq(atomicAssessments.id, id)).returning();
+    return assessment;
+  }
+
+  async createAtomicAssessmentResponse(data: InsertAtomicAssessmentResponse): Promise<AtomicAssessmentResponse> {
+    const [response] = await db.insert(atomicAssessmentResponses).values(data).returning();
+    return response;
+  }
+
+  async getAtomicAssessmentResponses(atomicAssessmentId: number): Promise<AtomicAssessmentResponse[]> {
+    return db.select().from(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, atomicAssessmentId));
+  }
+
+  async upsertAtomicAssessmentResponse(data: InsertAtomicAssessmentResponse): Promise<AtomicAssessmentResponse> {
+    const [existing] = await db.select().from(atomicAssessmentResponses).where(
+      and(
+        eq(atomicAssessmentResponses.atomicAssessmentId, data.atomicAssessmentId),
+        eq(atomicAssessmentResponses.atomicControlId, data.atomicControlId)
+      )
+    );
+    if (existing) {
+      const [updated] = await db.update(atomicAssessmentResponses)
+        .set({ ...data, answeredAt: new Date() })
+        .where(eq(atomicAssessmentResponses.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(atomicAssessmentResponses).values(data).returning();
+    return created;
+  }
+
+  async createTaskAtomicLink(data: InsertTaskAtomicLink): Promise<TaskAtomicLink> {
+    const [link] = await db.insert(taskAtomicLinks).values(data).returning();
+    return link;
+  }
+
+  async getTaskAtomicLinks(taskId: number): Promise<TaskAtomicLink[]> {
+    return db.select().from(taskAtomicLinks).where(eq(taskAtomicLinks.taskId, taskId));
+  }
+
+  async getTasksForAtomicControl(atomicControlId: number): Promise<TaskAtomicLink[]> {
+    return db.select().from(taskAtomicLinks).where(eq(taskAtomicLinks.atomicControlId, atomicControlId));
+  }
+
+  async createTenantDailyAtomicSnapshot(data: InsertTenantDailyAtomicSnapshot): Promise<TenantDailyAtomicSnapshot> {
+    const [snapshot] = await db.insert(tenantDailyAtomicSnapshots).values(data).returning();
+    return snapshot;
+  }
+
+  async getAtomicSnapshotsByTenant(tenantId: number, limit = 30): Promise<TenantDailyAtomicSnapshot[]> {
+    return db.select().from(tenantDailyAtomicSnapshots)
+      .where(eq(tenantDailyAtomicSnapshots.tenantId, tenantId))
+      .orderBy(desc(tenantDailyAtomicSnapshots.date))
+      .limit(limit);
   }
 }
 

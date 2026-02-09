@@ -1,0 +1,274 @@
+You are working inside an EXISTING Replit project: “NIS2 Readiness Platform” (v1.0 is live and used by tenants).
+This work is an ADD-ON module. Do NOT refactor or rewrite the existing platform.
+Your goal: add an “Option B (Maximal / Atomic Controls)” capability alongside existing controls.
+
+CORE PRINCIPLES (NON-NEGOTIABLE)
+1) Backward compatible: existing assessments, controls, dashboards must keep working unchanged.
+2) Additive changes only: introduce new tables/features; avoid breaking schema changes.
+3) Feature-flagged: allow gradual rollout per tenant and per assessment.
+4) Tenant isolation + admin aggregation must remain secure and correct.
+
+ADD-ON OVERVIEW
+Implement a new “Atomic Controls Add-on” that:
+- Builds a maximal controls library (Option B): 1 control per atomic mandatory clause from legal sources
+- Supports deep-dive assessments using Atomic Controls
+- Provides a mapping layer between existing v1 controls and atomic controls
+- Enhances user management (profile updates, password changes, invites, reset flows)
+- Adds snapshot-based analytics for atomic assessments without leaking cross-tenant data
+
+EXISTING PLATFORM ASSUMPTIONS
+The platform already has:
+- Tenants, Users, RBAC
+- Existing control library (Requirement/ControlObjective or similar)
+- Assessments, tasks, evidence vault, dashboards
+You must integrate with these, not replace.
+
+FEATURE FLAGS
+Add a feature flag mechanism:
+- Table FeatureFlag(id, tenantId nullable for global, key, enabled boolean)
+Keys:
+- ATOMIC_CONTROLS_ADDON
+- ATOMIC_ASSESSMENTS
+- ADMIN_ATOMIC_LIBRARY
+- ATOMIC_SNAPSHOTS
+Default: disabled for all tenants.
+PLATFORM_ADMIN can enable per tenant.
+
+DATABASE (PRISMA) — ADDITIVE ONLY
+Add new models (do not delete existing ones):
+
+Legal sources and atomic library:
+model LegalSource {
+  id        String   @id @default(cuid())
+  key       String   @unique   // "NIS2_2022_2555" | "CIR_2024_2690"
+  title     String
+  url       String
+  version   String?
+  createdAt DateTime @default(now())
+}
+
+model AtomicControl {
+  id              String   @id // deterministic (see ID rules)
+  sourceKey       String
+  legalRef        String
+  clausePath      String
+  shortTitle      String
+  obligationText  String
+  obligationVerb  String?
+  applicability   Json
+  evidenceTypes   Json
+  testProcedure   Json
+  weight          Int @default(1)
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([sourceKey])
+  @@index([clausePath])
+}
+
+Versioning & diff:
+model ControlPackVersion {
+  id          String   @id @default(cuid())
+  sourceKey   String
+  generatedAt DateTime @default(now())
+  generator   String
+  hash        String
+  notes       String?
+}
+
+Mapping to existing v1 controls (bridge):
+model ControlObjectiveAtomicMap {
+  id                String @id @default(cuid())
+  controlObjectiveId String // existing model id (from v1)
+  atomicControlId    String
+  confidence         Int @default(50) // 0-100 mapping confidence
+  createdAt          DateTime @default(now())
+
+  @@unique([controlObjectiveId, atomicControlId])
+  @@index([atomicControlId])
+}
+
+Atomic assessments (parallel system, not replacing v1):
+model AtomicAssessment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  scope     String?
+  createdBy String
+  status    String   // DRAFT/IN_PROGRESS/SUBMITTED
+  createdAt DateTime @default(now())
+  submittedAt DateTime?
+
+  @@index([tenantId])
+}
+
+model AtomicAssessmentResponse {
+  id              String @id @default(cuid())
+  atomicAssessmentId String
+  atomicControlId  String
+  implementationStatus String // NOT_STARTED/IN_PROGRESS/IMPLEMENTED/VERIFIED
+  maturityLevel    Int
+  confidence       String // NONE/WEAK/STRONG/INDEPENDENT
+  notes            String?
+  answeredBy       String
+  answeredAt       DateTime @default(now())
+
+  @@unique([atomicAssessmentId, atomicControlId])
+  @@index([atomicControlId])
+}
+
+Atomic-to-existing task integration (optional):
+- Reuse existing Task table by allowing relatedAtomicControlId nullable via a new lightweight mapping table
+model TaskAtomicLink {
+  id             String @id @default(cuid())
+  taskId         String
+  atomicControlId String
+  @@unique([taskId, atomicControlId])
+}
+
+Atomic analytics snapshots:
+model TenantDailyAtomicSnapshot {
+  id                 String   @id @default(cuid())
+  tenantId            String
+  date               DateTime
+  atomicCompliancePct Float
+  atomicVerifiedPct   Float
+  atomicMaturityAvg   Float
+  atomicOverdueTasks  Int
+  atomicEvidenceCoveragePct Float
+  lastComputedAt      DateTime @default(now())
+
+  @@unique([tenantId, date])
+  @@index([tenantId, date])
+}
+
+User management add-ons (if not already present):
+model Session {
+  id        String @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  ip        String?
+  userAgent String?
+}
+
+model InviteToken {
+  id        String @id @default(cuid())
+  tenantId  String
+  email     String
+  role      String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdBy String
+}
+
+model PasswordResetToken {
+  id        String @id @default(cuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
+OPTION B CONTROL EXTRACTION (ADD-ON GENERATOR)
+Add scripts (do NOT run automatically on every boot):
+- /scripts/atomic/generate_nis2_option_b.ts
+- /scripts/atomic/generate_cir_2024_2690_option_b.ts
+- /scripts/atomic/run_all.ts
+
+Authoritative sources:
+- NIS2 2022/2555 PDF: https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32022L2555
+- CIR 2024/2690 PDF: https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=OJ:L_202402690
+
+Implementation rules:
+- Parse PDF text (pdf-parse or similar)
+- Normalize whitespace
+- Split into: Article → paragraph → list item (a-j) → nested (i-iv)
+- Create one AtomicControl per atomic clause
+
+Deterministic ID rules:
+- NIS2: "NIS2-<article>-<para>[-<letter>][-<roman>]"
+  e.g. NIS2-20-1, NIS2-21-2-c, NIS2-23-4-d-iii
+- CIR Annex: "CIR-2024-2690-ANNEX-<section>-<sub>-<item>" (deterministic)
+Store legalRef and clausePath for traceability.
+obligationText must be a short paraphrase or a trimmed snippet <= 300 chars.
+
+Applicability tagging:
+- NIS2 controls: tags include "ALL_NIS2_ENTITIES"
+- CIR controls: tags include applicable entity types (DNS/TLD/CLOUD/DC/CDN/MSP/MSSP/ONLINE_PLATFORM/TRUST)
+- Add applicability JSON rules that match your Tenant.profile flags and sector/subsector taxonomy.
+
+EvidenceTypes & testProcedure defaults:
+- Provide reasonable defaults based on article/family.
+All fields must be editable later by PLATFORM_ADMIN.
+
+ADD-ON UI (MINIMAL DISRUPTION)
+1) PLATFORM_ADMIN: new admin screens under /admin/atomic-library (only if feature flag ADMIN_ATOMIC_LIBRARY enabled)
+- Browse AtomicControls with filters and pagination (source, article, tags)
+- View ControlPackVersion history
+- “Regenerate library” workflow:
+  - run generator server-side
+  - compute diff vs current (added/removed/changed)
+  - require explicit “Apply changes”
+  - log to AuditLog with diff summary
+
+2) TENANT: new menu item “Atomic Assessment” appears ONLY if tenant flag ATOMIC_ASSESSMENTS enabled
+- Create AtomicAssessment
+- Show grouped view (Governance, Risk Mgmt, Incident Reporting, Registration/Jurisdiction, CIR Annex)
+- Paginate controls, search, show applicability notes
+- Answer each atomic control (status/maturity/confidence/notes)
+- Upload/link evidence using existing Evidence module (do not duplicate evidence storage)
+- Optionally generate tasks for gaps (create tasks + TaskAtomicLink)
+
+3) Mapping view (optional but valuable):
+For PLATFORM_ADMIN and TENANT_ADMIN, show “Mapping Coverage”:
+- Existing v1 ControlObjectives mapped to AtomicControls
+- Coverage % and unmapped list
+- Allow manual map suggestions (creates ControlObjectiveAtomicMap rows)
+
+ANALYTICS SNAPSHOTS (ADD-ON)
+Implement snapshot computation for atomic assessments:
+- /lib/atomicAnalytics/snapshots.ts with recomputeTenantAtomicSnapshot(tenantId, date)
+- Trigger recompute on atomic responses, task changes linked to atomic, evidence link changes
+
+Admin aggregated stats:
+- Use TenantDailyAtomicSnapshot for global analytics
+- k-anonymity threshold for breakdowns (min 5 tenants per group)
+- Drill-down to tenant requires explicit selection and is audited
+
+USER MANAGEMENT ENHANCEMENTS (ADD-ON)
+If v1 does not already have them, implement:
+- User self-service: edit profile, change password, view/revoke sessions
+- Tenant admin: invite users, edit roles, deactivate/reactivate, password reset token, force password change
+- Platform admin: global user search, force reset, deactivate
+
+Security rules:
+- Hash passwords with argon2 (fallback bcrypt)
+- Store tokens as hashes only
+- Rate limit login/invite/reset endpoints
+- HttpOnly secure cookies, SameSite=Strict
+- CSRF protection for state-changing actions
+- Full audit logs for user management actions
+
+PERFORMANCE REQUIREMENTS
+- Atomic control lists can be hundreds+. Implement pagination, search, server-side filtering.
+- Add indexes on AtomicControl(sourceKey, clausePath) and tenantId on atomic tables.
+- Avoid rendering huge lists without virtualization or pagination.
+
+DELIVERABLES
+- New Prisma migration (additive tables only)
+- Generator scripts + README instructions to run:
+  - npm run atomic:generate
+- New admin/tenant routes behind feature flags
+- Snapshot analytics for atomic assessments
+- User management enhancements if missing
+- Ensure all existing v1 functionality continues working unchanged
+
+DO NOT:
+- Replace existing control models
+- Change existing assessment behavior
+- Introduce insecure shortcuts (no client-side auth)
+- Disable tenant isolation

@@ -88,6 +88,8 @@ app.use((req, res, next) => {
 
   try {
     await seedDatabase();
+    const { seedAtomicControls } = await import("./atomic-seed");
+    await seedAtomicControls();
   } catch (err) {
     console.error("Seed error:", err);
   }

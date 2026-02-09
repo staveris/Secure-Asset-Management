@@ -37,7 +37,7 @@ import {
 import { Switch as SwitchUI } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail } from "lucide-react";
+import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom } from "lucide-react";
 
 interface TenantInfo {
   id: number;
@@ -88,6 +88,25 @@ export default function AdminTenants() {
   const { data: tenantUsers, isLoading: usersLoading } = useQuery<TenantUser[]>({
     queryKey: [`/api/admin/tenants/${expandedTenant}/users`],
     enabled: !!expandedTenant,
+  });
+
+  const { data: tenantFeatureFlags } = useQuery<any[]>({
+    queryKey: ["/api/admin/feature-flags", expandedTenant],
+    enabled: !!expandedTenant,
+  });
+
+  const featureFlagMutation = useMutation({
+    mutationFn: async ({ tenantId, key, enabled }: { tenantId: number; key: string; enabled: boolean }) => {
+      const res = await apiRequest("POST", "/api/admin/feature-flags", { tenantId, key, enabled });
+      return await res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags", vars.tenantId] });
+      toast({ title: vars.enabled ? "Feature enabled" : "Feature disabled" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update feature flag", variant: "destructive" });
+    },
   });
 
   const updateUserAccessMutation = useMutation({
@@ -384,6 +403,19 @@ export default function AdminTenants() {
                 </div>
                 {expandedTenant === tenant.id && (
                   <div className="mt-4 pt-4 border-t space-y-2">
+                    <div className="flex items-center gap-3 p-2 rounded-md bg-muted/30 mb-3" data-testid={`atomic-flag-row-${tenant.id}`}>
+                      <Atom className="w-4 h-4 text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">Atomic Assessments Add-on</p>
+                        <p className="text-xs text-muted-foreground">Granular NIS2/CIR control-level compliance</p>
+                      </div>
+                      <SwitchUI
+                        checked={tenantFeatureFlags?.some((f: any) => f.key === "ATOMIC_ASSESSMENTS" && f.enabled) ?? false}
+                        onCheckedChange={(checked) => featureFlagMutation.mutate({ tenantId: tenant.id, key: "ATOMIC_ASSESSMENTS", enabled: checked })}
+                        disabled={featureFlagMutation.isPending}
+                        data-testid={`switch-atomic-flag-${tenant.id}`}
+                      />
+                    </div>
                     <p className="text-xs font-medium text-muted-foreground mb-2">User Access Management</p>
                     {usersLoading ? (
                       <div className="space-y-2">

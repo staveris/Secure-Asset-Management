@@ -2135,5 +2135,305 @@ export async function registerRoutes(
     res.json(snapshot);
   });
 
+  // ==================== FEATURE FLAGS ====================
+
+  app.get("/api/admin/feature-flags", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    const flags = await storage.getFeatureFlags();
+    res.json(flags);
+  });
+
+  app.get("/api/admin/feature-flags/:tenantId", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    const tenantId = parseInt(req.params.tenantId);
+    const flags = await storage.getFeatureFlags(tenantId);
+    res.json(flags);
+  });
+
+  app.post("/api/admin/feature-flags", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    const { tenantId, key, enabled } = req.body;
+    const flag = await storage.setFeatureFlag(tenantId ?? null, key, enabled);
+    await storage.createAuditLog({
+      tenantId: tenantId || null,
+      actorUserId: user.id,
+      action: enabled ? "FEATURE_FLAG_ENABLED" : "FEATURE_FLAG_DISABLED",
+      entityType: "FeatureFlag",
+      entityId: key,
+      details: { tenantId, key, enabled },
+    });
+    res.json(flag);
+  });
+
+  app.get("/api/feature-flags/check/:key", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user) return res.status(401).json({ message: "Not authenticated" });
+    const tenantId = user.tenantId;
+    if (!tenantId && user.role !== "PLATFORM_ADMIN") return res.json({ enabled: false });
+    if (user.role === "PLATFORM_ADMIN") return res.json({ enabled: true });
+    const enabled = await storage.isFeatureEnabled(tenantId!, req.params.key);
+    res.json({ enabled });
+  });
+
+  // ==================== ATOMIC CONTROLS LIBRARY (ADMIN) ====================
+
+  app.get("/api/admin/atomic-controls", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 25, 100);
+    const offset = (page - 1) * limit;
+    const sourceKey = req.query.sourceKey as string | undefined;
+    const domain = req.query.domain as string | undefined;
+    const search = req.query.search as string | undefined;
+    const result = await storage.getAtomicControlsPaginated(offset, limit, sourceKey, domain, search);
+    res.json({ ...result, page, limit });
+  });
+
+  app.get("/api/admin/atomic-controls/:id", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    const controls = await storage.getAllAtomicControls();
+    const control = controls.find(c => c.id === parseInt(req.params.id));
+    if (!control) return res.status(404).json({ message: "Not found" });
+    res.json(control);
+  });
+
+  app.patch("/api/admin/atomic-controls/:id", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    const id = parseInt(req.params.id);
+    const updated = await storage.updateAtomicControl(id, req.body);
+    if (!updated) return res.status(404).json({ message: "Not found" });
+    await storage.createAuditLog({
+      actorUserId: user.id,
+      action: "ATOMIC_CONTROL_UPDATED",
+      entityType: "AtomicControl",
+      entityId: String(id),
+      details: req.body,
+    });
+    res.json(updated);
+  });
+
+  app.get("/api/admin/legal-sources", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    const sources = await storage.getAllLegalSources();
+    res.json(sources);
+  });
+
+  app.get("/api/admin/control-pack-versions", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    const sourceKey = req.query.sourceKey as string | undefined;
+    const versions = await storage.getControlPackVersions(sourceKey);
+    res.json(versions);
+  });
+
+  // ==================== ATOMIC CONTROL MAPPINGS ====================
+
+  app.get("/api/admin/atomic-maps", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || (user.role !== "PLATFORM_ADMIN" && user.role !== "TENANT_ADMIN")) {
+      return res.status(403).json({ message: "Admin only" });
+    }
+    const maps = await storage.getAllControlObjectiveAtomicMaps();
+    res.json(maps);
+  });
+
+  app.post("/api/admin/atomic-maps", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    const { controlObjectiveId, atomicControlId, confidence } = req.body;
+    const map = await storage.createControlObjectiveAtomicMap({
+      controlObjectiveId,
+      atomicControlId,
+      confidence: confidence || 50,
+    });
+    await storage.createAuditLog({
+      actorUserId: user.id,
+      action: "ATOMIC_MAP_CREATED",
+      entityType: "ControlObjectiveAtomicMap",
+      entityId: String(map.id),
+      details: { controlObjectiveId, atomicControlId, confidence },
+    });
+    res.json(map);
+  });
+
+  app.delete("/api/admin/atomic-maps/:id", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    await storage.deleteControlObjectiveAtomicMap(parseInt(req.params.id));
+    res.json({ success: true });
+  });
+
+  // ==================== ATOMIC ASSESSMENTS (TENANT) ====================
+
+  async function requireAtomicFlag(req: Request, res: Response): Promise<boolean> {
+    const user = await getAuthUser(req);
+    if (!user) { res.status(401).json({ message: "Not authenticated" }); return false; }
+    if (user.role === "PLATFORM_ADMIN") return true;
+    if (!user.tenantId) { res.status(400).json({ message: "No tenant" }); return false; }
+    const enabled = await storage.isFeatureEnabled(user.tenantId, "ATOMIC_ASSESSMENTS");
+    if (!enabled) { res.status(403).json({ message: "Atomic assessments not enabled for this tenant" }); return false; }
+    return true;
+  }
+
+  app.get("/api/atomic-controls", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user) return res.status(401).json({ message: "Not authenticated" });
+    if (user.role !== "PLATFORM_ADMIN" && user.tenantId) {
+      const enabled = await storage.isFeatureEnabled(user.tenantId, "ATOMIC_ASSESSMENTS");
+      if (!enabled) return res.status(403).json({ message: "Not enabled" });
+    }
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const offset = (page - 1) * limit;
+    const sourceKey = req.query.sourceKey as string | undefined;
+    const domain = req.query.domain as string | undefined;
+    const search = req.query.search as string | undefined;
+    const result = await storage.getAtomicControlsPaginated(offset, limit, sourceKey, domain, search);
+    res.json({ ...result, page, limit });
+  });
+
+  app.get("/api/atomic-assessments", requireAuth, async (req, res) => {
+    if (!(await requireAtomicFlag(req, res))) return;
+    const user = await getAuthUser(req);
+    if (!user) return;
+    if (user.role === "PLATFORM_ADMIN") {
+      const allAssessments: any[] = [];
+      const tenantsList = await storage.getAllTenants();
+      for (const t of tenantsList) {
+        const ta = await storage.getAtomicAssessmentsByTenant(t.id);
+        allAssessments.push(...ta.map(a => ({ ...a, tenantName: t.name })));
+      }
+      return res.json(allAssessments);
+    }
+    const assessments = await storage.getAtomicAssessmentsByTenant(user.tenantId!);
+    res.json(assessments);
+  });
+
+  app.post("/api/atomic-assessments", requireAuth, async (req, res) => {
+    if (!(await requireAtomicFlag(req, res))) return;
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    if (user.role === "READONLY_AUDITOR") return res.status(403).json({ message: "Auditors cannot create assessments" });
+    const { name, scope } = req.body;
+    if (!name) return res.status(400).json({ message: "Name is required" });
+    const assessment = await storage.createAtomicAssessment({
+      tenantId: user.tenantId,
+      name,
+      scope: scope || null,
+      createdBy: user.id,
+      status: "DRAFT",
+    });
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "ATOMIC_ASSESSMENT_CREATED",
+      entityType: "AtomicAssessment",
+      entityId: String(assessment.id),
+      details: { name, scope },
+    });
+    res.json(assessment);
+  });
+
+  app.get("/api/atomic-assessments/:id", requireAuth, async (req, res) => {
+    if (!(await requireAtomicFlag(req, res))) return;
+    const user = await getAuthUser(req);
+    if (!user) return;
+    const assessment = await storage.getAtomicAssessment(parseInt(req.params.id));
+    if (!assessment) return res.status(404).json({ message: "Not found" });
+    if (user.role !== "PLATFORM_ADMIN" && assessment.tenantId !== user.tenantId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const responses = await storage.getAtomicAssessmentResponses(assessment.id);
+    res.json({ ...assessment, responses });
+  });
+
+  app.patch("/api/atomic-assessments/:id", requireAuth, async (req, res) => {
+    if (!(await requireAtomicFlag(req, res))) return;
+    const user = await getAuthUser(req);
+    if (!user) return;
+    const assessment = await storage.getAtomicAssessment(parseInt(req.params.id));
+    if (!assessment) return res.status(404).json({ message: "Not found" });
+    if (user.role !== "PLATFORM_ADMIN" && assessment.tenantId !== user.tenantId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    if (user.role === "READONLY_AUDITOR") return res.status(403).json({ message: "Auditors cannot modify assessments" });
+    const updated = await storage.updateAtomicAssessment(assessment.id, req.body);
+    res.json(updated);
+  });
+
+  app.post("/api/atomic-assessments/:id/responses", requireAuth, async (req, res) => {
+    if (!(await requireAtomicFlag(req, res))) return;
+    const user = await getAuthUser(req);
+    if (!user) return;
+    const assessmentId = parseInt(req.params.id);
+    const assessment = await storage.getAtomicAssessment(assessmentId);
+    if (!assessment) return res.status(404).json({ message: "Not found" });
+    if (user.role !== "PLATFORM_ADMIN" && assessment.tenantId !== user.tenantId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    if (user.role === "READONLY_AUDITOR") return res.status(403).json({ message: "Auditors cannot answer" });
+    const { atomicControlId, implementationStatus, maturityLevel, confidence, notes } = req.body;
+    const response = await storage.upsertAtomicAssessmentResponse({
+      atomicAssessmentId: assessmentId,
+      atomicControlId,
+      implementationStatus: implementationStatus || "NOT_STARTED",
+      maturityLevel: maturityLevel || 0,
+      confidence: confidence || "NONE",
+      notes: notes || null,
+      answeredBy: user.id,
+    });
+    res.json(response);
+  });
+
+  app.post("/api/atomic-assessments/:id/generate-tasks", requireAuth, async (req, res) => {
+    if (!(await requireAtomicFlag(req, res))) return;
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    if (user.role === "READONLY_AUDITOR") return res.status(403).json({ message: "Auditors cannot create tasks" });
+    const assessmentId = parseInt(req.params.id);
+    const assessment = await storage.getAtomicAssessment(assessmentId);
+    if (!assessment) return res.status(404).json({ message: "Not found" });
+    if (assessment.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const responses = await storage.getAtomicAssessmentResponses(assessmentId);
+    const gaps = responses.filter(r => r.implementationStatus === "NOT_STARTED" || r.implementationStatus === "IN_PROGRESS");
+    const allControls = await storage.getAllAtomicControls();
+    const controlMap = new Map(allControls.map(c => [c.id, c]));
+    let created = 0;
+    for (const gap of gaps) {
+      const ctrl = controlMap.get(gap.atomicControlId);
+      if (!ctrl) continue;
+      const task = await storage.createTask({
+        tenantId: user.tenantId,
+        title: `[Atomic] ${ctrl.shortTitle}`,
+        description: `Address gap: ${ctrl.obligationText}\n\nControl: ${ctrl.controlId}\nCurrent status: ${gap.implementationStatus}`,
+        priority: ctrl.weight >= 3 ? "HIGH" : ctrl.weight >= 2 ? "MEDIUM" : "LOW",
+        status: "TODO",
+      });
+      await storage.createTaskAtomicLink({
+        taskId: task.id,
+        atomicControlId: ctrl.id,
+      });
+      created++;
+    }
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "ATOMIC_TASKS_GENERATED",
+      entityType: "AtomicAssessment",
+      entityId: String(assessmentId),
+      details: { tasksCreated: created, gapsFound: gaps.length },
+    });
+    res.json({ created, gaps: gaps.length });
+  });
+
   return httpServer;
 }

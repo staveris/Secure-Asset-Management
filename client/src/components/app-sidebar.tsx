@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import {
@@ -44,6 +45,7 @@ import {
   Mail,
   HardDrive,
   Lock,
+  Atom,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -55,6 +57,7 @@ import {
 const tenantMenuItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, requiresFullAccess: false },
   { title: "Assessments", url: "/assessments", icon: ClipboardCheck, requiresFullAccess: false },
+  { title: "Atomic Assessments", url: "/atomic-assessments", icon: Atom, requiresFullAccess: false },
   { title: "Tasks", url: "/tasks", icon: ListTodo, requiresFullAccess: true },
   { title: "Evidence", url: "/evidence", icon: FileBox, requiresFullAccess: true },
   { title: "Incidents", url: "/incidents", icon: AlertTriangle, requiresFullAccess: true },
@@ -70,6 +73,7 @@ const adminMenuItems = [
   { title: "Tenants", url: "/admin/tenants", icon: Building2 },
   { title: "Storage & Quotas", url: "/admin/storage", icon: HardDrive },
   { title: "Requirements", url: "/admin/requirements", icon: BookOpen },
+  { title: "Atomic Library", url: "/admin/atomic-library", icon: Atom },
   { title: "Audit Log", url: "/admin/audit-log", icon: ScrollText },
   { title: "Email Settings", url: "/admin/email-settings", icon: Mail },
   { title: "Account Settings", url: "/settings", icon: Settings },
@@ -80,6 +84,13 @@ export function AppSidebar() {
   const { user, logout, isPlatformAdmin, hasFullAccess } = useAuth();
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [clickedFeature, setClickedFeature] = useState("");
+
+  const { data: atomicFlagData } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/feature-flags/check", "ATOMIC_ASSESSMENTS"],
+    enabled: !!user && !isPlatformAdmin,
+  });
+
+  const atomicEnabled = isPlatformAdmin || atomicFlagData?.enabled === true;
 
   const initials = user?.fullName
     ?.split(" ")
@@ -112,7 +123,7 @@ export function AppSidebar() {
             <SidebarGroupLabel>Compliance</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {tenantMenuItems.map((item) => {
+                {tenantMenuItems.filter((item) => item.url !== "/atomic-assessments" || atomicEnabled).map((item) => {
                   const isLocked = item.requiresFullAccess && !hasFullAccess;
                   return (
                     <SidebarMenuItem key={item.title}>

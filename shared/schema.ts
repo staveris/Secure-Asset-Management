@@ -530,6 +530,151 @@ export const insertPasswordHistorySchema = createInsertSchema(passwordHistory).o
 export type PasswordHistory = typeof passwordHistory.$inferSelect;
 export type InsertPasswordHistory = z.infer<typeof insertPasswordHistorySchema>;
 
+export const atomicImplementationStatusEnum = pgEnum("atomic_implementation_status", [
+  "NOT_STARTED",
+  "IN_PROGRESS",
+  "IMPLEMENTED",
+  "VERIFIED",
+]);
+
+export const atomicConfidenceEnum = pgEnum("atomic_confidence", [
+  "NONE",
+  "WEAK",
+  "STRONG",
+  "INDEPENDENT",
+]);
+
+export const featureFlags = pgTable("feature_flags", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id),
+  key: text("key").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const legalSources = pgTable("legal_sources", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+  version: text("version"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const atomicControls = pgTable("atomic_controls", {
+  id: serial("id").primaryKey(),
+  controlId: text("control_id").notNull().unique(),
+  sourceKey: text("source_key").notNull(),
+  legalRef: text("legal_ref").notNull(),
+  clausePath: text("clause_path").notNull(),
+  shortTitle: text("short_title").notNull(),
+  obligationText: text("obligation_text").notNull(),
+  obligationVerb: text("obligation_verb"),
+  applicability: jsonb("applicability").$type<Record<string, any>>().default({}),
+  evidenceTypes: jsonb("evidence_types").$type<string[]>().default([]),
+  testProcedure: jsonb("test_procedure").$type<Record<string, any>>().default({}),
+  domain: text("domain").default("Governance"),
+  weight: integer("weight").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const controlPackVersions = pgTable("control_pack_versions", {
+  id: serial("id").primaryKey(),
+  sourceKey: text("source_key").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  generator: text("generator").notNull(),
+  hash: text("hash").notNull(),
+  controlCount: integer("control_count").notNull().default(0),
+  notes: text("notes"),
+});
+
+export const controlObjectiveAtomicMaps = pgTable("control_objective_atomic_maps", {
+  id: serial("id").primaryKey(),
+  controlObjectiveId: integer("control_objective_id").references(() => controlObjectives.id).notNull(),
+  atomicControlId: integer("atomic_control_id").references(() => atomicControls.id).notNull(),
+  confidence: integer("confidence").notNull().default(50),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const atomicAssessments = pgTable("atomic_assessments", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(),
+  scope: text("scope"),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  status: assessmentStatusEnum("status").notNull().default("DRAFT"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  submittedAt: timestamp("submitted_at"),
+});
+
+export const atomicAssessmentResponses = pgTable("atomic_assessment_responses", {
+  id: serial("id").primaryKey(),
+  atomicAssessmentId: integer("atomic_assessment_id").references(() => atomicAssessments.id).notNull(),
+  atomicControlId: integer("atomic_control_id").references(() => atomicControls.id).notNull(),
+  implementationStatus: atomicImplementationStatusEnum("implementation_status").notNull().default("NOT_STARTED"),
+  maturityLevel: integer("maturity_level").notNull().default(0),
+  confidence: atomicConfidenceEnum("confidence").notNull().default("NONE"),
+  notes: text("notes"),
+  answeredBy: integer("answered_by").references(() => users.id),
+  answeredAt: timestamp("answered_at").defaultNow().notNull(),
+});
+
+export const taskAtomicLinks = pgTable("task_atomic_links", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").references(() => tasks.id).notNull(),
+  atomicControlId: integer("atomic_control_id").references(() => atomicControls.id).notNull(),
+});
+
+export const tenantDailyAtomicSnapshots = pgTable("tenant_daily_atomic_snapshots", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  date: text("snapshot_date").notNull(),
+  atomicCompliancePct: real("atomic_compliance_pct").notNull().default(0),
+  atomicVerifiedPct: real("atomic_verified_pct").notNull().default(0),
+  atomicMaturityAvg: real("atomic_maturity_avg").notNull().default(0),
+  atomicOverdueTasks: integer("atomic_overdue_tasks").notNull().default(0),
+  atomicEvidenceCoveragePct: real("atomic_evidence_coverage_pct").notNull().default(0),
+  lastComputedAt: timestamp("last_computed_at").defaultNow().notNull(),
+});
+
+export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({ id: true, createdAt: true });
+export type FeatureFlag = typeof featureFlags.$inferSelect;
+export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
+
+export const insertLegalSourceSchema = createInsertSchema(legalSources).omit({ id: true, createdAt: true });
+export type LegalSource = typeof legalSources.$inferSelect;
+export type InsertLegalSource = z.infer<typeof insertLegalSourceSchema>;
+
+export const insertAtomicControlSchema = createInsertSchema(atomicControls).omit({ id: true, createdAt: true, updatedAt: true });
+export type AtomicControl = typeof atomicControls.$inferSelect;
+export type InsertAtomicControl = z.infer<typeof insertAtomicControlSchema>;
+
+export const insertControlPackVersionSchema = createInsertSchema(controlPackVersions).omit({ id: true, generatedAt: true });
+export type ControlPackVersion = typeof controlPackVersions.$inferSelect;
+export type InsertControlPackVersion = z.infer<typeof insertControlPackVersionSchema>;
+
+export const insertControlObjectiveAtomicMapSchema = createInsertSchema(controlObjectiveAtomicMaps).omit({ id: true, createdAt: true });
+export type ControlObjectiveAtomicMap = typeof controlObjectiveAtomicMaps.$inferSelect;
+export type InsertControlObjectiveAtomicMap = z.infer<typeof insertControlObjectiveAtomicMapSchema>;
+
+export const insertAtomicAssessmentSchema = createInsertSchema(atomicAssessments).omit({ id: true, createdAt: true, submittedAt: true });
+export type AtomicAssessment = typeof atomicAssessments.$inferSelect;
+export type InsertAtomicAssessment = z.infer<typeof insertAtomicAssessmentSchema>;
+
+export const insertAtomicAssessmentResponseSchema = createInsertSchema(atomicAssessmentResponses).omit({ id: true, answeredAt: true });
+export type AtomicAssessmentResponse = typeof atomicAssessmentResponses.$inferSelect;
+export type InsertAtomicAssessmentResponse = z.infer<typeof insertAtomicAssessmentResponseSchema>;
+
+export const insertTaskAtomicLinkSchema = createInsertSchema(taskAtomicLinks).omit({ id: true });
+export type TaskAtomicLink = typeof taskAtomicLinks.$inferSelect;
+export type InsertTaskAtomicLink = z.infer<typeof insertTaskAtomicLinkSchema>;
+
+export const insertTenantDailyAtomicSnapshotSchema = createInsertSchema(tenantDailyAtomicSnapshots).omit({ id: true, lastComputedAt: true });
+export type TenantDailyAtomicSnapshot = typeof tenantDailyAtomicSnapshots.$inferSelect;
+export type InsertTenantDailyAtomicSnapshot = z.infer<typeof insertTenantDailyAtomicSnapshotSchema>;
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),

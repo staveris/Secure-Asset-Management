@@ -129,3 +129,12 @@ All routes prefixed with `/api/`:
   - File upload scanning: magic byte validation verifies file content matches declared MIME type (PDF, PNG, JPEG, DOCX, XLSX); rejects mismatched files with security logging
   - Database query parameterization audit: confirmed all queries use Drizzle ORM parameterized queries or pg pool parameterized queries ($1 placeholders); no raw string interpolation found
   - CSRF path fix: corrected exemption paths in verifyCsrf middleware (removed /api prefix for mounted middleware)
+- 2026-02-09: Atomic Controls Add-on (feature-flagged):
+  - Schema: 9 new tables (featureFlags, legalSources, controlPackVersions, atomicControls, controlObjectiveAtomicMaps, atomicAssessments, atomicAssessmentResponses, atomicSnapshots, taskAtomicLinks)
+  - Seed data: 40 atomic controls (23 NIS2 Articles 20-29, 17 CIR 2024/2690 Articles 3-13) with legal text
+  - Feature flag system: per-tenant ATOMIC_ASSESSMENTS flag, admin toggle on tenant management page
+  - Admin UI: /admin/atomic-library page with filters, pagination, stats, collapsible legal sources/versions
+  - Tenant UI: /atomic-assessments list + create, /atomic-assessments/:id detail with domain-grouped controls, inline response forms (status/maturity/confidence/notes), task generation for gaps
+  - Navigation guards: sidebar hides Atomic Assessments when flag disabled; route guard shows "Feature Not Available" page
+  - Backend: 40+ storage methods, feature flag enforcement on all tenant atomic endpoints, audit logging
+  - New API routes: /api/admin/feature-flags, /api/feature-flags/check/:key, /api/admin/atomic-controls, /api/admin/legal-sources, /api/admin/control-pack-versions, /api/admin/atomic-maps, /api/atomic-controls, /api/atomic-assessments (CRUD + responses + task generation)
