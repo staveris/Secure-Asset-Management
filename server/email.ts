@@ -5,15 +5,19 @@ import { platformSettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export function getAppBaseUrl(): string {
+  const isDev = process.env.NODE_ENV !== "production";
+  if (isDev) {
+    if (process.env.REPLIT_DEV_DOMAIN) {
+      return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+    }
+    return "http://localhost:5000";
+  }
   if (process.env.APP_BASE_URL) {
     return process.env.APP_BASE_URL.replace(/\/+$/, "");
   }
   if (process.env.REPLIT_DOMAINS) {
     const domains = process.env.REPLIT_DOMAINS.split(",");
     return `https://${domains[0]}`;
-  }
-  if (process.env.REPLIT_DEV_DOMAIN) {
-    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
   }
   return "http://localhost:5000";
 }
