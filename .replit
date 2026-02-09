@@ -42,4 +42,6 @@ waitForPort = 5000
 [userenv]
 
 [userenv.production]
+
+[userenv.shared]
 APP_BASE_URL = "https://nis2compliance.toolsoftech.eu"
