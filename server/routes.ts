@@ -170,7 +170,7 @@ export async function registerRoutes(
     if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
       return next();
     }
-    if (req.path.startsWith("/api/auth/login") || req.path.startsWith("/api/auth/register") || req.path.startsWith("/api/auth/forgot-password") || req.path.startsWith("/api/auth/reset-password") || req.path.startsWith("/api/auth/verify-email") || req.path.startsWith("/api/auth/resend-verification") || req.path.startsWith("/api/auth/logout") || req.path.startsWith("/api/auth/totp-verify")) {
+    if (req.path.startsWith("/auth/login") || req.path.startsWith("/auth/register") || req.path.startsWith("/auth/forgot-password") || req.path.startsWith("/auth/reset-password") || req.path.startsWith("/auth/verify-email") || req.path.startsWith("/auth/resend-verification") || req.path.startsWith("/auth/logout") || req.path.startsWith("/auth/totp-verify")) {
       return next();
     }
     const token = req.headers["x-csrf-token"] as string;
