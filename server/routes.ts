@@ -138,6 +138,7 @@ const SENSITIVE_FIELDS = new Set([
 function stripSensitiveFields(obj: any): any {
   if (obj === null || obj === undefined || typeof obj !== "object") return obj;
   if (Array.isArray(obj)) return obj.map(stripSensitiveFields);
+  if (obj instanceof Date || obj instanceof Buffer) return obj;
   const cleaned: any = {};
   for (const key of Object.keys(obj)) {
     if (SENSITIVE_FIELDS.has(key)) continue;
