@@ -1729,20 +1729,23 @@ export async function registerRoutes(
   const createTenantSchema = z.object({
     name: z.string().min(1, "Name is required"),
     sector: z.string().min(1, "Sector is required"),
+    subsector: z.string().nullable().optional(),
     entityType: z.enum(["essential", "important"]).default("essential"),
     country: z.string().nullable().optional(),
-    sectorGroup: z.enum(["ANNEX_I", "ANNEX_II"]).default("ANNEX_I"),
+    sectorGroup: z.string().default("ANNEX_I"),
   });
 
   app.post("/api/admin/tenants", requirePlatformAdmin, async (req, res) => {
     try {
       const data = createTenantSchema.parse(req.body);
+      const sectorGroupNormalized = data.sectorGroup === "Annex I" ? "ANNEX_I" : data.sectorGroup === "Annex II" ? "ANNEX_II" : data.sectorGroup;
       const tenant = await storage.createTenant({
         name: data.name,
         sector: data.sector,
+        subsector: data.subsector || null,
         entityType: data.entityType,
         country: data.country || null,
-        sectorGroup: data.sectorGroup,
+        sectorGroup: sectorGroupNormalized,
         status: "active",
       });
       res.json(tenant);

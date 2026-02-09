@@ -107,7 +107,7 @@ export default function AdminTenants() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<TenantInfo | null>(null);
-  const [newTenant, setNewTenant] = useState({ name: "", sector: "energy", entityType: "essential", country: "" });
+  const [newTenant, setNewTenant] = useState({ name: "", sectorGroup: "", sector: "", subsector: "", entityType: "essential", country: "" });
   const [expandedTenant, setExpandedTenant] = useState<number | null>(null);
   const [editUser, setEditUser] = useState<{ tenantId: number; user: TenantUser } | null>(null);
   const [editFullName, setEditFullName] = useState("");
@@ -243,7 +243,7 @@ export default function AdminTenants() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard"] });
       toast({ title: "Tenant created", description: "New organization has been added" });
       setAddDialogOpen(false);
-      setNewTenant({ name: "", sector: "energy", entityType: "essential", country: "" });
+      setNewTenant({ name: "", sectorGroup: "", sector: "", subsector: "", entityType: "essential", country: "" });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create tenant", variant: "destructive" });
@@ -323,29 +323,56 @@ export default function AdminTenants() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Sector</Label>
-                <Select value={newTenant.sector} onValueChange={(v) => setNewTenant(prev => ({ ...prev, sector: v }))}>
-                  <SelectTrigger data-testid="select-tenant-sector">
-                    <SelectValue />
+                <Label>NIS2 Annex Classification <span className="text-destructive">*</span></Label>
+                <Select value={newTenant.sectorGroup} onValueChange={(v) => setNewTenant(prev => ({ ...prev, sectorGroup: v, sector: "", subsector: "" }))}>
+                  <SelectTrigger data-testid="select-tenant-sector-group">
+                    <SelectValue placeholder="Select annex classification" />
                   </SelectTrigger>
                   <SelectContent>
-                    {SECTORS.map(s => (
-                      <SelectItem key={s} value={s}>
-                        {s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="Annex I">Annex I - Highly Critical Sectors</SelectItem>
+                    <SelectItem value="Annex II">Annex II - Other Critical Sectors</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {newTenant.sectorGroup && (
+                <div className="space-y-2">
+                  <Label>Sector <span className="text-destructive">*</span></Label>
+                  <Select value={newTenant.sector} onValueChange={(v) => setNewTenant(prev => ({ ...prev, sector: v, subsector: "" }))}>
+                    <SelectTrigger data-testid="select-tenant-sector">
+                      <SelectValue placeholder="Select sector" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NIS2_SECTOR_DATA.filter(s => s.group === newTenant.sectorGroup).map(s => (
+                        <SelectItem key={s.sector} value={s.sector}>{s.sector}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {newTenant.sector && NIS2_SECTOR_DATA.find(s => s.sector === newTenant.sector)?.subsectors.length! > 0 && (
+                <div className="space-y-2">
+                  <Label>Subsector</Label>
+                  <Select value={newTenant.subsector} onValueChange={(v) => setNewTenant(prev => ({ ...prev, subsector: v }))}>
+                    <SelectTrigger data-testid="select-tenant-subsector">
+                      <SelectValue placeholder="Select subsector" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NIS2_SECTOR_DATA.find(s => s.sector === newTenant.sector)?.subsectors.map(ss => (
+                        <SelectItem key={ss} value={ss}>{ss}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
-                <Label>Entity Type</Label>
+                <Label>Entity Type <span className="text-destructive">*</span></Label>
                 <Select value={newTenant.entityType} onValueChange={(v) => setNewTenant(prev => ({ ...prev, entityType: v }))}>
                   <SelectTrigger data-testid="select-tenant-entity-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="essential">Essential</SelectItem>
-                    <SelectItem value="important">Important</SelectItem>
+                    <SelectItem value="essential">Essential Entity</SelectItem>
+                    <SelectItem value="important">Important Entity</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -366,7 +393,7 @@ export default function AdminTenants() {
             <DialogFooter>
               <Button
                 onClick={() => createMutation.mutate(newTenant)}
-                disabled={!newTenant.name || !newTenant.country || createMutation.isPending}
+                disabled={!newTenant.name || !newTenant.sectorGroup || !newTenant.sector || !newTenant.country || createMutation.isPending}
                 data-testid="button-submit-tenant"
               >
                 {createMutation.isPending ? "Creating..." : "Create Tenant"}
