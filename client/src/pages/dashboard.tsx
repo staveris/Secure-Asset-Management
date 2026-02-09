@@ -47,6 +47,10 @@ interface DashboardData {
   maturityAverage: number;
   implementedControls: number;
   totalControls: number;
+  nis2Controls?: number;
+  nis2Implemented?: number;
+  cirControls?: number;
+  cirImplemented?: number;
   activeTasks: number;
   overdueTasks: number;
   openIncidents: number;
@@ -234,7 +238,7 @@ export default function Dashboard() {
     <div className="p-6 space-y-6" data-testid="dashboard-page">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">Compliance Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Overview of your NIS2 readiness status</p>
+        <p className="text-muted-foreground mt-1">Overview of your NIS2 + CIR readiness status</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -253,6 +257,43 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {(data.cirControls ?? 0) > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="nis2-cir-breakdown">
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span className="text-sm text-muted-foreground">NIS2 Directive Controls</span>
+                <ClipboardCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold">{data.nis2Implemented ?? 0}</span>
+                <span className="text-sm text-muted-foreground">/ {data.nis2Controls ?? 0} implemented</span>
+              </div>
+              <Progress
+                value={((data.nis2Implemented ?? 0) / Math.max(data.nis2Controls ?? 1, 1)) * 100}
+                className="h-2 mt-3"
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span className="text-sm text-muted-foreground">CIR 2024/2690 Controls</span>
+                <FileCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold">{data.cirImplemented ?? 0}</span>
+                <span className="text-sm text-muted-foreground">/ {data.cirControls ?? 0} implemented</span>
+              </div>
+              <Progress
+                value={((data.cirImplemented ?? 0) / Math.max(data.cirControls ?? 1, 1)) * 100}
+                className="h-2 mt-3"
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {assessmentTrendData.length > 0 && (
         <Card>

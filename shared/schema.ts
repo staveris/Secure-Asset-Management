@@ -606,6 +606,7 @@ export const atomicAssessments = pgTable("atomic_assessments", {
   scope: text("scope"),
   createdBy: integer("created_by").references(() => users.id).notNull(),
   status: assessmentStatusEnum("status").notNull().default("DRAFT"),
+  parentAssessmentId: integer("parent_assessment_id").references(() => assessments.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   submittedAt: timestamp("submitted_at"),
 });

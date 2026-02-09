@@ -18,6 +18,10 @@ interface DashboardData {
   evidenceCount: number;
   recentActivity: any[];
   maturityTrend: any[];
+  nis2Controls?: number;
+  nis2Implemented?: number;
+  cirControls?: number;
+  cirImplemented?: number;
 }
 
 function getMaturityLabel(score: number): string {
@@ -180,7 +184,7 @@ export default function Reports() {
             <h1 className="text-2xl font-bold tracking-tight" data-testid="text-report-title">
               Compliance Report
             </h1>
-            <p className="text-muted-foreground mt-1">Generate and print your NIS2 readiness report</p>
+            <p className="text-muted-foreground mt-1">Generate and print your NIS2 + CIR readiness report</p>
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={() => window.print()} data-testid="button-print-report">
@@ -198,7 +202,7 @@ export default function Reports() {
                 <div className="flex items-center gap-3 mb-4">
                   <Shield className="w-8 h-8 text-blue-300" />
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-white">NIS2 Compliance</h2>
+                    <h2 className="text-2xl font-bold tracking-tight text-white">NIS2 + CIR Compliance</h2>
                     <p className="text-blue-200 text-sm">Readiness Assessment Report</p>
                   </div>
                 </div>
@@ -247,7 +251,7 @@ export default function Reports() {
                 1. Executive Summary
               </h2>
               <p className="text-sm text-muted-foreground mb-5 print:text-gray-600">
-                This report presents the current NIS2 Directive (EU 2022/2555) compliance readiness status
+                This report presents the current NIS2 Directive (EU 2022/2555) {(dashboard.cirControls ?? 0) > 0 ? "and Commission Implementing Regulation (CIR) 2024/2690 " : ""}compliance readiness status
                 for {user?.tenantName || "the organization"} as of {reportDate}. The assessment covers
                 governance, risk management, incident handling, business continuity, supply chain security,
                 and technical controls across {categories.length} compliance domains.
@@ -274,6 +278,11 @@ export default function Reports() {
                   <div className="text-xs font-medium mt-2" style={{ color: "#16a34a" }}>
                     {implementedControls} Implemented
                   </div>
+                  {(dashboard.cirControls ?? 0) > 0 && (
+                    <div className="text-[10px] text-muted-foreground mt-1 text-center print:text-gray-400">
+                      NIS2: {dashboard.nis2Controls ?? 0} | CIR: {dashboard.cirControls ?? 0}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -305,7 +314,7 @@ export default function Reports() {
                 2. Compliance by Domain
               </h2>
               <p className="text-sm text-muted-foreground mb-4 print:text-gray-600">
-                Detailed breakdown of compliance implementation status across all NIS2 requirement categories.
+                Detailed breakdown of compliance implementation status across all NIS2{(dashboard.cirControls ?? 0) > 0 ? " and CIR 2024/2690" : ""} requirement categories.
               </p>
 
               {categories.length === 0 ? (

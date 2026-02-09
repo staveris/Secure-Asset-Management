@@ -58,6 +58,7 @@ interface TenantDetails {
   subsector: string | null;
   entityType: string | null;
   country: string | null;
+  contactEmail: string | null;
   status: string;
   createdAt: string;
 }
@@ -69,17 +70,26 @@ const EU_COUNTRIES = [
   "Poland", "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden",
 ];
 
-const NIS2_SECTORS: Record<string, string[]> = {
-  "Annex I (Essential)": [
-    "Energy", "Transport", "Banking", "Financial Market Infrastructures",
-    "Health", "Drinking Water", "Waste Water", "Digital Infrastructure",
-    "ICT Service Management", "Public Administration", "Space",
-  ],
-  "Annex II (Important)": [
-    "Postal and Courier", "Waste Management", "Chemical Manufacturing",
-    "Food Production", "Manufacturing", "Digital Providers", "Research",
-  ],
-};
+const NIS2_SECTOR_DATA: { group: string; sector: string; subsectors: string[] }[] = [
+  { group: "Annex I", sector: "Energy", subsectors: ["Electricity", "District heating and cooling", "Oil", "Gas", "Hydrogen"] },
+  { group: "Annex I", sector: "Transport", subsectors: ["Air", "Rail", "Water", "Road"] },
+  { group: "Annex I", sector: "Banking", subsectors: [] },
+  { group: "Annex I", sector: "Financial market infrastructures", subsectors: [] },
+  { group: "Annex I", sector: "Health", subsectors: [] },
+  { group: "Annex I", sector: "Drinking water", subsectors: [] },
+  { group: "Annex I", sector: "Waste water", subsectors: [] },
+  { group: "Annex I", sector: "Digital infrastructure", subsectors: ["Internet Exchange Point providers", "DNS service providers", "TLD name registries", "Cloud computing service providers", "Data centre service providers", "Content delivery network providers", "Trust service providers", "Providers of public electronic communications networks", "Providers of publicly available electronic communications services"] },
+  { group: "Annex I", sector: "ICT service management (B2B)", subsectors: ["Managed service providers", "Managed security service providers"] },
+  { group: "Annex I", sector: "Public administration", subsectors: ["Central government entities", "Regional level entities"] },
+  { group: "Annex I", sector: "Space", subsectors: ["Operators of ground-based infrastructure"] },
+  { group: "Annex II", sector: "Postal and courier services", subsectors: [] },
+  { group: "Annex II", sector: "Waste management", subsectors: [] },
+  { group: "Annex II", sector: "Chemicals", subsectors: ["Manufacturing", "Production", "Distribution"] },
+  { group: "Annex II", sector: "Food", subsectors: ["Production", "Processing", "Distribution"] },
+  { group: "Annex II", sector: "Manufacturing", subsectors: ["Medical devices", "Computer & electronic products", "Electrical equipment", "Machinery & equipment", "Motor vehicles & transport equipment"] },
+  { group: "Annex II", sector: "Digital providers", subsectors: ["Online marketplaces", "Online search engines", "Social networking services platforms"] },
+  { group: "Annex II", sector: "Research", subsectors: [] },
+];
 
 function CompanyDetailsPanel() {
   const { user } = useAuth();
@@ -135,10 +145,9 @@ function CompanyDetailsPanel() {
 
   if (!tenant) return null;
 
-  const allSectors = Object.values(NIS2_SECTORS).flat();
-  const sectorGroup = Object.entries(NIS2_SECTORS).find(
-    ([, sectors]) => sectors.includes(tenant.sector || "")
-  )?.[0] || null;
+  const sectorEntry = NIS2_SECTOR_DATA.find(s => s.sector === tenant.sector);
+  const sectorGroup = sectorEntry?.group || null;
+  const availableSubsectors = NIS2_SECTOR_DATA.find(s => s.sector === (editing ? form.sector : tenant.sector))?.subsectors || [];
 
   return (
     <div className="space-y-6">
@@ -189,27 +198,39 @@ function CompanyDetailsPanel() {
                 </div>
                 <div className="space-y-2">
                   <Label>Sector</Label>
-                  <Select value={form.sector || ""} onValueChange={(v) => setForm(prev => ({ ...prev, sector: v }))}>
+                  <Select value={form.sector || ""} onValueChange={(v) => setForm(prev => ({ ...prev, sector: v, subsector: null }))}>
                     <SelectTrigger data-testid="select-company-sector">
                       <SelectValue placeholder="Select sector" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(NIS2_SECTORS).map(([group, sectors]) => (
-                        sectors.map(s => (
-                          <SelectItem key={s} value={s}>{s} ({group})</SelectItem>
-                        ))
+                      {NIS2_SECTOR_DATA.map(s => (
+                        <SelectItem key={s.sector} value={s.sector}>{s.sector} ({s.group})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Subsector</Label>
-                  <Input
-                    value={form.subsector || ""}
-                    onChange={(e) => setForm(prev => ({ ...prev, subsector: e.target.value }))}
-                    placeholder="e.g., Electricity Distribution"
-                    data-testid="input-company-subsector"
-                  />
+                  {availableSubsectors.length > 0 ? (
+                    <Select value={form.subsector || ""} onValueChange={(v) => setForm(prev => ({ ...prev, subsector: v }))}>
+                      <SelectTrigger data-testid="select-company-subsector">
+                        <SelectValue placeholder="Select subsector" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSubsectors.map(sub => (
+                          <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      value={form.subsector || ""}
+                      onChange={(e) => setForm(prev => ({ ...prev, subsector: e.target.value }))}
+                      placeholder="No subsectors for this sector"
+                      disabled={!form.sector}
+                      data-testid="input-company-subsector"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Entity Type</Label>
@@ -260,6 +281,15 @@ function CompanyDetailsPanel() {
                     {tenant.country || "Not set"}
                   </p>
                 </div>
+                {tenant.contactEmail && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Contact Email</p>
+                    <p className="text-sm font-medium flex items-center gap-1.5" data-testid="text-company-contact-email">
+                      <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                      {tenant.contactEmail}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-muted-foreground mb-0.5">Status</p>
                   <Badge variant={tenant.status === "active" ? "default" : "destructive"} data-testid="text-company-status">

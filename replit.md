@@ -150,11 +150,13 @@ All routes prefixed with `/api/`:
   - CLI: npx tsx scripts/atomic-import.ts (merge) / npx tsx scripts/atomic-import.ts --sync (authoritative)
   - Audit logging for all import actions
   - DB now has 141 active NIS2 controls + 17 CIR controls = 158 total atomic controls
-- 2026-02-09: Unified Assessments & Company Details:
-  - Unified Assessments page: merged standard and atomic assessments into single /assessments view with type filtering tabs (All/Standard/Atomic), type badges on cards
-  - Assessment creation dialog: type selector (standard vs atomic) with descriptive help text, respects ATOMIC_ASSESSMENTS feature flag
-  - Cascading delete for both assessment types: DELETE /api/assessments/:id and DELETE /api/atomic-assessments/:id with cascading removal of responses, tasks, evidence
-  - Delete confirmation dialog with admin-only delete button on hover
-  - Sidebar: removed separate "Atomic Assessments" nav item; assessments consolidated under single "Assessments" link
-  - Company Details: GET/PATCH /api/tenant/details endpoints for viewing/editing company info (name, sector, subsector, entityType, country)
-  - Users & Company page: tabs separating "Team Members" and "Company Details"; edit form for admins with NIS2 sector/country dropdowns
+- 2026-02-09: Unified NIS2+CIR Assessments & Enhanced Company Details:
+  - Auto-linked CIR assessments: POST /api/assessments auto-creates linked CIR atomic assessment (via parentAssessmentId) for tenants in CIR-applicable sectors (Digital infrastructure, ICT service management B2B, Digital providers)
+  - Assessment creation dialog: removed type selector; single assessment type auto-includes CIR controls when applicable
+  - Assessment list: removed Standard/Atomic filter tabs; shows NIS2+CIR badge when CIR linked; combined weighted completion percentage
+  - Cascading delete: DELETE /api/assessments/:id cascades to linked CIR atomic assessment with audit logging
+  - Dashboard: combined NIS2+CIR metrics (compliance score, maturity average, status distribution, category scores); NIS2/CIR breakdown cards when CIR controls present
+  - Reports: updated to "NIS2 + CIR Compliance" branding; executive summary references CIR 2024/2690 when applicable; total controls show NIS2|CIR breakdown
+  - Company Details: contactEmail display (derived from tenant admin user); subsector dropdown with sector-dependent options using full NIS2 sector/subsector data
+  - Schema: parentAssessmentId column on atomic_assessments table; getAtomicAssessmentByParent storage method
+  - Backend: getAtomicControlsBySource("CIR_2024_2690") filters CIR controls for auto-creation; getDashboardData aggregates both NIS2+CIR responses

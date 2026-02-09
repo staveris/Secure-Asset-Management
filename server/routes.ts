@@ -24,6 +24,12 @@ import { eq, desc } from "drizzle-orm";
 
 const PgSession = connectPgSimple(session);
 
+const CIR_APPLICABLE_SECTORS = [
+  "Digital infrastructure",
+  "ICT service management (B2B)",
+  "Digital providers",
+];
+
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -907,7 +913,25 @@ export async function registerRoutes(
       const inProgress = responses.filter(r => r.implementationStatus === "IN_PROGRESS").length;
       const completionPct = total > 0 ? Math.round((implemented / total) * 100) : 0;
       const maturityAvg = total > 0 ? parseFloat((responses.reduce((sum, r) => sum + r.maturityLevel, 0) / total).toFixed(1)) : 0;
-      return { ...a, totalControls: total, implementedControls: implemented, inProgressControls: inProgress, completionPct, maturityAvg };
+
+      const linkedCir = await storage.getAtomicAssessmentByParent(a.id);
+      let cirInfo = null;
+      if (linkedCir) {
+        const cirResponses = await storage.getAtomicAssessmentResponses(linkedCir.id);
+        const cirTotal = cirResponses.length;
+        const cirAnswered = cirResponses.filter(r => r.implementationStatus !== "NOT_STARTED").length;
+        const cirImplemented = cirResponses.filter(r => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED").length;
+        cirInfo = {
+          id: linkedCir.id,
+          totalControls: cirTotal,
+          answeredControls: cirAnswered,
+          implementedControls: cirImplemented,
+          completionPct: cirTotal > 0 ? Math.round((cirImplemented / cirTotal) * 100) : 0,
+          maturityAvg: cirTotal > 0 ? parseFloat((cirResponses.reduce((sum, r) => sum + r.maturityLevel, 0) / cirTotal).toFixed(1)) : 0,
+        };
+      }
+
+      return { ...a, totalControls: total, implementedControls: implemented, inProgressControls: inProgress, completionPct, maturityAvg, cirInfo };
     }));
 
     res.json(enriched);
@@ -942,6 +966,45 @@ export async function registerRoutes(
         });
       }
 
+      const tenant = await storage.getTenant(user.tenantId);
+      let cirAssessmentId: number | null = null;
+      let cirControlCount = 0;
+      if (tenant && tenant.sector && CIR_APPLICABLE_SECTORS.some(s => s.toLowerCase() === tenant.sector!.toLowerCase())) {
+        const cirControls = await storage.getAtomicControlsBySource("CIR_2024_2690");
+        const activeControls = cirControls.filter((c: any) => c.isActive !== false);
+        if (activeControls.length > 0) {
+          const cirAssessment = await storage.createAtomicAssessment({
+            tenantId: user.tenantId,
+            name: `${name}`,
+            scope: scope || null,
+            createdBy: user.id,
+            status: "DRAFT",
+            parentAssessmentId: assessment.id,
+          });
+          cirAssessmentId = cirAssessment.id;
+          cirControlCount = activeControls.length;
+          for (const control of activeControls) {
+            await storage.createAtomicAssessmentResponse({
+              atomicAssessmentId: cirAssessment.id,
+              atomicControlId: control.id,
+              implementationStatus: "NOT_STARTED",
+              maturityLevel: 0,
+              confidence: "NONE",
+              notes: null,
+              answeredBy: user.id,
+            });
+          }
+          await storage.createAuditLog({
+            tenantId: user.tenantId,
+            actorUserId: user.id,
+            action: "CREATE",
+            entityType: "ATOMIC_ASSESSMENT",
+            entityId: String(cirAssessment.id),
+            details: { name, parentAssessmentId: assessment.id, cirControls: activeControls.length },
+          });
+        }
+      }
+
       const incompleteTasks = await storage.getIncompleteTasksByTenant(user.tenantId);
       let carriedOver = 0;
       for (const task of incompleteTasks) {
@@ -957,10 +1020,10 @@ export async function registerRoutes(
         action: "CREATE",
         entityType: "ASSESSMENT",
         entityId: String(assessment.id),
-        details: carriedOver > 0 ? { carriedOverTasks: carriedOver } : undefined,
+        details: { carriedOverTasks: carriedOver, cirAssessmentId, cirControlCount },
       });
 
-      res.json({ ...assessment, carriedOverTasks: carriedOver });
+      res.json({ ...assessment, carriedOverTasks: carriedOver, cirAssessmentId, cirControlCount });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -1061,6 +1124,18 @@ export async function registerRoutes(
       if (!assessment) return res.status(404).json({ message: "Not found" });
       if (assessment.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN") {
         return res.status(403).json({ message: "Access denied" });
+      }
+      const linkedCir = await storage.getAtomicAssessmentByParent(id);
+      if (linkedCir) {
+        await storage.deleteAtomicAssessment(linkedCir.id);
+        await storage.createAuditLog({
+          tenantId: user.tenantId,
+          actorUserId: user.id,
+          action: "DELETE",
+          entityType: "ATOMIC_ASSESSMENT",
+          entityId: String(linkedCir.id),
+          details: { name: linkedCir.name, parentAssessmentId: id },
+        });
       }
       await storage.deleteAssessment(id);
       await storage.createAuditLog({
@@ -2498,6 +2573,8 @@ export async function registerRoutes(
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const tenant = await storage.getTenant(user.tenantId);
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+    const tenantUsers = await storage.getUsersByTenant(user.tenantId);
+    const adminUser = tenantUsers.find(u => u.role === "TENANT_ADMIN") || tenantUsers[0];
     res.json({
       id: tenant.id,
       name: tenant.name,
@@ -2508,6 +2585,7 @@ export async function registerRoutes(
       country: tenant.country,
       status: tenant.status,
       createdAt: tenant.createdAt,
+      contactEmail: adminUser?.email || null,
     });
   });
 

@@ -219,6 +219,7 @@ export interface IStorage {
   createAtomicAssessment(data: InsertAtomicAssessment): Promise<AtomicAssessment>;
   getAtomicAssessment(id: number): Promise<AtomicAssessment | undefined>;
   getAtomicAssessmentsByTenant(tenantId: number): Promise<AtomicAssessment[]>;
+  getAtomicAssessmentByParent(parentAssessmentId: number): Promise<AtomicAssessment | undefined>;
   updateAtomicAssessment(id: number, data: Partial<InsertAtomicAssessment>): Promise<AtomicAssessment | undefined>;
   deleteAtomicAssessment(id: number): Promise<void>;
 
@@ -623,14 +624,29 @@ export class DatabaseStorage implements IStorage {
       allResponses = allResponses.concat(responses);
     }
 
-    const totalControls = allResponses.length;
-    const implementedControls = allResponses.filter(
+    const allAtomicAssessments = await db.select().from(atomicAssessments).where(eq(atomicAssessments.tenantId, tenantId));
+    let allAtomicResponses: AtomicAssessmentResponse[] = [];
+    for (const aa of allAtomicAssessments) {
+      const aResponses = await this.getAtomicAssessmentResponses(aa.id);
+      allAtomicResponses = allAtomicResponses.concat(aResponses);
+    }
+
+    const nis2Total = allResponses.length;
+    const nis2Implemented = allResponses.filter(
       (r) => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED"
     ).length;
+    const cirTotal = allAtomicResponses.length;
+    const cirImplemented = allAtomicResponses.filter(
+      (r) => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED"
+    ).length;
+
+    const totalControls = nis2Total + cirTotal;
+    const implementedControls = nis2Implemented + cirImplemented;
     const complianceScore = totalControls > 0 ? Math.round((implementedControls / totalControls) * 100) : 0;
-    const maturityAverage = totalControls > 0
-      ? allResponses.reduce((sum, r) => sum + r.maturityLevel, 0) / totalControls
-      : 0;
+
+    const nis2MaturitySum = allResponses.reduce((sum, r) => sum + r.maturityLevel, 0);
+    const cirMaturitySum = allAtomicResponses.reduce((sum, r) => sum + r.maturityLevel, 0);
+    const maturityAverage = totalControls > 0 ? (nis2MaturitySum + cirMaturitySum) / totalControls : 0;
 
     const activeTasks = tenantTasks.filter((t) => t.status !== "DONE").length;
     const overdueTasks = tenantTasks.filter(
@@ -641,6 +657,10 @@ export class DatabaseStorage implements IStorage {
     const statusCounts = { NOT_STARTED: 0, IN_PROGRESS: 0, IMPLEMENTED: 0, VERIFIED: 0 };
     for (const r of allResponses) {
       statusCounts[r.implementationStatus as keyof typeof statusCounts]++;
+    }
+    for (const r of allAtomicResponses) {
+      const status = r.implementationStatus as keyof typeof statusCounts;
+      if (status in statusCounts) statusCounts[status]++;
     }
 
     const categoryCounts: Record<string, { total: number; implemented: number }> = {};
@@ -660,11 +680,30 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    if (cirTotal > 0) {
+      const atomicControlsList = await this.getAllAtomicControls();
+      for (const r of allAtomicResponses) {
+        const ac = atomicControlsList.find(c => c.id === r.atomicControlId);
+        if (ac) {
+          const domain = (ac as any).domain || "CIR 2024/2690";
+          if (!categoryCounts[domain]) categoryCounts[domain] = { total: 0, implemented: 0 };
+          categoryCounts[domain].total++;
+          if (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED") {
+            categoryCounts[domain].implemented++;
+          }
+        }
+      }
+    }
+
     return {
       complianceScore,
       maturityAverage,
       implementedControls,
       totalControls,
+      nis2Controls: nis2Total,
+      nis2Implemented,
+      cirControls: cirTotal,
+      cirImplemented,
       activeTasks,
       overdueTasks,
       openIncidents,
@@ -1116,6 +1155,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAtomicAssessmentsByTenant(tenantId: number): Promise<AtomicAssessment[]> {
     return db.select().from(atomicAssessments).where(eq(atomicAssessments.tenantId, tenantId)).orderBy(desc(atomicAssessments.createdAt));
+  }
+
+  async getAtomicAssessmentByParent(parentAssessmentId: number): Promise<AtomicAssessment | undefined> {
+    const [assessment] = await db.select().from(atomicAssessments).where(eq(atomicAssessments.parentAssessmentId, parentAssessmentId));
+    return assessment;
   }
 
   async updateAtomicAssessment(id: number, data: Partial<InsertAtomicAssessment>): Promise<AtomicAssessment | undefined> {
