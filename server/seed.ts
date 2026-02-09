@@ -261,48 +261,49 @@ export async function seedDatabase() {
   const existingReqs = await storage.getAllRequirements();
   if (existingReqs.length > 0) {
     console.log("Database already seeded with NIS2 requirements");
-    return;
-  }
+  } else {
+    console.log("Seeding NIS2 requirement library...");
 
-  console.log("Seeding NIS2 requirement library...");
-
-  for (const req of nis2Requirements) {
-    const requirement = await storage.createRequirement({
-      code: req.code,
-      title: req.title,
-      description: req.description,
-      nis2Article: req.nis2Article,
-      nis2Paragraph: req.nis2Paragraph || null,
-      greekRef: req.greekRef || null,
-      category: req.category,
-      isActive: true,
-    });
-
-    for (const ctrl of req.controls) {
-      await storage.createControlObjective({
-        requirementId: requirement.id,
-        title: ctrl.title,
-        description: ctrl.description,
-        guidance: ctrl.guidance || null,
-        evidenceTypes: [],
+    for (const req of nis2Requirements) {
+      const requirement = await storage.createRequirement({
+        code: req.code,
+        title: req.title,
+        description: req.description,
+        nis2Article: req.nis2Article,
+        nis2Paragraph: req.nis2Paragraph || null,
+        greekRef: req.greekRef || null,
+        category: req.category,
+        isActive: true,
       });
+
+      for (const ctrl of req.controls) {
+        await storage.createControlObjective({
+          requirementId: requirement.id,
+          title: ctrl.title,
+          description: ctrl.description,
+          guidance: ctrl.guidance || null,
+          evidenceTypes: [],
+        });
+      }
     }
+
+    console.log(`Seeded ${nis2Requirements.length} requirements with control objectives`);
   }
 
-  console.log(`Seeded ${nis2Requirements.length} requirements with control objectives`);
-
-  const existingAdmin = await storage.getUserByEmail("staverist@gmail.com");
+  const adminEmail = process.env.ADMIN_EMAIL || "staverist@gmail.com";
+  const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+  const existingAdmin = await storage.getUserByEmail(adminEmail);
   if (!existingAdmin) {
-    const passwordHash = await bcrypt.hash("admin123", 12);
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
     await storage.createUser({
-      email: "staverist@gmail.com",
+      email: adminEmail,
       passwordHash,
       fullName: "Platform Administrator",
       role: "PLATFORM_ADMIN",
       isActive: true,
       tenantId: null,
     });
-    console.log("Created platform admin: staverist@gmail.com");
+    console.log(`Created platform admin: ${adminEmail}`);
   }
 
   const existingDemo = await storage.getUserByEmail("demo@acmecorp.com");
