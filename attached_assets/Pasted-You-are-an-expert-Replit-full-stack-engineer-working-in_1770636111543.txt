@@ -1,0 +1,145 @@
+You are an expert Replit full-stack engineer working inside an ALREADY OPERATIONAL “NIS2 Compliance Platform”.
+Your task is to IMPLEMENT AN IMPORTER that adds the “Option B / Maximal (Atomic) NIS2 controls” library into the existing platform WITHOUT breaking anything.
+
+IMPORTANT CONSTRAINTS
+- This is an ADD-ON import. Do NOT rewrite the app or replace existing controls/assessments.
+- Backward compatibility is mandatory: existing libraries, assessments, dashboards continue to work.
+- The import must be idempotent (safe to run multiple times) and must support upsert + diff reporting.
+- Only PLATFORM_ADMIN can import/sync controls; all actions are audited.
+- Multi-tenant isolation remains unchanged (controls are library objects, not tenant data).
+
+WHAT TO IMPORT (Option B “Atomic Controls” Library)
+We are importing ~120–130 atomic controls from the NIS2 Directive entity-facing obligations, decomposed at “leaf” level:
+- Art. 3(4) self-identification and update duty
+- Art. 20 governance/training/accountability duties
+- Art. 21 risk management measures (split beyond a–j where sub-concepts exist)
+- Art. 23 incident reporting timelines + content
+- Art. 26–29 representative/registry/domain registration/info-sharing notifications
+- Art. 32–33 supervision readiness behaviors (cooperation, info provision, audits, etc.)
+NOTE: This import is for the Directive library only (NOT the Implementing Regulation 2024/2690 pack).
+
+DATA FORMAT (INPUT FILE)
+Create an input file in the repo:
+- /data/atomic_controls_nis2_optionB.json
+
+JSON schema per control (required):
+{
+  "id": "NIS2-23-4-d-iii",               // deterministic unique
+  "framework": "NIS2",
+  "sourceKey": "NIS2_2022_2555",
+  "legalRef": "Art. 23(4)(d)(iii)",
+  "clausePath": "23.4.d.iii",
+  "title": "Final report includes severity and impact",
+  "obligationText": "Provide in the final report an assessment of the severity and impact of the incident.",
+  "obligationVerb": "provide",
+  "category": "Incident Reporting",
+  "tags": ["ALL_NIS2_ENTITIES"],
+  "applicability": { "tags": ["ALL_NIS2_ENTITIES"], "rule": {} },
+  "evidenceTypes": ["procedure", "incident_report_template", "notification_log"],
+  "testProcedure": { "method": "document_review", "steps": ["Verify templates contain required fields", "Check timestamps vs deadlines"] },
+  "weight": 1,
+  "isActive": true
+}
+
+Also create /data/legal_sources.json:
+[
+  {
+    "key":"NIS2_2022_2555",
+    "title":"Directive (EU) 2022/2555 (NIS2)",
+    "url":"https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32022L2555",
+    "version":"2022-12-27"
+  }
+]
+
+DATABASE INTEGRATION (ADAPT TO EXISTING PLATFORM)
+STEP 1 — Inspect existing codebase:
+- Identify existing library models (e.g., Requirement/ControlObjective/Control/Framework tables).
+- Choose the safest integration approach:
+  A) If the platform already has a generic “Control Library” table, import OptionB controls into it as a new framework “NIS2_OPTIONB_ATOMIC”.
+  B) If the platform uses Requirement/ControlObjective, add new tables for atomic controls and map them to existing objectives (recommended for no disruption).
+
+STEP 2 — Implement additive tables ONLY if needed:
+If no suitable library table exists, add these Prisma models (or equivalent ORM models):
+- LegalSource(key unique, title, url, version)
+- AtomicControl(id primary key, sourceKey, legalRef, clausePath, title, obligationText, verb, category, tags JSON, applicability JSON, evidenceTypes JSON, testProcedure JSON, weight, isActive, createdAt, updatedAt)
+- ControlPackVersion(id, sourceKey, generatedAt, hash, notes)
+- ImportRun(id, actorUserId, sourceKey, startedAt, finishedAt, status, addedCount, updatedCount, unchangedCount, deactivatedCount, error JSON)
+
+Keep all existing tables intact.
+
+IMPORT LOGIC (MUST IMPLEMENT)
+Create a server-side import service with:
+- Validation with Zod for every record
+- Transactional upsert (single DB transaction)
+- Diff calculation:
+  - added: controls in file not in DB
+  - updated: same id but content changed (compare hash of normalized fields)
+  - unchanged
+  - deactivated: in DB but not in file -> set isActive=false (ONLY if “sync mode” enabled)
+
+Implementation details:
+- Normalize fields (trim strings, stable JSON ordering for hashing)
+- Compute sha256 hash for each control row and store it (either in AtomicControl.hash or separate table)
+- Use upsert by id
+- For updates, preserve createdAt; update updatedAt and hash
+- Always log ImportRun with counts and actor identity
+
+Provide two modes:
+1) “IMPORT (merge)” — upsert from file; do NOT deactivate missing items
+2) “SYNC (authoritative)” — upsert + deactivate missing items
+SYNC must require an extra admin confirmation step.
+
+SECURITY
+- Import endpoints/actions are PLATFORM_ADMIN only
+- Add an AuditLog entry for:
+  - importing/syncing
+  - viewing diff
+  - applying sync deactivations
+- Rate-limit import endpoint (even admin-only) to prevent abuse
+- Never expose raw file contents to tenant users
+
+ADMIN UI (MINIMAL)
+Add an admin-only screen:
+- /admin/library/atomic-import
+Features:
+- Upload JSON OR use repo file /data/atomic_controls_nis2_optionB.json
+- “Validate” -> shows schema errors without writing
+- “Preview diff” -> shows counts + sample changes
+- Buttons:
+  - Run Import (merge)
+  - Run Sync (authoritative) with confirmation dialog
+- Show latest ImportRun history
+
+TENANT UX INTEGRATION (DO NOT BREAK V1)
+Do not replace existing assessments.
+Add a feature flag:
+- ATOMIC_CONTROLS_OPTIONB
+If enabled for a tenant:
+- allow creating an “Atomic Assessment” that references AtomicControls (new assessment type),
+OR
+- allow “deep-dive mode” where atomic controls appear as an additional assessment pack
+Ensure tenant users can only see their own assessment responses (tenant isolation).
+
+DEVELOPER EXPERIENCE
+Add scripts:
+- npm run atomic:import (loads /data/*.json and performs merge import)
+- npm run atomic:sync (authoritative sync; deactivates missing)
+Add README section describing:
+- file formats
+- how to run import
+- how to troubleshoot
+
+DELIVERABLES
+- Data files in /data/
+- Import service (server-only)
+- Admin UI page + diff preview
+- Migrations (if new tables added)
+- Audit logging for import
+- CLI scripts
+- Existing platform functionality remains unchanged
+
+QUALITY BAR
+- No placeholder insecure code
+- Full input validation
+- All DB writes in transaction
+- Idempotent behavior (repeat imports produce unchangedCount, not duplicates)

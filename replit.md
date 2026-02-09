@@ -138,3 +138,15 @@ All routes prefixed with `/api/`:
   - Navigation guards: sidebar hides Atomic Assessments when flag disabled; route guard shows "Feature Not Available" page
   - Backend: 40+ storage methods, feature flag enforcement on all tenant atomic endpoints, audit logging
   - New API routes: /api/admin/feature-flags, /api/feature-flags/check/:key, /api/admin/atomic-controls, /api/admin/legal-sources, /api/admin/control-pack-versions, /api/admin/atomic-maps, /api/atomic-controls, /api/atomic-assessments (CRUD + responses + task generation)
+- 2026-02-09: Atomic Controls Importer (Option B / Maximal):
+  - Schema: import_runs table for tracking import history; content_hash column on atomic_controls for diff detection
+  - Data: /data/atomic_controls_nis2_optionB.json (124 leaf-level NIS2 Directive controls covering Art. 3, 20, 21, 23, 25-29, 32-33)
+  - Data: /data/legal_sources.json (NIS2 Directive source metadata)
+  - Import service: server/import-service.ts with Zod validation, sha256 hashing, canonicalized diff calculation, transactional upsert
+  - Two modes: IMPORT (merge - upsert only, no deactivation) and SYNC (authoritative - upsert + deactivate missing controls)
+  - Idempotent: repeated imports produce unchangedCount, not duplicates
+  - Admin UI: /admin/atomic-import page with load repo file, upload JSON, validate, preview diff, import/sync buttons, confirmation dialog for sync, import history table
+  - API routes: POST /api/admin/atomic-import/validate, /preview, /run; GET /history, /repo-file (all PLATFORM_ADMIN only, rate-limited)
+  - CLI: npx tsx scripts/atomic-import.ts (merge) / npx tsx scripts/atomic-import.ts --sync (authoritative)
+  - Audit logging for all import actions
+  - DB now has 141 active NIS2 controls + 17 CIR controls = 158 total atomic controls

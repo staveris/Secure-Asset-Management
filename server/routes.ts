@@ -2435,5 +2435,117 @@ export async function registerRoutes(
     res.json({ created, gaps: gaps.length });
   });
 
+  const importLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    message: { message: "Import rate limited. Please wait." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.post("/api/admin/atomic-import/validate", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    try {
+      const { validateControls, validateLegalSources } = await import("./import-service");
+      const controlsData = req.body.controls;
+      const legalSourcesData = req.body.legalSources;
+      if (!Array.isArray(controlsData)) return res.status(400).json({ message: "controls must be an array" });
+      const controlsResult = validateControls(controlsData);
+      let legalSourcesResult = null;
+      if (legalSourcesData && Array.isArray(legalSourcesData)) {
+        legalSourcesResult = validateLegalSources(legalSourcesData);
+      }
+      res.json({ controls: controlsResult, legalSources: legalSourcesResult });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/atomic-import/preview", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    try {
+      const { validateControls, computeDiff } = await import("./import-service");
+      const controlsData = req.body.controls;
+      if (!Array.isArray(controlsData)) return res.status(400).json({ message: "controls must be an array" });
+      const validation = validateControls(controlsData);
+      if (!validation.valid) return res.status(400).json({ message: "Validation failed", validation });
+      const diff = await computeDiff(controlsData);
+      res.json({
+        added: diff.added.length,
+        updated: diff.updated.length,
+        unchanged: diff.unchanged.length,
+        toDeactivate: diff.toDeactivate.length,
+        packHash: diff.packHash,
+        sourceKey: diff.sourceKey,
+        addedSample: diff.added.slice(0, 5).map(c => ({ id: c.id, title: c.title })),
+        updatedSample: diff.updated.slice(0, 5).map(u => ({ id: u.control.id, title: u.control.title, changes: u.changes })),
+        deactivateSample: diff.toDeactivate.slice(0, 5),
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/admin/atomic-import/run", requireAuth, importLimiter, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    try {
+      const { runImport } = await import("./import-service");
+      const controlsData = req.body.controls;
+      const legalSourcesData = req.body.legalSources || [];
+      const mode = req.body.mode === "SYNC" ? "SYNC" : "IMPORT";
+      if (!Array.isArray(controlsData)) return res.status(400).json({ message: "controls must be an array" });
+      const result = await runImport(controlsData, legalSourcesData, mode, user.id);
+      await storage.createAuditLog({
+        tenantId: null,
+        actorUserId: user.id,
+        action: `ATOMIC_IMPORT_${mode}`,
+        entityType: "AtomicControl",
+        entityId: result.packHash || "unknown",
+        details: {
+          mode,
+          addedCount: result.addedCount,
+          updatedCount: result.updatedCount,
+          unchangedCount: result.unchangedCount,
+          deactivatedCount: result.deactivatedCount,
+          totalCount: result.totalCount,
+          success: result.success,
+        },
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/atomic-import/history", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    try {
+      const sourceKey = req.query.sourceKey as string | undefined;
+      const runs = await storage.getImportRuns(sourceKey);
+      res.json(runs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/atomic-import/repo-file", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });
+    try {
+      const controlsPath = path.join(process.cwd(), "data", "atomic_controls_nis2_optionB.json");
+      const sourcesPath = path.join(process.cwd(), "data", "legal_sources.json");
+      if (!fs.existsSync(controlsPath)) return res.status(404).json({ message: "Repo file not found" });
+      const controls = JSON.parse(fs.readFileSync(controlsPath, "utf-8"));
+      const legalSources = fs.existsSync(sourcesPath) ? JSON.parse(fs.readFileSync(sourcesPath, "utf-8")) : [];
+      res.json({ controls, legalSources, filename: "atomic_controls_nis2_optionB.json" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }

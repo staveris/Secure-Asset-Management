@@ -576,6 +576,7 @@ export const atomicControls = pgTable("atomic_controls", {
   domain: text("domain").default("Governance"),
   weight: integer("weight").notNull().default(1),
   isActive: boolean("is_active").notNull().default(true),
+  contentHash: text("content_hash"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -638,6 +639,27 @@ export const tenantDailyAtomicSnapshots = pgTable("tenant_daily_atomic_snapshots
   atomicEvidenceCoveragePct: real("atomic_evidence_coverage_pct").notNull().default(0),
   lastComputedAt: timestamp("last_computed_at").defaultNow().notNull(),
 });
+
+export const importRuns = pgTable("import_runs", {
+  id: serial("id").primaryKey(),
+  sourceKey: text("source_key").notNull(),
+  actorUserId: integer("actor_user_id").references(() => users.id).notNull(),
+  mode: text("mode").notNull(),
+  status: text("status").notNull().default("PENDING"),
+  addedCount: integer("added_count").notNull().default(0),
+  updatedCount: integer("updated_count").notNull().default(0),
+  unchangedCount: integer("unchanged_count").notNull().default(0),
+  deactivatedCount: integer("deactivated_count").notNull().default(0),
+  totalCount: integer("total_count").notNull().default(0),
+  packHash: text("pack_hash"),
+  errorSummary: jsonb("error_summary").$type<Record<string, any>>(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+});
+
+export const insertImportRunSchema = createInsertSchema(importRuns).omit({ id: true, startedAt: true, finishedAt: true });
+export type ImportRun = typeof importRuns.$inferSelect;
+export type InsertImportRun = z.infer<typeof insertImportRunSchema>;
 
 export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({ id: true, createdAt: true });
 export type FeatureFlag = typeof featureFlags.$inferSelect;

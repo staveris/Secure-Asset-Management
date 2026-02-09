@@ -31,6 +31,7 @@ import {
   atomicAssessmentResponses,
   taskAtomicLinks,
   tenantDailyAtomicSnapshots,
+  importRuns,
   type InsertTenant,
   type InsertUser,
   type InsertRequirement,
@@ -88,6 +89,8 @@ import {
   type TaskAtomicLink,
   type InsertTenantDailyAtomicSnapshot,
   type TenantDailyAtomicSnapshot,
+  type ImportRun,
+  type InsertImportRun,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -227,6 +230,9 @@ export interface IStorage {
 
   createTenantDailyAtomicSnapshot(data: InsertTenantDailyAtomicSnapshot): Promise<TenantDailyAtomicSnapshot>;
   getAtomicSnapshotsByTenant(tenantId: number, limit?: number): Promise<TenantDailyAtomicSnapshot[]>;
+
+  getImportRuns(sourceKey?: string, limit?: number): Promise<ImportRun[]>;
+  getImportRun(id: number): Promise<ImportRun | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1110,6 +1116,21 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tenantDailyAtomicSnapshots.tenantId, tenantId))
       .orderBy(desc(tenantDailyAtomicSnapshots.date))
       .limit(limit);
+  }
+
+  async getImportRuns(sourceKey?: string, limit = 50): Promise<ImportRun[]> {
+    if (sourceKey) {
+      return db.select().from(importRuns)
+        .where(eq(importRuns.sourceKey, sourceKey))
+        .orderBy(desc(importRuns.startedAt))
+        .limit(limit);
+    }
+    return db.select().from(importRuns).orderBy(desc(importRuns.startedAt)).limit(limit);
+  }
+
+  async getImportRun(id: number): Promise<ImportRun | undefined> {
+    const [run] = await db.select().from(importRuns).where(eq(importRuns.id, id));
+    return run;
   }
 }
 

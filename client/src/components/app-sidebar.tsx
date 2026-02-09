@@ -46,6 +46,7 @@ import {
   HardDrive,
   Lock,
   Atom,
+  ArrowDownToLine,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -74,6 +75,7 @@ const adminMenuItems = [
   { title: "Storage & Quotas", url: "/admin/storage", icon: HardDrive },
   { title: "Requirements", url: "/admin/requirements", icon: BookOpen },
   { title: "Atomic Library", url: "/admin/atomic-library", icon: Atom },
+  { title: "Atomic Import", url: "/admin/atomic-import", icon: ArrowDownToLine },
   { title: "Audit Log", url: "/admin/audit-log", icon: ScrollText },
   { title: "Email Settings", url: "/admin/email-settings", icon: Mail },
   { title: "Account Settings", url: "/settings", icon: Settings },
