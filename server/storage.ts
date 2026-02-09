@@ -631,21 +631,40 @@ export class DatabaseStorage implements IStorage {
       allAtomicResponses = allAtomicResponses.concat(aResponses);
     }
 
-    const nis2Total = allResponses.length;
-    const nis2Implemented = allResponses.filter(
-      (r) => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED"
-    ).length;
-    const cirTotal = allAtomicResponses.length;
-    const cirImplemented = allAtomicResponses.filter(
+    const nis2ObjTotal = allResponses.length;
+    const nis2ObjImplemented = allResponses.filter(
       (r) => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED"
     ).length;
 
+    const allAtomicControlsList = await this.getAllAtomicControls();
+    const atomicControlMap = new Map(allAtomicControlsList.map(c => [c.id, c]));
+
+    let nis2AtomicTotal = 0;
+    let nis2AtomicImplemented = 0;
+    let cirTotal = 0;
+    let cirImplemented = 0;
+    for (const r of allAtomicResponses) {
+      const ctrl = atomicControlMap.get(r.atomicControlId);
+      const isCir = ctrl?.sourceKey === "CIR_2024_2690";
+      const isImpl = r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED";
+      if (isCir) {
+        cirTotal++;
+        if (isImpl) cirImplemented++;
+      } else {
+        nis2AtomicTotal++;
+        if (isImpl) nis2AtomicImplemented++;
+      }
+    }
+
+    const nis2Total = nis2ObjTotal + nis2AtomicTotal;
+    const nis2Implemented = nis2ObjImplemented + nis2AtomicImplemented;
     const totalControls = nis2Total + cirTotal;
     const implementedControls = nis2Implemented + cirImplemented;
     const complianceScore = totalControls > 0 ? Math.round((implementedControls / totalControls) * 100) : 0;
 
-    const nis2MaturitySum = allResponses.reduce((sum, r) => sum + r.maturityLevel, 0);
-    const cirMaturitySum = allAtomicResponses.reduce((sum, r) => sum + r.maturityLevel, 0);
+    const nis2MaturitySum = allResponses.reduce((sum, r) => sum + r.maturityLevel, 0) +
+      allAtomicResponses.filter(r => atomicControlMap.get(r.atomicControlId)?.sourceKey !== "CIR_2024_2690").reduce((sum, r) => sum + r.maturityLevel, 0);
+    const cirMaturitySum = allAtomicResponses.filter(r => atomicControlMap.get(r.atomicControlId)?.sourceKey === "CIR_2024_2690").reduce((sum, r) => sum + r.maturityLevel, 0);
     const maturityAverage = totalControls > 0 ? (nis2MaturitySum + cirMaturitySum) / totalControls : 0;
 
     const activeTasks = tenantTasks.filter((t) => t.status !== "DONE").length;
@@ -680,12 +699,12 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    if (cirTotal > 0) {
-      const atomicControlsList = await this.getAllAtomicControls();
+    if (allAtomicResponses.length > 0) {
       for (const r of allAtomicResponses) {
-        const ac = atomicControlsList.find(c => c.id === r.atomicControlId);
+        const ac = atomicControlMap.get(r.atomicControlId);
         if (ac) {
-          const domain = (ac as any).domain || "CIR 2024/2690";
+          const isCir = ac.sourceKey === "CIR_2024_2690";
+          const domain = (ac as any).domain || (isCir ? "CIR 2024/2690" : "NIS2 Atomic");
           if (!categoryCounts[domain]) categoryCounts[domain] = { total: 0, implemented: 0 };
           categoryCounts[domain].total++;
           if (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED") {
@@ -702,6 +721,10 @@ export class DatabaseStorage implements IStorage {
       totalControls,
       nis2Controls: nis2Total,
       nis2Implemented,
+      nis2ObjectiveControls: nis2ObjTotal,
+      nis2ObjectiveImplemented: nis2ObjImplemented,
+      nis2AtomicControls: nis2AtomicTotal,
+      nis2AtomicImplemented,
       cirControls: cirTotal,
       cirImplemented,
       activeTasks,

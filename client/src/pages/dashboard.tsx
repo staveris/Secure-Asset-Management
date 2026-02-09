@@ -49,6 +49,10 @@ interface DashboardData {
   totalControls: number;
   nis2Controls?: number;
   nis2Implemented?: number;
+  nis2ObjectiveControls?: number;
+  nis2ObjectiveImplemented?: number;
+  nis2AtomicControls?: number;
+  nis2AtomicImplemented?: number;
   cirControls?: number;
   cirImplemented?: number;
   activeTasks: number;
@@ -258,20 +262,20 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {(data.cirControls ?? 0) > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="nis2-cir-breakdown">
+      {((data.nis2AtomicControls ?? 0) > 0 || (data.cirControls ?? 0) > 0) && (
+        <div className={`grid grid-cols-1 ${(data.cirControls ?? 0) > 0 ? "md:grid-cols-3" : "md:grid-cols-2"} gap-4`} data-testid="nis2-cir-breakdown">
           <Card>
             <CardContent className="p-5">
               <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="text-sm text-muted-foreground">NIS2 Directive Controls</span>
+                <span className="text-sm text-muted-foreground">NIS2 Objectives</span>
                 <ClipboardCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold">{data.nis2Implemented ?? 0}</span>
-                <span className="text-sm text-muted-foreground">/ {data.nis2Controls ?? 0} implemented</span>
+                <span className="text-2xl font-bold">{data.nis2ObjectiveImplemented ?? 0}</span>
+                <span className="text-sm text-muted-foreground">/ {data.nis2ObjectiveControls ?? 0} implemented</span>
               </div>
               <Progress
-                value={((data.nis2Implemented ?? 0) / Math.max(data.nis2Controls ?? 1, 1)) * 100}
+                value={((data.nis2ObjectiveImplemented ?? 0) / Math.max(data.nis2ObjectiveControls ?? 1, 1)) * 100}
                 className="h-2 mt-3"
               />
             </CardContent>
@@ -279,19 +283,37 @@ export default function Dashboard() {
           <Card>
             <CardContent className="p-5">
               <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="text-sm text-muted-foreground">CIR 2024/2690 Controls</span>
-                <FileCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span className="text-sm text-muted-foreground">NIS2 Atomic Controls</span>
+                <Target className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold">{data.cirImplemented ?? 0}</span>
-                <span className="text-sm text-muted-foreground">/ {data.cirControls ?? 0} implemented</span>
+                <span className="text-2xl font-bold">{data.nis2AtomicImplemented ?? 0}</span>
+                <span className="text-sm text-muted-foreground">/ {data.nis2AtomicControls ?? 0} implemented</span>
               </div>
               <Progress
-                value={((data.cirImplemented ?? 0) / Math.max(data.cirControls ?? 1, 1)) * 100}
+                value={((data.nis2AtomicImplemented ?? 0) / Math.max(data.nis2AtomicControls ?? 1, 1)) * 100}
                 className="h-2 mt-3"
               />
             </CardContent>
           </Card>
+          {(data.cirControls ?? 0) > 0 && (
+            <Card>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <span className="text-sm text-muted-foreground">CIR 2024/2690 Controls</span>
+                  <FileCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold">{data.cirImplemented ?? 0}</span>
+                  <span className="text-sm text-muted-foreground">/ {data.cirControls ?? 0} implemented</span>
+                </div>
+                <Progress
+                  value={((data.cirImplemented ?? 0) / Math.max(data.cirControls ?? 1, 1)) * 100}
+                  className="h-2 mt-3"
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

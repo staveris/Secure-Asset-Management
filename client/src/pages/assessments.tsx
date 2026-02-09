@@ -39,6 +39,10 @@ interface CirInfo {
   implementedControls: number;
   completionPct: number;
   maturityAvg: number;
+  nis2AtomicTotal?: number;
+  nis2AtomicImplemented?: number;
+  cirTotal?: number;
+  cirImplemented?: number;
 }
 
 interface EnrichedAssessment {
@@ -199,13 +203,10 @@ export default function Assessments() {
       ) : sorted.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {sorted.map((assessment) => {
-            const hasCir = assessment.cirInfo !== null;
-            const nis2Total = assessment.totalControls;
-            const cirTotal = assessment.cirInfo?.totalControls ?? 0;
-            const combinedTotal = nis2Total + cirTotal;
-            const combinedPct = combinedTotal > 0
-              ? Math.round(((assessment.completionPct * nis2Total) + ((assessment.cirInfo?.completionPct ?? 0) * cirTotal)) / combinedTotal)
-              : assessment.completionPct;
+            const hasAtomicInfo = assessment.cirInfo !== null;
+            const hasCir = (assessment.cirInfo?.cirTotal ?? 0) > 0;
+            const hasNis2Atomic = (assessment.cirInfo?.nis2AtomicTotal ?? 0) > 0;
+            const combinedPct = assessment.completionPct;
 
             return (
               <Card
@@ -221,10 +222,10 @@ export default function Assessments() {
                         <h3 className="font-semibold truncate" data-testid={`text-assessment-name-${assessment.id}`}>
                           {assessment.name}
                         </h3>
-                        {hasCir && (
+                        {hasAtomicInfo && (
                           <Badge variant="outline" className="text-[10px] shrink-0">
                             <ShieldCheck className="w-3 h-3 mr-1" />
-                            NIS2 + CIR
+                            {hasCir ? "NIS2 + CIR" : "NIS2"}
                           </Badge>
                         )}
                       </div>
@@ -282,14 +283,18 @@ export default function Assessments() {
                         <Calendar className="w-3 h-3" />
                         {new Date(assessment.createdAt).toLocaleDateString()}
                       </span>
-                      <span className="flex items-center gap-1" data-testid={`text-nis2-controls-${assessment.id}`}>
+                      <span className="flex items-center gap-1" data-testid={`text-controls-${assessment.id}`}>
                         <ClipboardCheck className="w-3 h-3" />
-                        NIS2: {assessment.implementedControls}/{assessment.totalControls}
+                        {assessment.implementedControls}/{assessment.totalControls} controls
                       </span>
+                      {hasNis2Atomic && (
+                        <span className="flex items-center gap-1 text-[10px]" data-testid={`text-nis2-atomic-${assessment.id}`}>
+                          NIS2 Atomic: {assessment.cirInfo!.nis2AtomicImplemented}/{assessment.cirInfo!.nis2AtomicTotal}
+                        </span>
+                      )}
                       {hasCir && (
-                        <span className="flex items-center gap-1" data-testid={`text-cir-controls-${assessment.id}`}>
-                          <ShieldCheck className="w-3 h-3" />
-                          CIR: {assessment.cirInfo!.implementedControls}/{assessment.cirInfo!.totalControls}
+                        <span className="flex items-center gap-1 text-[10px]" data-testid={`text-cir-controls-${assessment.id}`}>
+                          CIR: {assessment.cirInfo!.cirImplemented}/{assessment.cirInfo!.cirTotal}
                         </span>
                       )}
                     </div>
@@ -322,7 +327,7 @@ export default function Assessments() {
             <AlertDialogTitle>Delete Assessment</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete "{deleteTarget?.name}"? This will permanently remove the assessment
-              {deleteTarget?.cirInfo ? " including linked CIR controls," : ""} along with all its responses, related tasks, and evidence. This action cannot be undone.
+              {deleteTarget?.cirInfo ? " including linked atomic controls," : ""} along with all its responses, related tasks, and evidence. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

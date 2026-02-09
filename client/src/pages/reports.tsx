@@ -20,6 +20,10 @@ interface DashboardData {
   maturityTrend: any[];
   nis2Controls?: number;
   nis2Implemented?: number;
+  nis2ObjectiveControls?: number;
+  nis2ObjectiveImplemented?: number;
+  nis2AtomicControls?: number;
+  nis2AtomicImplemented?: number;
   cirControls?: number;
   cirImplemented?: number;
 }
@@ -278,9 +282,11 @@ export default function Reports() {
                   <div className="text-xs font-medium mt-2" style={{ color: "#16a34a" }}>
                     {implementedControls} Implemented
                   </div>
-                  {(dashboard.cirControls ?? 0) > 0 && (
+                  {((dashboard.nis2AtomicControls ?? 0) > 0 || (dashboard.cirControls ?? 0) > 0) && (
                     <div className="text-[10px] text-muted-foreground mt-1 text-center print:text-gray-400">
-                      NIS2: {dashboard.nis2Controls ?? 0} | CIR: {dashboard.cirControls ?? 0}
+                      Objectives: {dashboard.nis2ObjectiveControls ?? dashboard.nis2Controls ?? 0}
+                      {(dashboard.nis2AtomicControls ?? 0) > 0 && ` | NIS2 Atomic: ${dashboard.nis2AtomicControls}`}
+                      {(dashboard.cirControls ?? 0) > 0 && ` | CIR: ${dashboard.cirControls}`}
                     </div>
                   )}
                 </div>

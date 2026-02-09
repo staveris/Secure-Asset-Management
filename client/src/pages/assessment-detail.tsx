@@ -70,6 +70,7 @@ interface AssessmentResponse {
   notes: string | null;
   guidance: string | null;
   source?: "NIS2" | "CIR";
+  sourceKey?: string;
 }
 
 interface CirInfo {
@@ -242,11 +243,13 @@ function ControlCard({
     edits.evidenceConfidence !== response.evidenceConfidence ||
     edits.notes !== (response.notes || "");
 
-  const isCir = response.source === "CIR";
+  const isCir = response.sourceKey === "CIR_2024_2690";
+  const isNis2Atomic = response.sourceKey === "NIS2_2022_2555";
+  const isAtomicControl = isCir || isNis2Atomic;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (isCir && response.atomicAssessmentId && response.atomicControlId) {
+      if (isAtomicControl && response.atomicAssessmentId && response.atomicControlId) {
         await apiRequest("POST", `/api/atomic-assessments/${response.atomicAssessmentId}/responses`, {
           atomicControlId: response.atomicControlId,
           implementationStatus: edits.implementationStatus,
@@ -281,7 +284,7 @@ function ControlCard({
   const StatusIcon = config.icon;
 
   return (
-    <Card data-testid={`control-card-${isCir ? "cir" : "nis2"}-${response.id}`}>
+    <Card data-testid={`control-card-${isCir ? "cir" : isNis2Atomic ? "nis2-atomic" : "nis2"}-${response.id}`}>
       <CardContent className="p-4 space-y-4">
         <div className="flex items-start gap-3">
           <div className={`p-1.5 rounded-md ${config.bg} shrink-0 mt-0.5`}>
@@ -291,6 +294,7 @@ function ControlCard({
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
               {isCir && <Badge variant="secondary" className="text-xs">CIR</Badge>}
+              {isNis2Atomic && <Badge variant="secondary" className="text-xs">NIS2 Atomic</Badge>}
               <span className="text-sm font-medium">{response.controlTitle}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">{response.controlDescription}</p>
@@ -397,7 +401,7 @@ function ControlCard({
           </div>
         )}
 
-        {!isCir && <div className="pl-10 space-y-2" data-testid={`tasks-section-${response.id}`}>
+        {!isAtomicControl && <div className="pl-10 space-y-2" data-testid={`tasks-section-${response.id}`}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="text-xs flex items-center gap-1.5">
               <ListTodo className="w-3 h-3" />
@@ -507,7 +511,7 @@ function ControlCard({
           </Dialog>
         </div>}
 
-        {!isCir && <div className="pl-10 space-y-2" data-testid={`evidence-section-${response.id}`}>
+        {!isAtomicControl && <div className="pl-10 space-y-2" data-testid={`evidence-section-${response.id}`}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="text-xs flex items-center gap-1.5">
               <FileText className="w-3 h-3" />
@@ -608,12 +612,18 @@ export default function AssessmentDetail({ id }: { id: string }) {
 
   const allResponses = useMemo(() => {
     if (!data) return [];
-    const nis2 = data.responses.map(r => ({ ...r, source: (r.source || "NIS2") as "NIS2" | "CIR" }));
-    const cir = data.cirInfo?.responses?.map(r => ({ ...r, source: "CIR" as const })) || [];
-    return [...nis2, ...cir];
+    const objectives = data.responses.map(r => ({ ...r, source: "NIS2" as const, sourceKey: "NIS2_OBJECTIVE" }));
+    const atomicResponses = data.cirInfo?.responses?.map(r => ({
+      ...r,
+      source: (r.sourceKey === "CIR_2024_2690" ? "CIR" : "NIS2") as "NIS2" | "CIR",
+      sourceKey: r.sourceKey || "NIS2_2022_2555",
+    })) || [];
+    return [...objectives, ...atomicResponses];
   }, [data]);
 
-  const hasCir = !!data?.cirInfo;
+  const hasAtomicControls = !!data?.cirInfo;
+  const hasCir = allResponses.some(r => r.sourceKey === "CIR_2024_2690");
+  const hasNis2Atomic = allResponses.some(r => r.sourceKey === "NIS2_2022_2555");
 
   const getControlTasks = (controlObjectiveId: number | undefined): Task[] => {
     if (!data?.tasks || !controlObjectiveId) return [];
@@ -632,8 +642,10 @@ export default function AssessmentDetail({ id }: { id: string }) {
     if (!data) return null;
     const r = allResponses;
     const total = r.length;
-    const nis2Count = r.filter(x => x.source === "NIS2").length;
-    const cirCount = r.filter(x => x.source === "CIR").length;
+    const nis2ObjectiveCount = r.filter(x => x.sourceKey === "NIS2_OBJECTIVE").length;
+    const nis2AtomicCount = r.filter(x => x.sourceKey === "NIS2_2022_2555").length;
+    const cirCount = r.filter(x => x.sourceKey === "CIR_2024_2690").length;
+    const nis2Count = nis2ObjectiveCount + nis2AtomicCount;
     const notStarted = r.filter(x => x.implementationStatus === "NOT_STARTED").length;
     const inProgress = r.filter(x => x.implementationStatus === "IN_PROGRESS").length;
     const implemented = r.filter(x => x.implementationStatus === "IMPLEMENTED").length;
@@ -644,7 +656,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
     const weightedMaturitySum = r.reduce((sum, x) => sum + x.maturityLevel * (x.weight || 1), 0);
     const totalWeight = r.reduce((sum, x) => sum + (x.weight || 1), 0);
     const weightedMaturityAvg = totalWeight > 0 ? parseFloat((weightedMaturitySum / totalWeight).toFixed(1)) : 0;
-    return { total, nis2Count, cirCount, notStarted, inProgress, implemented, verified, completionPct, maturityAvg, weightedMaturityAvg };
+    return { total, nis2ObjectiveCount, nis2AtomicCount, nis2Count, cirCount, notStarted, inProgress, implemented, verified, completionPct, maturityAvg, weightedMaturityAvg };
   }, [data, allResponses]);
 
   const filteredResponses = useMemo(() => {
@@ -704,12 +716,17 @@ export default function AssessmentDetail({ id }: { id: string }) {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold tracking-tight truncate">{data.name}</h1>
             <Badge variant="outline">{data.status.replace("_", " ")}</Badge>
-            {hasCir && <Badge variant="secondary">NIS2 + CIR</Badge>}
+            {hasAtomicControls && <Badge variant="secondary">{hasCir ? "NIS2 + CIR" : "NIS2"}</Badge>}
           </div>
           <p className="text-muted-foreground text-sm mt-0.5">
             {data.scope || "Full NIS2 compliance assessment"}
-            {hasCir && (
-              <span className="ml-2 text-xs">({stats?.nis2Count} NIS2 + {stats?.cirCount} CIR controls)</span>
+            {hasAtomicControls && (
+              <span className="ml-2 text-xs">
+                ({stats?.nis2ObjectiveCount} objectives
+                {(stats?.nis2AtomicCount || 0) > 0 && ` + ${stats?.nis2AtomicCount} NIS2 atomic`}
+                {(stats?.cirCount || 0) > 0 && ` + ${stats?.cirCount} CIR`}
+                {" "}controls)
+              </span>
             )}
           </p>
         </div>

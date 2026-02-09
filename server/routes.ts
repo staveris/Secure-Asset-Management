@@ -931,24 +931,49 @@ export async function registerRoutes(
       const completionPct = total > 0 ? Math.round((implemented / total) * 100) : 0;
       const maturityAvg = total > 0 ? parseFloat((responses.reduce((sum, r) => sum + r.maturityLevel, 0) / total).toFixed(1)) : 0;
 
-      const linkedCir = await storage.getAtomicAssessmentByParent(a.id);
+      const linkedAtomic = await storage.getAtomicAssessmentByParent(a.id);
       let cirInfo = null;
-      if (linkedCir) {
-        const cirResponses = await storage.getAtomicAssessmentResponses(linkedCir.id);
-        const cirTotal = cirResponses.length;
-        const cirAnswered = cirResponses.filter(r => r.implementationStatus !== "NOT_STARTED").length;
-        const cirImplemented = cirResponses.filter(r => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED").length;
+      let atomicNis2Total = 0;
+      let atomicNis2Implemented = 0;
+      let atomicCirTotal = 0;
+      let atomicCirImplemented = 0;
+      if (linkedAtomic) {
+        const atomicResponses = await storage.getAtomicAssessmentResponses(linkedAtomic.id);
+        const allAtomicCtrls = await storage.getAllAtomicControls();
+        const ctrlMap = new Map(allAtomicCtrls.map(c => [c.id, c]));
+
+        for (const r of atomicResponses) {
+          const ctrl = ctrlMap.get(r.atomicControlId);
+          const isCir = ctrl?.sourceKey === "CIR_2024_2690";
+          const isImpl = r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED";
+          if (isCir) {
+            atomicCirTotal++;
+            if (isImpl) atomicCirImplemented++;
+          } else {
+            atomicNis2Total++;
+            if (isImpl) atomicNis2Implemented++;
+          }
+        }
+
         cirInfo = {
-          id: linkedCir.id,
-          totalControls: cirTotal,
-          answeredControls: cirAnswered,
-          implementedControls: cirImplemented,
-          completionPct: cirTotal > 0 ? Math.round((cirImplemented / cirTotal) * 100) : 0,
-          maturityAvg: cirTotal > 0 ? parseFloat((cirResponses.reduce((sum, r) => sum + r.maturityLevel, 0) / cirTotal).toFixed(1)) : 0,
+          id: linkedAtomic.id,
+          totalControls: atomicResponses.length,
+          answeredControls: atomicResponses.filter(r => r.implementationStatus !== "NOT_STARTED").length,
+          implementedControls: atomicNis2Implemented + atomicCirImplemented,
+          completionPct: atomicResponses.length > 0 ? Math.round(((atomicNis2Implemented + atomicCirImplemented) / atomicResponses.length) * 100) : 0,
+          maturityAvg: atomicResponses.length > 0 ? parseFloat((atomicResponses.reduce((sum, r) => sum + r.maturityLevel, 0) / atomicResponses.length).toFixed(1)) : 0,
+          nis2AtomicTotal: atomicNis2Total,
+          nis2AtomicImplemented: atomicNis2Implemented,
+          cirTotal: atomicCirTotal,
+          cirImplemented: atomicCirImplemented,
         };
       }
 
-      return { ...a, totalControls: total, implementedControls: implemented, inProgressControls: inProgress, completionPct, maturityAvg, cirInfo };
+      const grandTotal = total + atomicNis2Total + atomicCirTotal;
+      const grandImplemented = implemented + atomicNis2Implemented + atomicCirImplemented;
+      const grandCompletionPct = grandTotal > 0 ? Math.round((grandImplemented / grandTotal) * 100) : 0;
+
+      return { ...a, totalControls: grandTotal, implementedControls: grandImplemented, inProgressControls: inProgress, completionPct: grandCompletionPct, maturityAvg, cirInfo };
     }));
 
     res.json(enriched);
@@ -984,53 +1009,81 @@ export async function registerRoutes(
       }
 
       const tenant = await storage.getTenant(user.tenantId);
-      let cirAssessmentId: number | null = null;
-      let cirControlCount = 0;
       const tenantSubsector = tenant?.subsector || null;
+      const tenantEntityType = (tenant?.entityType || "essential").toLowerCase();
       const tenantCirCode = tenantSubsector ? CIR_SUBSECTOR_MAP[tenantSubsector] || null : null;
-      if (tenant && tenant.sector && CIR_APPLICABLE_SECTORS.some(s => s.toLowerCase() === tenant.sector!.toLowerCase()) && tenantCirCode) {
-        const cirControls = await storage.getAtomicControlsBySource("CIR_2024_2690");
-        const activeControls = cirControls.filter((c: any) => {
-          if (c.isActive === false) return false;
-          try {
-            const applicability = typeof c.applicability === 'string' ? JSON.parse(c.applicability) : c.applicability;
-            const entities: string[] = applicability?.entities || applicability?.tags || [];
-            return entities.includes(tenantCirCode!) || entities.includes("ALL");
-          } catch {
-            return true;
+
+      const allAtomicControls = await storage.getAllAtomicControls();
+
+      const isApplicableControl = (c: any) => {
+        if (c.isActive === false) return false;
+        try {
+          const applicability = typeof c.applicability === 'string' ? JSON.parse(c.applicability) : c.applicability;
+          const tags: string[] = applicability?.entities || applicability?.tags || [];
+
+          if (c.sourceKey === "NIS2_2022_2555") {
+            if (tags.includes("ALL_NIS2_ENTITIES")) return true;
+            if (tags.includes("ESSENTIAL_ENTITIES") && tenantEntityType === "essential") return true;
+            if (tags.includes("IMPORTANT_ENTITIES") && tenantEntityType === "important") return true;
+            if (tags.includes("DNS_REGISTRIES") || tags.includes("DOMAIN_REGISTRARS")) {
+              const dnsSubsectors = ["DNS service providers", "TLD name registries"];
+              return tenantSubsector ? dnsSubsectors.some(s => s.toLowerCase() === tenantSubsector.toLowerCase()) : false;
+            }
+            return false;
           }
+
+          if (c.sourceKey === "CIR_2024_2690") {
+            if (!tenantCirCode) return false;
+            return tags.includes(tenantCirCode) || tags.includes("ALL");
+          }
+
+          return false;
+        } catch {
+          return true;
+        }
+      };
+
+      const nis2AtomicControls = allAtomicControls.filter(c => c.sourceKey === "NIS2_2022_2555" && isApplicableControl(c));
+      const isCirSector = tenant && tenant.sector && CIR_APPLICABLE_SECTORS.some(s => s.toLowerCase() === tenant.sector!.toLowerCase()) && tenantCirCode;
+      const cirControls = isCirSector ? allAtomicControls.filter(c => c.sourceKey === "CIR_2024_2690" && isApplicableControl(c)) : [];
+      const allApplicableControls = [...nis2AtomicControls, ...cirControls];
+
+      let atomicAssessmentId: number | null = null;
+      if (allApplicableControls.length > 0) {
+        const atomicAssessment = await storage.createAtomicAssessment({
+          tenantId: user.tenantId,
+          name: `${name}`,
+          scope: scope || null,
+          createdBy: user.id,
+          status: "DRAFT",
+          parentAssessmentId: assessment.id,
         });
-        if (activeControls.length > 0) {
-          const cirAssessment = await storage.createAtomicAssessment({
-            tenantId: user.tenantId,
-            name: `${name}`,
-            scope: scope || null,
-            createdBy: user.id,
-            status: "DRAFT",
-            parentAssessmentId: assessment.id,
-          });
-          cirAssessmentId = cirAssessment.id;
-          cirControlCount = activeControls.length;
-          for (const control of activeControls) {
-            await storage.createAtomicAssessmentResponse({
-              atomicAssessmentId: cirAssessment.id,
-              atomicControlId: control.id,
-              implementationStatus: "NOT_STARTED",
-              maturityLevel: 0,
-              confidence: "NONE",
-              notes: null,
-              answeredBy: user.id,
-            });
-          }
-          await storage.createAuditLog({
-            tenantId: user.tenantId,
-            actorUserId: user.id,
-            action: "CREATE",
-            entityType: "ATOMIC_ASSESSMENT",
-            entityId: String(cirAssessment.id),
-            details: { name, parentAssessmentId: assessment.id, cirControls: activeControls.length },
+        atomicAssessmentId = atomicAssessment.id;
+        for (const control of allApplicableControls) {
+          await storage.createAtomicAssessmentResponse({
+            atomicAssessmentId: atomicAssessment.id,
+            atomicControlId: control.id,
+            implementationStatus: "NOT_STARTED",
+            maturityLevel: 0,
+            confidence: "NONE",
+            notes: null,
+            answeredBy: user.id,
           });
         }
+        await storage.createAuditLog({
+          tenantId: user.tenantId,
+          actorUserId: user.id,
+          action: "CREATE",
+          entityType: "ATOMIC_ASSESSMENT",
+          entityId: String(atomicAssessment.id),
+          details: {
+            name,
+            parentAssessmentId: assessment.id,
+            nis2AtomicControls: nis2AtomicControls.length,
+            cirControls: cirControls.length,
+            totalAtomicControls: allApplicableControls.length,
+          },
+        });
       }
 
       const incompleteTasks = await storage.getIncompleteTasksByTenant(user.tenantId);
@@ -1048,10 +1101,10 @@ export async function registerRoutes(
         action: "CREATE",
         entityType: "ASSESSMENT",
         entityId: String(assessment.id),
-        details: { carriedOverTasks: carriedOver, cirAssessmentId, cirControlCount },
+        details: { carriedOverTasks: carriedOver, atomicAssessmentId, totalAtomicControls: allApplicableControls.length },
       });
 
-      res.json({ ...assessment, carriedOverTasks: carriedOver, cirAssessmentId, cirControlCount });
+      res.json({ ...assessment, carriedOverTasks: carriedOver, atomicAssessmentId, totalAtomicControls: allApplicableControls.length });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -1097,15 +1150,17 @@ export async function registerRoutes(
 
     const assessmentTasks = await storage.getTasksByAssessment(id);
 
-    let cirInfo: any = null;
+    let atomicInfo: any = null;
     const linkedAtomic = await storage.getAtomicAssessmentByParent(id);
     if (linkedAtomic) {
       const atomicResponses = await storage.getAtomicAssessmentResponses(linkedAtomic.id);
       const allAtomicControls = await storage.getAllAtomicControls();
       const atomicControlMap = new Map(allAtomicControls.map(c => [c.id, c]));
 
-      const cirResponses = atomicResponses.map((r) => {
+      const enrichedAtomicResponses = atomicResponses.map((r) => {
         const ctrl = atomicControlMap.get(r.atomicControlId);
+        const sourceKey = ctrl?.sourceKey || "NIS2_2022_2555";
+        const isCir = sourceKey === "CIR_2024_2690";
         return {
           id: r.id,
           atomicControlId: r.atomicControlId,
@@ -1114,21 +1169,22 @@ export async function registerRoutes(
           controlDescription: ctrl?.obligationText || "",
           requirementCode: ctrl?.controlId || "",
           requirementTitle: ctrl?.domain || "",
-          category: ctrl?.domain || "CIR 2024/2690",
-          domain: ctrl?.domain || "CIR 2024/2690",
+          category: ctrl?.domain || (isCir ? "CIR 2024/2690" : "NIS2"),
+          domain: ctrl?.domain || (isCir ? "CIR 2024/2690" : "NIS2"),
           weight: ctrl?.weight || 1,
           implementationStatus: r.implementationStatus,
           maturityLevel: r.maturityLevel,
           evidenceConfidence: r.confidence,
           notes: r.notes,
           guidance: null,
-          source: "CIR" as const,
+          source: (isCir ? "CIR" : "NIS2") as "CIR" | "NIS2",
+          sourceKey,
         };
       });
 
-      cirInfo = {
+      atomicInfo = {
         atomicAssessmentId: linkedAtomic.id,
-        responses: cirResponses,
+        responses: enrichedAtomicResponses,
       };
     }
 
@@ -1140,7 +1196,7 @@ export async function registerRoutes(
       createdAt: assessment!.createdAt,
       responses: enrichedResponses,
       tasks: assessmentTasks,
-      cirInfo,
+      cirInfo: atomicInfo,
     });
   });
 
