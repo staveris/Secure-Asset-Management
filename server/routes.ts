@@ -12,6 +12,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import * as OTPAuth from "otpauth";
+import QRCode from "qrcode";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
 import { getAppBaseUrl } from "./email";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
@@ -72,6 +74,7 @@ declare module "express-session" {
   interface SessionData {
     userId: number;
     csrfToken: string;
+    pendingTotpUserId: number;
   }
 }
 
@@ -146,10 +149,11 @@ export async function registerRoutes(
       secret: process.env.SESSION_SECRET || "nis2-platform-secret-key",
       resave: false,
       saveUninitialized: false,
+      rolling: true,
       cookie: {
         httpOnly: true,
         secure: false,
-        maxAge: 24 * 60 * 60 * 1000,
+        maxAge: 15 * 60 * 1000,
         sameSite: "lax",
       },
     })
@@ -166,7 +170,7 @@ export async function registerRoutes(
     if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
       return next();
     }
-    if (req.path.startsWith("/api/auth/login") || req.path.startsWith("/api/auth/register") || req.path.startsWith("/api/auth/forgot-password") || req.path.startsWith("/api/auth/reset-password") || req.path.startsWith("/api/auth/verify-email") || req.path.startsWith("/api/auth/resend-verification") || req.path.startsWith("/api/auth/logout")) {
+    if (req.path.startsWith("/api/auth/login") || req.path.startsWith("/api/auth/register") || req.path.startsWith("/api/auth/forgot-password") || req.path.startsWith("/api/auth/reset-password") || req.path.startsWith("/api/auth/verify-email") || req.path.startsWith("/api/auth/resend-verification") || req.path.startsWith("/api/auth/logout") || req.path.startsWith("/api/auth/totp-verify")) {
       return next();
     }
     const token = req.headers["x-csrf-token"] as string;
@@ -319,6 +323,11 @@ export async function registerRoutes(
         await db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
       }
 
+      if (user.totpEnabled && user.totpSecret) {
+        req.session.pendingTotpUserId = user.id;
+        return res.json({ requireTotp: true });
+      }
+
       await storage.updateUserLastLogin(user.id);
       req.session.csrfToken = crypto.randomBytes(32).toString("hex");
       req.session.userId = user.id;
@@ -346,6 +355,146 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
       }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/totp-verify", authLimiter, async (req, res) => {
+    try {
+      const { code } = req.body;
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ message: "Verification code is required" });
+      }
+      const pendingUserId = req.session.pendingTotpUserId;
+      if (!pendingUserId) {
+        return res.status(400).json({ message: "No pending 2FA verification. Please log in again." });
+      }
+      const user = await storage.getUser(pendingUserId);
+      if (!user || !user.totpSecret || !user.totpEnabled) {
+        return res.status(400).json({ message: "2FA not configured for this account" });
+      }
+      const totp = new OTPAuth.TOTP({
+        issuer: "NIS2 Platform",
+        label: user.email,
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret: OTPAuth.Secret.fromBase32(user.totpSecret),
+      });
+      const delta = totp.validate({ token: code, window: 1 });
+      if (delta === null) {
+        const clientIp = req.ip || req.headers["x-forwarded-for"] || "unknown";
+        logSecurityEvent("TOTP_FAILED", { email: user.email, ip: clientIp });
+        return res.status(401).json({ message: "Invalid verification code" });
+      }
+      delete req.session.pendingTotpUserId;
+      const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
+      await storage.updateUserLastLogin(user.id);
+      req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+      req.session.userId = user.id;
+      const clientIp = req.ip || req.headers["x-forwarded-for"] || "unknown";
+      logSecurityEvent("LOGIN_SUCCESS", { email: user.email, ip: clientIp, userId: user.id, totp: true });
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "LOGIN_SUCCESS",
+        entityType: "AUTH",
+        entityId: String(user.id),
+        details: { ip: clientIp, totp: true },
+      });
+      res.json({
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        tenantId: user.tenantId,
+        tenantName: tenant?.name || null,
+        emailVerified: user.emailVerified,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/totp-setup", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+      if (user.totpEnabled) return res.status(400).json({ message: "2FA is already enabled" });
+      const secret = new OTPAuth.Secret({ size: 20 });
+      const totp = new OTPAuth.TOTP({
+        issuer: "NIS2 Platform",
+        label: user.email,
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret,
+      });
+      const otpauthUrl = totp.toString();
+      await db.update(users).set({ totpSecret: secret.base32 }).where(eq(users.id, user.id));
+      const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+      res.json({ secret: secret.base32, otpauthUrl, qrCode: qrCodeDataUrl });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/totp-enable", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+      if (!user.totpSecret) return res.status(400).json({ message: "Please set up 2FA first" });
+      const { code } = req.body;
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ message: "Verification code is required" });
+      }
+      const totp = new OTPAuth.TOTP({
+        issuer: "NIS2 Platform",
+        label: user.email,
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret: OTPAuth.Secret.fromBase32(user.totpSecret),
+      });
+      const delta = totp.validate({ token: code, window: 1 });
+      if (delta === null) {
+        return res.status(400).json({ message: "Invalid verification code. Please try again." });
+      }
+      await db.update(users).set({ totpEnabled: true }).where(eq(users.id, user.id));
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "TOTP_ENABLED",
+        entityType: "USER",
+        entityId: String(user.id),
+        details: {},
+      });
+      res.json({ message: "Two-factor authentication has been enabled" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/totp-disable", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+      if (!user.totpEnabled) return res.status(400).json({ message: "2FA is not enabled" });
+      const { password } = req.body;
+      if (!password) return res.status(400).json({ message: "Password is required to disable 2FA" });
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) return res.status(401).json({ message: "Invalid password" });
+      await db.update(users).set({ totpEnabled: false, totpSecret: null }).where(eq(users.id, user.id));
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "TOTP_DISABLED",
+        entityType: "USER",
+        entityId: String(user.id),
+        details: {},
+      });
+      res.json({ message: "Two-factor authentication has been disabled" });
+    } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
   });
@@ -597,6 +746,7 @@ export async function registerRoutes(
       isActive: user.isActive,
       fullAccessEnabled: user.fullAccessEnabled,
       emailVerified: user.emailVerified,
+      totpEnabled: user.totpEnabled,
       createdAt: user.createdAt,
     });
   });

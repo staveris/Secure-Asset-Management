@@ -92,7 +92,10 @@ export default function AuthPage() {
   const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
   const [showLockedDialog, setShowLockedDialog] = useState(false);
   const [lockedMessage, setLockedMessage] = useState("");
-  const { login, register, user } = useAuth();
+  const [showTotpStep, setShowTotpStep] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpLoading, setTotpLoading] = useState(false);
+  const { login, verifyTotp, register, user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -114,8 +117,12 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(loginEmail, loginPassword);
-      navigate("/");
+      const result = await login(loginEmail, loginPassword);
+      if (result === "requireTotp") {
+        setShowTotpStep(true);
+      } else {
+        navigate("/");
+      }
     } catch (err: any) {
       const msg = err.message || "";
       if (msg.toLowerCase().includes("suspended")) {
@@ -129,6 +136,20 @@ export default function AuthPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTotpVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTotpLoading(true);
+    try {
+      await verifyTotp(totpCode);
+      navigate("/");
+    } catch (err: any) {
+      const msg = err.message || "";
+      toast({ title: "Verification failed", description: msg.replace(/^\d+:\s*/, "").replace(/[{}"]/g, "").replace(/message:/i, "").trim() || "Invalid verification code", variant: "destructive" });
+    } finally {
+      setTotpLoading(false);
     }
   };
 
@@ -303,19 +324,63 @@ export default function AuthPage() {
                 <span className="text-xs text-muted-foreground font-medium tracking-wider uppercase">NIS2 Readiness Platform</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight" data-testid="text-form-title">
-                {showForgotPassword ? "Reset your password" : isLogin ? "Welcome back" : "Get started"}
+                {showTotpStep ? "Two-Factor Authentication" : showForgotPassword ? "Reset your password" : isLogin ? "Welcome back" : "Get started"}
               </h2>
               <p className="text-muted-foreground mt-1.5 text-sm">
-                {showForgotPassword
-                  ? "Enter your email and we'll send you a link to reset your password"
-                  : isLogin
-                    ? "Sign in to continue to your compliance dashboard"
-                    : "Create your account and begin your NIS2 compliance journey"
+                {showTotpStep
+                  ? "Enter the 6-digit code from your authenticator app"
+                  : showForgotPassword
+                    ? "Enter your email and we'll send you a link to reset your password"
+                    : isLogin
+                      ? "Sign in to continue to your compliance dashboard"
+                      : "Create your account and begin your NIS2 compliance journey"
                 }
               </p>
             </div>
 
-            {showForgotPassword ? (
+            {showTotpStep ? (
+              <form onSubmit={handleTotpVerify} className="space-y-4" data-testid="form-totp-verify">
+                <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <Shield className="w-6 h-6 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="totp-code">Verification Code</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="totp-code"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="000000"
+                      value={totpCode}
+                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      className="pl-10 bg-white dark:bg-neutral-900 text-center text-lg tracking-widest"
+                      maxLength={6}
+                      autoFocus
+                      required
+                      data-testid="input-totp-code"
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={totpCode.length !== 6 || totpLoading}
+                  data-testid="button-totp-verify"
+                >
+                  {totpLoading ? "Verifying..." : "Verify"}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => { setShowTotpStep(false); setTotpCode(""); }}
+                  className="w-full text-sm text-muted-foreground hover:text-foreground text-center"
+                  data-testid="link-back-from-totp"
+                >
+                  Back to Login
+                </button>
+              </form>
+            ) : showForgotPassword ? (
               forgotSent ? (
                 <div className="space-y-4 text-center" data-testid="forgot-password-sent">
                   <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">

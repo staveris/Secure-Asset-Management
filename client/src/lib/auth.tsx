@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback } from "react";
+import { createContext, useContext, useCallback, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest, getQueryFn, clearCsrfToken } from "./queryClient";
 import type { User } from "@shared/schema";
@@ -22,7 +22,8 @@ interface RegisterData {
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<"success" | "requireTotp">;
+  verifyTotp: (code: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   isPlatformAdmin: boolean;
@@ -46,7 +47,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: string;
       password: string;
     }) => {
-      await apiRequest("POST", "/api/auth/login", { email, password });
+      const res = await apiRequest("POST", "/api/auth/login", { email, password });
+      return await res.json();
+    },
+    onSuccess: (data: any) => {
+      clearCsrfToken();
+      if (!data.requireTotp) {
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      }
+    },
+  });
+
+  const totpVerifyMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const res = await fetch("/api/auth/totp-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -73,10 +97,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      await loginMutation.mutateAsync({ email, password });
+    async (email: string, password: string): Promise<"success" | "requireTotp"> => {
+      const data = await loginMutation.mutateAsync({ email, password });
+      if (data?.requireTotp) return "requireTotp";
+      return "success";
     },
     [loginMutation],
+  );
+
+  const verifyTotp = useCallback(
+    async (code: string) => {
+      await totpVerifyMutation.mutateAsync(code);
+    },
+    [totpVerifyMutation],
   );
 
   const register = useCallback(
@@ -99,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user: user ?? null,
         isLoading,
         login,
+        verifyTotp,
         register,
         logout,
         isPlatformAdmin,

@@ -7,8 +7,8 @@ Multi-tenant compliance SaaS for NIS2 Directive readiness. Companies can assess 
 - **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui + Recharts
 - **Backend**: Express.js + TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
-- **Auth**: bcryptjs password hashing + express-session with PostgreSQL session store
-- **Security**: helmet (secure headers), express-rate-limit (auth rate limiting), READONLY_AUDITOR write enforcement
+- **Auth**: bcryptjs password hashing + express-session with PostgreSQL session store + TOTP 2FA (otpauth)
+- **Security**: helmet (secure headers + CSP), express-rate-limit (auth rate limiting), READONLY_AUDITOR write enforcement, CSRF protection, account lockout, session timeout
 - **Routing**: wouter (frontend), Express (backend)
 - **File Upload**: multer with size/type validation
 
@@ -115,3 +115,10 @@ All routes prefixed with `/api/`:
   - CSRF protection: token-based validation on all state-changing API requests (X-CSRF-Token header)
   - Enhanced security audit logging: LOGIN_SUCCESS, LOGIN_FAILED, ACCOUNT_LOCKED, LOGIN_BLOCKED_LOCKOUT, PASSWORD_RESET_REQUESTED, PASSWORD_RESET, PASSWORD_CHANGED events logged to audit_logs table and server console
   - Consistent password complexity enforcement on all password-setting endpoints
+- 2026-02-09: Security hardening phase 3:
+  - Two-factor authentication (2FA/TOTP): setup/enable/disable via Settings page; QR code generation with otpauth library; TOTP verification step during login; audit logging for TOTP_ENABLED/TOTP_DISABLED events
+  - Session timeout / idle logout: 15-minute rolling session with frontend idle detection; warning dialog at 14 minutes; auto-logout at 15 minutes; throttled activity tracking
+  - Content Security Policy (CSP) headers: default-src 'self'; script-src/style-src with 'unsafe-inline'; font-src for Google Fonts; frame-src/object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  - New schema fields: totpSecret (text), totpEnabled (boolean) on users table
+  - New API endpoints: POST /api/auth/totp-setup, /api/auth/totp-enable, /api/auth/totp-disable, /api/auth/totp-verify
+  - New frontend component: client/src/components/idle-timeout.tsx (IdleTimeoutWarning)

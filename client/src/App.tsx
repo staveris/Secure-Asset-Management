@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { IdleTimeoutWarning } from "@/components/idle-timeout";
 
 import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
@@ -171,6 +172,7 @@ function App() {
         <TooltipProvider>
           <AuthProvider>
             <AppContent />
+            <IdleTimeoutWarning />
           </AuthProvider>
           <CookieConsent />
           <Toaster />
