@@ -56,8 +56,8 @@ function PasswordStrength({ password }: { password: string }) {
 const features = [
   {
     icon: Shield,
-    title: "Full NIS2 Coverage",
-    description: "Annex I & II sector-aware assessments with domain-based control grouping",
+    title: "NIS2 + CIR Unified",
+    description: "Combined NIS2 Directive and CIR 2024/2690 assessments with sector-specific controls",
   },
   {
     icon: AlertTriangle,
@@ -71,16 +71,16 @@ const features = [
   },
   {
     icon: BarChart3,
-    title: "Compliance Analytics",
-    description: "Real-time dashboards, trend analysis, and maturity scoring",
+    title: "Sector-Aware Controls",
+    description: "Automatic CIR control mapping for Digital Infrastructure, ICT & Digital Providers",
   },
 ];
 
 const stats = [
-  { value: "27", label: "EU Member States" },
   { value: "18", label: "NIS2 Sectors" },
-  { value: "41", label: "Control Objectives" },
-  { value: "100%", label: "Audit Ready" },
+  { value: "41", label: "NIS2 Controls" },
+  { value: "17", label: "CIR Controls" },
+  { value: "11", label: "CIR Subsectors" },
 ];
 
 export default function AuthPage() {
@@ -240,18 +240,24 @@ export default function AuthPage() {
 
           {/* Center: Hero content */}
           <div className="flex-1 flex flex-col justify-center max-w-xl py-8">
-            <div className="flex items-center gap-2 mb-5">
-              <Globe className="w-4 h-4 text-sky-400" />
+            <div className="flex items-center gap-2 mb-5 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-sky-400" />
+                <span className="text-sky-400 text-xs font-medium tracking-wider uppercase">
+                  NIS2 Directive 2022/2555
+                </span>
+              </div>
+              <span className="text-slate-500 text-xs">+</span>
               <span className="text-sky-400 text-xs font-medium tracking-wider uppercase">
-                EU Directive 2022/2555
+                CIR 2024/2690
               </span>
             </div>
             <h1 className="text-4xl xl:text-[2.75rem] font-bold text-white leading-[1.15] mb-4 tracking-tight">
-              Your Path to<br />
-              NIS2 Compliance
+              NIS2 + CIR<br />
+              Compliance Platform
             </h1>
             <p className="text-slate-300 text-base xl:text-lg leading-relaxed mb-8 max-w-md">
-              Assess, track, and demonstrate your organization's cybersecurity readiness with a platform built for the NIS2 Directive.
+              Unified assessments covering the NIS2 Directive and the Commission Implementing Regulation (CIR) 2024/2690 with sector-aware controls for your organization.
             </p>
 
             {/* Stats row */}
@@ -281,10 +287,10 @@ export default function AuthPage() {
           </div>
 
           {/* Bottom: Trust & compliance */}
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-5 flex-wrap">
             <div className="flex items-center gap-2 text-slate-400 text-xs">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>GDPR Compliant</span>
+              <span>NIS2 + CIR Ready</span>
             </div>
             <div className="flex items-center gap-2 text-slate-400 text-xs">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
