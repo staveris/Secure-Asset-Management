@@ -291,18 +291,18 @@ export async function seedDatabase() {
 
   console.log(`Seeded ${nis2Requirements.length} requirements with control objectives`);
 
-  const existingAdmin = await storage.getUserByEmail("admin@nis2platform.eu");
+  const existingAdmin = await storage.getUserByEmail("staverist@gmail.com");
   if (!existingAdmin) {
     const passwordHash = await bcrypt.hash("admin123", 12);
     await storage.createUser({
-      email: "admin@nis2platform.eu",
+      email: "staverist@gmail.com",
       passwordHash,
       fullName: "Platform Administrator",
       role: "PLATFORM_ADMIN",
       isActive: true,
       tenantId: null,
     });
-    console.log("Created platform admin: admin@nis2platform.eu / admin123");
+    console.log("Created platform admin: staverist@gmail.com");
   }
 
   const existingDemo = await storage.getUserByEmail("demo@acmecorp.com");
