@@ -35,6 +35,12 @@ interface AtomicControlsResponse {
   total: number;
   page: number;
   limit: number;
+  stats: {
+    totalAll: number;
+    activeAll: number;
+    nis2All: number;
+    cirAll: number;
+  };
 }
 
 const SOURCES = [
@@ -86,10 +92,11 @@ export default function AdminAtomicLibrary() {
   const controls = controlsData?.data || [];
   const total = controlsData?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+  const stats = controlsData?.stats;
 
-  const nis2Count = controls.filter((c) => c.sourceKey === "NIS2_2022_2555").length;
-  const cirCount = controls.filter((c) => c.sourceKey === "CIR_2024_2690").length;
-  const activeCount = controls.filter((c) => c.isActive).length;
+  const nis2Count = stats?.nis2All ?? 0;
+  const cirCount = stats?.cirAll ?? 0;
+  const activeCount = stats?.activeAll ?? 0;
 
   const handleSourceChange = (value: string) => {
     setSourceFilter(value);

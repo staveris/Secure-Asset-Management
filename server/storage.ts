@@ -203,7 +203,7 @@ export interface IStorage {
   getAtomicControlByControlId(controlId: string): Promise<AtomicControl | undefined>;
   getAllAtomicControls(): Promise<AtomicControl[]>;
   getAtomicControlsBySource(sourceKey: string): Promise<AtomicControl[]>;
-  getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string): Promise<{ data: AtomicControl[]; total: number }>;
+  getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string): Promise<{ data: AtomicControl[]; total: number; stats: { totalAll: number; activeAll: number; nis2All: number; cirAll: number } }>;
   updateAtomicControl(id: number, data: Partial<InsertAtomicControl>): Promise<AtomicControl | undefined>;
 
   createControlPackVersion(data: InsertControlPackVersion): Promise<ControlPackVersion>;
@@ -983,7 +983,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(atomicControls).where(eq(atomicControls.sourceKey, sourceKey));
   }
 
-  async getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string): Promise<{ data: AtomicControl[]; total: number }> {
+  async getAtomicControlsPaginated(offset: number, limit: number, sourceKey?: string, domain?: string, search?: string): Promise<{ data: AtomicControl[]; total: number; stats: { totalAll: number; activeAll: number; nis2All: number; cirAll: number } }> {
     const conditions: any[] = [];
     if (sourceKey) {
       conditions.push(eq(atomicControls.sourceKey, sourceKey));
@@ -1006,7 +1006,23 @@ export class DatabaseStorage implements IStorage {
     const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(atomicControls).where(whereClause);
     const data = await db.select().from(atomicControls).where(whereClause).orderBy(asc(atomicControls.controlId)).offset(offset).limit(limit);
 
-    return { data, total: Number(totalResult.count) };
+    const [globalStats] = await db.select({
+      totalAll: sql<number>`count(*)`,
+      activeAll: sql<number>`count(*) filter (where ${atomicControls.isActive} = true)`,
+      nis2All: sql<number>`count(*) filter (where ${atomicControls.sourceKey} = 'NIS2_2022_2555')`,
+      cirAll: sql<number>`count(*) filter (where ${atomicControls.sourceKey} = 'CIR_2024_2690')`,
+    }).from(atomicControls);
+
+    return {
+      data,
+      total: Number(totalResult.count),
+      stats: {
+        totalAll: Number(globalStats.totalAll),
+        activeAll: Number(globalStats.activeAll),
+        nis2All: Number(globalStats.nis2All),
+        cirAll: Number(globalStats.cirAll),
+      },
+    };
   }
 
   async updateAtomicControl(id: number, data: Partial<InsertAtomicControl>): Promise<AtomicControl | undefined> {
