@@ -1052,6 +1052,31 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  app.delete("/api/assessments/:id", requireAuth, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      const id = parseInt(req.params.id);
+      const assessment = await storage.getAssessment(id);
+      if (!assessment) return res.status(404).json({ message: "Not found" });
+      if (assessment.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      await storage.deleteAssessment(id);
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "DELETE",
+        entityType: "ASSESSMENT",
+        entityId: String(id),
+        details: { name: assessment.name },
+      });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/control-objectives", requireAuth, async (req, res) => {
     try {
       const controls = await storage.getAllControlObjectives();
@@ -2440,6 +2465,80 @@ export async function registerRoutes(
       details: { tasksCreated: created, gapsFound: gaps.length },
     });
     res.json({ created, gaps: gaps.length });
+  });
+
+  app.delete("/api/atomic-assessments/:id", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      if (user.role === "READONLY_AUDITOR") return res.status(403).json({ message: "Auditors cannot delete assessments" });
+      const id = parseInt(req.params.id);
+      const assessment = await storage.getAtomicAssessment(id);
+      if (!assessment) return res.status(404).json({ message: "Not found" });
+      if (assessment.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      await storage.deleteAtomicAssessment(id);
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "DELETE",
+        entityType: "ATOMIC_ASSESSMENT",
+        entityId: String(id),
+        details: { name: assessment.name },
+      });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/tenant/details", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const tenant = await storage.getTenant(user.tenantId);
+    if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+    res.json({
+      id: tenant.id,
+      name: tenant.name,
+      sectorGroup: tenant.sectorGroup,
+      sector: tenant.sector,
+      subsector: tenant.subsector,
+      entityType: tenant.entityType,
+      country: tenant.country,
+      status: tenant.status,
+      createdAt: tenant.createdAt,
+    });
+  });
+
+  app.patch("/api/tenant/details", requireAuth, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Only admins can update company details" });
+      }
+      const { name, sectorGroup, sector, subsector, entityType, country } = req.body;
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (sectorGroup !== undefined) updates.sectorGroup = sectorGroup;
+      if (sector !== undefined) updates.sector = sector;
+      if (subsector !== undefined) updates.subsector = subsector;
+      if (entityType !== undefined) updates.entityType = entityType;
+      if (country !== undefined) updates.country = country;
+      const updated = await storage.updateTenant(user.tenantId, updates);
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "UPDATE",
+        entityType: "TENANT",
+        entityId: String(user.tenantId),
+        details: updates,
+      });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   const importLimiter = rateLimit({

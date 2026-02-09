@@ -132,6 +132,7 @@ export interface IStorage {
   createAssessment(data: InsertAssessment): Promise<Assessment>;
   getAssessmentsByTenant(tenantId: number): Promise<Assessment[]>;
   getAssessment(id: number): Promise<Assessment | undefined>;
+  deleteAssessment(id: number): Promise<void>;
 
   createAssessmentResponse(data: InsertAssessmentResponse): Promise<AssessmentResponse>;
   getAssessmentResponses(assessmentId: number): Promise<AssessmentResponse[]>;
@@ -219,6 +220,7 @@ export interface IStorage {
   getAtomicAssessment(id: number): Promise<AtomicAssessment | undefined>;
   getAtomicAssessmentsByTenant(tenantId: number): Promise<AtomicAssessment[]>;
   updateAtomicAssessment(id: number, data: Partial<InsertAtomicAssessment>): Promise<AtomicAssessment | undefined>;
+  deleteAtomicAssessment(id: number): Promise<void>;
 
   createAtomicAssessmentResponse(data: InsertAtomicAssessmentResponse): Promise<AtomicAssessmentResponse>;
   getAtomicAssessmentResponses(atomicAssessmentId: number): Promise<AtomicAssessmentResponse[]>;
@@ -425,6 +427,17 @@ export class DatabaseStorage implements IStorage {
   async getAssessment(id: number): Promise<Assessment | undefined> {
     const [assessment] = await db.select().from(assessments).where(eq(assessments.id, id));
     return assessment;
+  }
+
+  async deleteAssessment(id: number): Promise<void> {
+    const relatedTasks = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.assessmentId, id));
+    for (const t of relatedTasks) {
+      await db.delete(taskAtomicLinks).where(eq(taskAtomicLinks.taskId, t.id));
+    }
+    await db.delete(tasks).where(eq(tasks.assessmentId, id));
+    await db.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "assessment"), eq(evidenceItems.relatedId, id)));
+    await db.delete(assessmentResponses).where(eq(assessmentResponses.assessmentId, id));
+    await db.delete(assessments).where(eq(assessments.id, id));
   }
 
   async createAssessmentResponse(data: InsertAssessmentResponse): Promise<AssessmentResponse> {
@@ -1108,6 +1121,20 @@ export class DatabaseStorage implements IStorage {
   async updateAtomicAssessment(id: number, data: Partial<InsertAtomicAssessment>): Promise<AtomicAssessment | undefined> {
     const [assessment] = await db.update(atomicAssessments).set(data).where(eq(atomicAssessments.id, id)).returning();
     return assessment;
+  }
+
+  async deleteAtomicAssessment(id: number): Promise<void> {
+    const responses = await db.select().from(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
+    const controlIds = new Set(responses.map(r => r.atomicControlId));
+    const allLinks = await db.select().from(taskAtomicLinks);
+    for (const link of allLinks) {
+      if (controlIds.has(link.atomicControlId)) {
+        await db.delete(taskAtomicLinks).where(eq(taskAtomicLinks.id, link.id));
+      }
+    }
+    await db.delete(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
+    await db.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
+    await db.delete(atomicAssessments).where(eq(atomicAssessments.id, id));
   }
 
   async createAtomicAssessmentResponse(data: InsertAtomicAssessmentResponse): Promise<AtomicAssessmentResponse> {

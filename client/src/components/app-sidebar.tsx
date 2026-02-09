@@ -58,7 +58,6 @@ import {
 const tenantMenuItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, requiresFullAccess: false },
   { title: "Assessments", url: "/assessments", icon: ClipboardCheck, requiresFullAccess: false },
-  { title: "Atomic Assessments", url: "/atomic-assessments", icon: Atom, requiresFullAccess: false },
   { title: "Tasks", url: "/tasks", icon: ListTodo, requiresFullAccess: true },
   { title: "Evidence", url: "/evidence", icon: FileBox, requiresFullAccess: true },
   { title: "Incidents", url: "/incidents", icon: AlertTriangle, requiresFullAccess: true },
@@ -86,13 +85,6 @@ export function AppSidebar() {
   const { user, logout, isPlatformAdmin, hasFullAccess } = useAuth();
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [clickedFeature, setClickedFeature] = useState("");
-
-  const { data: atomicFlagData } = useQuery<{ enabled: boolean }>({
-    queryKey: ["/api/feature-flags/check", "ATOMIC_ASSESSMENTS"],
-    enabled: !!user && !isPlatformAdmin,
-  });
-
-  const atomicEnabled = isPlatformAdmin || atomicFlagData?.enabled === true;
 
   const initials = user?.fullName
     ?.split(" ")
@@ -125,7 +117,7 @@ export function AppSidebar() {
             <SidebarGroupLabel>Compliance</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {tenantMenuItems.filter((item) => item.url !== "/atomic-assessments" || atomicEnabled).map((item) => {
+                {tenantMenuItems.map((item) => {
                   const isLocked = item.requiresFullAccess && !hasFullAccess;
                   return (
                     <SidebarMenuItem key={item.title}>

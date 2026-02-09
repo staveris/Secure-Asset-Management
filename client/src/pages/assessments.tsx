@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -9,16 +9,37 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Calendar, ChevronRight, BarChart3, Target, CheckCircle2, Clock } from "lucide-react";
+import { Plus, ClipboardCheck, Calendar, ChevronRight, BarChart3, Target, CheckCircle2, Clock, Atom, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/lib/auth";
 
 interface EnrichedAssessment {
   id: number;
@@ -32,6 +53,28 @@ interface EnrichedAssessment {
   completionPct: number;
   maturityAvg: number;
 }
+
+interface AtomicAssessmentItem {
+  id: number;
+  name: string;
+  scope: string | null;
+  status: string;
+  createdAt: string;
+  totalControls?: number;
+  answeredControls?: number;
+}
+
+type UnifiedAssessment = {
+  type: "standard" | "atomic";
+  id: number;
+  name: string;
+  scope: string | null;
+  status: string;
+  createdAt: string;
+  progressPct: number;
+  maturityAvg?: number;
+  detail: string;
+};
 
 const statusVariants: Record<string, string> = {
   DRAFT: "secondary",
@@ -57,14 +100,32 @@ export default function Assessments() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [scope, setScope] = useState("");
+  const [createType, setCreateType] = useState<"standard" | "atomic">("standard");
+  const [filter, setFilter] = useState<"all" | "standard" | "atomic">("all");
+  const [deleteTarget, setDeleteTarget] = useState<UnifiedAssessment | null>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { isPlatformAdmin, user } = useAuth();
 
-  const { data: assessments, isLoading } = useQuery<EnrichedAssessment[]>({
+  const { data: flagData } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/feature-flags/check", "ATOMIC_ASSESSMENTS"],
+    enabled: !!user && !isPlatformAdmin,
+  });
+
+  const atomicEnabled = isPlatformAdmin || flagData?.enabled === true;
+
+  const { data: standardAssessments, isLoading: stdLoading } = useQuery<EnrichedAssessment[]>({
     queryKey: ["/api/assessments"],
   });
 
-  const createMutation = useMutation({
+  const { data: atomicAssessments, isLoading: atomicLoading } = useQuery<AtomicAssessmentItem[]>({
+    queryKey: ["/api/atomic-assessments"],
+    enabled: atomicEnabled,
+  });
+
+  const isLoading = stdLoading || (atomicEnabled && atomicLoading);
+
+  const createStandardMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/assessments", { name, scope });
     },
@@ -80,9 +141,115 @@ export default function Assessments() {
     },
   });
 
-  const sortedAssessments = assessments?.slice().sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  const createAtomicMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/atomic-assessments", { name, scope: scope || undefined });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments"] });
+      setShowCreate(false);
+      setName("");
+      setScope("");
+      toast({ title: "Atomic assessment created" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteStandardMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/assessments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Assessment deleted" });
+      setDeleteTarget(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteAtomicMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/atomic-assessments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "Atomic assessment deleted" });
+      setDeleteTarget(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const unified = useMemo(() => {
+    const items: UnifiedAssessment[] = [];
+
+    if (standardAssessments) {
+      for (const a of standardAssessments) {
+        items.push({
+          type: "standard",
+          id: a.id,
+          name: a.name,
+          scope: a.scope,
+          status: a.status,
+          createdAt: a.createdAt,
+          progressPct: a.completionPct,
+          maturityAvg: a.maturityAvg,
+          detail: `${a.implementedControls}/${a.totalControls} controls`,
+        });
+      }
+    }
+
+    if (atomicAssessments && atomicEnabled) {
+      for (const a of atomicAssessments) {
+        const total = a.totalControls ?? 0;
+        const answered = a.answeredControls ?? 0;
+        const pct = total > 0 ? Math.round((answered / total) * 100) : 0;
+        items.push({
+          type: "atomic",
+          id: a.id,
+          name: a.name,
+          scope: a.scope,
+          status: a.status,
+          createdAt: a.createdAt,
+          progressPct: pct,
+          detail: `${answered}/${total} controls answered`,
+        });
+      }
+    }
+
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return items;
+  }, [standardAssessments, atomicAssessments, atomicEnabled]);
+
+  const filteredAssessments = filter === "all" ? unified : unified.filter(a => a.type === filter);
+
+  const handleCreate = () => {
+    if (createType === "standard") {
+      createStandardMutation.mutate();
+    } else {
+      createAtomicMutation.mutate();
+    }
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.type === "standard") {
+      deleteStandardMutation.mutate(deleteTarget.id);
+    } else {
+      deleteAtomicMutation.mutate(deleteTarget.id);
+    }
+  };
+
+  const isCreating = createStandardMutation.isPending || createAtomicMutation.isPending;
+  const isDeleting = deleteStandardMutation.isPending || deleteAtomicMutation.isPending;
+  const isAdmin = user?.role === "TENANT_ADMIN" || user?.role === "PLATFORM_ADMIN" || user?.role === "TENANT_MANAGER";
 
   return (
     <div className="p-6 space-y-6" data-testid="assessments-page">
@@ -101,14 +268,34 @@ export default function Assessments() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Assessment</DialogTitle>
+              <DialogDescription>Create a new compliance assessment to evaluate your NIS2 readiness</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-2">
+              {atomicEnabled && (
+                <div className="space-y-2">
+                  <Label>Assessment Type</Label>
+                  <Select value={createType} onValueChange={(v) => setCreateType(v as "standard" | "atomic")}>
+                    <SelectTrigger data-testid="select-assessment-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Standard Assessment</SelectItem>
+                      <SelectItem value="atomic">Atomic Assessment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {createType === "standard"
+                      ? "Evaluates compliance at the control objective level"
+                      : "Deep-dive assessment at the granular atomic control level"}
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Assessment Name</Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Q1 2025 Full Assessment"
+                  placeholder={createType === "standard" ? "e.g., Q1 2025 Full Assessment" : "e.g., Q1 2025 Atomic Assessment"}
                   data-testid="input-assessment-name"
                 />
               </div>
@@ -122,17 +309,33 @@ export default function Assessments() {
                 />
               </div>
               <Button
-                onClick={() => createMutation.mutate()}
-                disabled={!name || createMutation.isPending}
+                onClick={handleCreate}
+                disabled={!name || isCreating}
                 className="w-full"
                 data-testid="button-submit-assessment"
               >
-                {createMutation.isPending ? "Creating..." : "Create Assessment"}
+                {isCreating ? "Creating..." : "Create Assessment"}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      {atomicEnabled && (
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+          <TabsList data-testid="tabs-assessment-filter">
+            <TabsTrigger value="all" data-testid="tab-all">
+              All ({unified.length})
+            </TabsTrigger>
+            <TabsTrigger value="standard" data-testid="tab-standard">
+              Standard ({unified.filter(a => a.type === "standard").length})
+            </TabsTrigger>
+            <TabsTrigger value="atomic" data-testid="tab-atomic">
+              Atomic ({unified.filter(a => a.type === "atomic").length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -147,26 +350,59 @@ export default function Assessments() {
             </Card>
           ))}
         </div>
-      ) : sortedAssessments && sortedAssessments.length > 0 ? (
+      ) : filteredAssessments.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {sortedAssessments.map((assessment) => (
+          {filteredAssessments.map((assessment) => (
             <Card
-              key={assessment.id}
-              className="hover-elevate cursor-pointer"
-              onClick={() => navigate(`/assessments/${assessment.id}`)}
-              data-testid={`card-assessment-${assessment.id}`}
+              key={`${assessment.type}-${assessment.id}`}
+              className="hover-elevate cursor-pointer group"
+              onClick={() => {
+                if (assessment.type === "standard") {
+                  navigate(`/assessments/${assessment.id}`);
+                } else {
+                  navigate(`/atomic-assessments/${assessment.id}`);
+                }
+              }}
+              data-testid={`card-assessment-${assessment.type}-${assessment.id}`}
             >
               <CardContent className="p-5 space-y-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold truncate" data-testid={`text-assessment-name-${assessment.id}`}>{assessment.name}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold truncate" data-testid={`text-assessment-name-${assessment.type}-${assessment.id}`}>
+                        {assessment.name}
+                      </h3>
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {assessment.type === "standard" ? (
+                          <><ClipboardCheck className="w-3 h-3 mr-1" />Standard</>
+                        ) : (
+                          <><Atom className="w-3 h-3 mr-1" />Atomic</>
+                        )}
+                      </Badge>
+                    </div>
                     {assessment.scope && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{assessment.scope}</p>
                     )}
                   </div>
-                  <Badge variant={statusVariants[assessment.status] as any} className="shrink-0 text-xs">
-                    {assessment.status.replace("_", " ")}
-                  </Badge>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge variant={statusVariants[assessment.status] as any} className="text-xs">
+                      {assessment.status.replace("_", " ")}
+                    </Badge>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(assessment);
+                        }}
+                        data-testid={`button-delete-${assessment.type}-${assessment.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -175,37 +411,35 @@ export default function Assessments() {
                       <Target className="w-3.5 h-3.5" />
                       Completion
                     </span>
-                    <span className="font-medium" data-testid={`text-completion-${assessment.id}`}>{assessment.completionPct}%</span>
-                  </div>
-                  <Progress value={assessment.completionPct} className="h-2" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <BarChart3 className="w-3.5 h-3.5" />
-                      Maturity Level
+                    <span className="font-medium" data-testid={`text-completion-${assessment.type}-${assessment.id}`}>
+                      {assessment.progressPct}%
                     </span>
                   </div>
-                  <MaturityIndicator value={assessment.maturityAvg} />
+                  <Progress value={assessment.progressPct} className="h-2" />
                 </div>
 
+                {assessment.maturityAvg !== undefined && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <BarChart3 className="w-3.5 h-3.5" />
+                        Maturity Level
+                      </span>
+                    </div>
+                    <MaturityIndicator value={assessment.maturityAvg} />
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between pt-1 border-t">
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       {new Date(assessment.createdAt).toLocaleDateString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />
-                      {assessment.implementedControls}/{assessment.totalControls}
+                      {assessment.detail}
                     </span>
-                    {assessment.inProgressControls > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {assessment.inProgressControls} in progress
-                      </span>
-                    )}
                   </div>
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     Open <ChevronRight className="w-3 h-3" />
@@ -228,6 +462,29 @@ export default function Assessments() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent data-testid="dialog-delete-assessment">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Assessment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteTarget?.name}"? This will permanently remove the assessment
+              along with all its responses, related tasks, and evidence. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+              data-testid="button-confirm-delete"
+            >
+              {isDeleting ? "Deleting..." : "Delete Assessment"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -150,3 +150,11 @@ All routes prefixed with `/api/`:
   - CLI: npx tsx scripts/atomic-import.ts (merge) / npx tsx scripts/atomic-import.ts --sync (authoritative)
   - Audit logging for all import actions
   - DB now has 141 active NIS2 controls + 17 CIR controls = 158 total atomic controls
+- 2026-02-09: Unified Assessments & Company Details:
+  - Unified Assessments page: merged standard and atomic assessments into single /assessments view with type filtering tabs (All/Standard/Atomic), type badges on cards
+  - Assessment creation dialog: type selector (standard vs atomic) with descriptive help text, respects ATOMIC_ASSESSMENTS feature flag
+  - Cascading delete for both assessment types: DELETE /api/assessments/:id and DELETE /api/atomic-assessments/:id with cascading removal of responses, tasks, evidence
+  - Delete confirmation dialog with admin-only delete button on hover
+  - Sidebar: removed separate "Atomic Assessments" nav item; assessments consolidated under single "Assessments" link
+  - Company Details: GET/PATCH /api/tenant/details endpoints for viewing/editing company info (name, sector, subsector, entityType, country)
+  - Users & Company page: tabs separating "Team Members" and "Company Details"; edit form for admins with NIS2 sector/country dropdowns
