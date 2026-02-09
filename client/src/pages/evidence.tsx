@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { useSearch } from "wouter";
+import { useSearch, Link } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,6 +41,8 @@ import {
   Search,
   HardDrive,
   Users,
+  ClipboardList,
+  ExternalLink,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import type { EvidenceItem } from "@shared/schema";
@@ -483,6 +485,8 @@ export default function Evidence() {
           {filteredItems.map((item) => {
             const isLocked = !!(item as any).lockedAt;
             const linkedLabel = getLinkedLabel(item.relatedType, item.relatedId);
+            const enriched = item as any;
+            const hasControlInfo = enriched.controlTitle && enriched.assessmentId;
             return (
               <Card key={item.id} data-testid={`card-evidence-${item.id}`}>
                 <CardContent className="p-4">
@@ -502,14 +506,36 @@ export default function Evidence() {
                         <p className="text-xs text-muted-foreground" data-testid={`text-fileinfo-${item.id}`}>
                           {item.mimeType} {item.size ? `(${formatFileSize(item.size)})` : ""}
                         </p>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      </div>
+                      {hasControlInfo ? (
+                        <div className="flex flex-col gap-1 mt-1.5">
+                          <span className="flex items-center gap-1.5 text-xs" data-testid={`text-assessment-${item.id}`}>
+                            <ClipboardList className="w-3 h-3 text-muted-foreground shrink-0" />
+                            <span className="text-muted-foreground">Assessment:</span>
+                            <Link
+                              href={`/assessments/${enriched.assessmentId}`}
+                              className="text-primary hover:underline font-medium inline-flex items-center gap-0.5"
+                              data-testid={`link-assessment-${item.id}`}
+                            >
+                              {enriched.assessmentName}
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
+                          </span>
+                          <span className="flex items-center gap-1.5 text-xs" data-testid={`text-control-${item.id}`}>
+                            <Link2 className="w-3 h-3 text-muted-foreground shrink-0" />
+                            <span className="text-muted-foreground">Control:</span>
+                            <span className="font-medium">{enriched.controlTitle}</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
                           <Link2 className="w-3 h-3" />
                           <span data-testid={`text-linked-${item.id}`}>
                             {item.relatedType} #{item.relatedId}
                             {linkedLabel && ` - ${linkedLabel}`}
                           </span>
-                        </span>
-                      </div>
+                        </div>
+                      )}
                     </div>
                     <Badge variant="outline" className="text-xs shrink-0" data-testid={`badge-type-${item.id}`}>{item.relatedType}</Badge>
                     <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0" data-testid={`text-date-${item.id}`}>

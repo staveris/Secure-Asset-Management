@@ -18,7 +18,7 @@ import sanitizeHtml from "sanitize-html";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
 import { getAppBaseUrl } from "./email";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
-import { platformSettings, users, passwordHistory, controlObjectives } from "@shared/schema";
+import { platformSettings, users, passwordHistory, controlObjectives, assessments as assessmentsTable, assessmentResponses, evidenceItems as evidenceItemsTable } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -1382,7 +1382,51 @@ export async function registerRoutes(
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const list = await storage.getEvidenceByTenant(user.tenantId);
-    res.json(list);
+
+    const controlObjectiveIds = list
+      .filter(e => e.relatedType === "Control")
+      .map(e => e.relatedId);
+
+    let controlAssessmentMap: Record<number, { controlTitle: string; assessmentId: number; assessmentName: string }> = {};
+
+    if (controlObjectiveIds.length > 0) {
+      const enrichmentRows = await db
+        .select({
+          controlObjectiveId: controlObjectives.id,
+          controlTitle: controlObjectives.title,
+          assessmentId: assessmentsTable.id,
+          assessmentName: assessmentsTable.name,
+        })
+        .from(assessmentResponses)
+        .innerJoin(controlObjectives, eq(assessmentResponses.controlObjectiveId, controlObjectives.id))
+        .innerJoin(assessmentsTable, eq(assessmentResponses.assessmentId, assessmentsTable.id))
+        .where(eq(assessmentsTable.tenantId, user.tenantId));
+
+      for (const row of enrichmentRows) {
+        if (controlObjectiveIds.includes(row.controlObjectiveId)) {
+          controlAssessmentMap[row.controlObjectiveId] = {
+            controlTitle: row.controlTitle,
+            assessmentId: row.assessmentId,
+            assessmentName: row.assessmentName,
+          };
+        }
+      }
+    }
+
+    const enrichedList = list.map(item => {
+      if (item.relatedType === "Control" && controlAssessmentMap[item.relatedId]) {
+        const info = controlAssessmentMap[item.relatedId];
+        return {
+          ...item,
+          controlTitle: info.controlTitle,
+          assessmentId: info.assessmentId,
+          assessmentName: info.assessmentName,
+        };
+      }
+      return item;
+    });
+
+    res.json(enrichedList);
   });
 
   app.post("/api/evidence/upload", requireAuth, requireWriteAccess, requireFullAccess, upload.single("file"), async (req, res) => {
