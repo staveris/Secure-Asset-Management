@@ -40,6 +40,7 @@ import {
   Save,
   Plus,
   ListTodo,
+  ClipboardCheck,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
@@ -91,6 +92,7 @@ interface AssessmentDetail {
 
 type GroupMode = "domain" | "category";
 type StatusFilter = "ALL" | "NOT_STARTED" | "IN_PROGRESS" | "IMPLEMENTED" | "VERIFIED";
+type ControlTypeFilter = "ALL" | "OBJECTIVES" | "NIS2_ATOMIC" | "CIR";
 
 const statusConfig: Record<string, { icon: any; color: string; bg: string; label: string }> = {
   NOT_STARTED: { icon: Circle, color: "text-muted-foreground", bg: "bg-muted", label: "Not Started" },
@@ -600,6 +602,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
   const { toast } = useToast();
   const [groupMode, setGroupMode] = useState<GroupMode>("domain");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [controlTypeFilter, setControlTypeFilter] = useState<ControlTypeFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data, isLoading } = useQuery<AssessmentDetail>({
@@ -661,6 +664,15 @@ export default function AssessmentDetail({ id }: { id: string }) {
 
   const filteredResponses = useMemo(() => {
     let filtered = allResponses;
+    if (controlTypeFilter !== "ALL") {
+      if (controlTypeFilter === "OBJECTIVES") {
+        filtered = filtered.filter(r => r.sourceKey === "NIS2_OBJECTIVE");
+      } else if (controlTypeFilter === "NIS2_ATOMIC") {
+        filtered = filtered.filter(r => r.sourceKey === "NIS2_2022_2555");
+      } else if (controlTypeFilter === "CIR") {
+        filtered = filtered.filter(r => r.sourceKey === "CIR_2024_2690");
+      }
+    }
     if (statusFilter !== "ALL") {
       filtered = filtered.filter(r => r.implementationStatus === statusFilter);
     }
@@ -674,7 +686,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
       );
     }
     return filtered;
-  }, [allResponses, statusFilter, searchQuery]);
+  }, [allResponses, controlTypeFilter, statusFilter, searchQuery]);
 
   const grouped = useMemo(() => {
     const groupKey = groupMode === "domain" ? "domain" : "category";
@@ -720,14 +732,6 @@ export default function AssessmentDetail({ id }: { id: string }) {
           </div>
           <p className="text-muted-foreground text-sm mt-0.5">
             {data.scope || "Full NIS2 compliance assessment"}
-            {hasAtomicControls && (
-              <span className="ml-2 text-xs">
-                ({stats?.nis2ObjectiveCount} objectives
-                {(stats?.nis2AtomicCount || 0) > 0 && ` + ${stats?.nis2AtomicCount} NIS2 atomic`}
-                {(stats?.cirCount || 0) > 0 && ` + ${stats?.cirCount} CIR`}
-                {" "}controls)
-              </span>
-            )}
           </p>
         </div>
       </div>
@@ -763,6 +767,63 @@ export default function AssessmentDetail({ id }: { id: string }) {
         />
       </div>
 
+      {hasAtomicControls && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3" data-testid="control-type-summary">
+          <Card className="border-blue-200 dark:border-blue-800/50">
+            <CardContent className="p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-blue-500" />
+                <span className="text-xs font-semibold">NIS2 Objectives</span>
+                <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2ObjectiveCount}</Badge>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                High-level control areas from the NIS2 Directive defining what you need to achieve.
+              </p>
+              <Progress
+                value={stats.nis2ObjectiveCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_OBJECTIVE" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2ObjectiveCount) * 100 : 0}
+                className="h-1.5"
+              />
+            </CardContent>
+          </Card>
+          {(stats.nis2AtomicCount > 0) && (
+            <Card className="border-emerald-200 dark:border-emerald-800/50">
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-emerald-500" />
+                  <span className="text-xs font-semibold">NIS2 Atomic Controls</span>
+                  <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2AtomicCount}</Badge>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  Granular requirements breaking each objective into specific, verifiable items.
+                </p>
+                <Progress
+                  value={stats.nis2AtomicCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_2022_2555" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2AtomicCount) * 100 : 0}
+                  className="h-1.5"
+                />
+              </CardContent>
+            </Card>
+          )}
+          {(stats.cirCount > 0) && (
+            <Card className="border-purple-200 dark:border-purple-800/50">
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-purple-500" />
+                  <span className="text-xs font-semibold">CIR 2024/2690</span>
+                  <Badge variant="outline" className="text-[10px] ml-auto">{stats.cirCount}</Badge>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  Sector-specific requirements from the Implementing Regulation for your industry.
+                </p>
+                <Progress
+                  value={stats.cirCount > 0 ? (allResponses.filter(r => r.sourceKey === "CIR_2024_2690" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.cirCount) * 100 : 0}
+                  className="h-1.5"
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between text-sm">
@@ -789,6 +850,34 @@ export default function AssessmentDetail({ id }: { id: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {hasAtomicControls && (
+        <div className="flex items-center gap-1.5 flex-wrap" data-testid="control-type-tabs">
+          {[
+            { value: "ALL" as ControlTypeFilter, label: "All Controls", count: stats.total },
+            { value: "OBJECTIVES" as ControlTypeFilter, label: "Objectives", count: stats.nis2ObjectiveCount, color: "text-blue-600 dark:text-blue-400" },
+            { value: "NIS2_ATOMIC" as ControlTypeFilter, label: "NIS2 Atomic", count: stats.nis2AtomicCount, color: "text-emerald-600 dark:text-emerald-400" },
+            ...(hasCir ? [{ value: "CIR" as ControlTypeFilter, label: "CIR Controls", count: stats.cirCount, color: "text-purple-600 dark:text-purple-400" }] : []),
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setControlTypeFilter(tab.value)}
+              className={`px-3 h-8 rounded-md text-xs font-medium border transition-all flex items-center gap-1.5 ${
+                controlTypeFilter === tab.value
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+              }`}
+              data-testid={`button-type-filter-${tab.value.toLowerCase()}`}
+            >
+              {tab.label}
+              <span className={`text-[10px] tabular-nums ${controlTypeFilter === tab.value ? "opacity-80" : ""}`}>
+                ({tab.count})
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">

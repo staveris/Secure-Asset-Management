@@ -174,7 +174,12 @@ export default function Reports() {
           [data-testid="reports-page"] th,
           [data-testid="reports-page"] span:not([style]),
           [data-testid="reports-page"] div:not([style]) { color: #1a1a1a !important; }
-          .report-header, .report-header * { color: white !important; }
+          [data-testid="reports-page"] .report-header,
+          [data-testid="reports-page"] .report-header p,
+          [data-testid="reports-page"] .report-header h2,
+          [data-testid="reports-page"] .report-header h3,
+          [data-testid="reports-page"] .report-header span,
+          [data-testid="reports-page"] .report-header div { color: white !important; }
           .print-text-muted { color: #6b7280 !important; }
         }
         @media screen {

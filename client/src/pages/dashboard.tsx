@@ -40,7 +40,17 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  Info,
+  Shield,
+  Layers,
+  Scale,
 } from "lucide-react";
+
+interface StatusItem {
+  name: string;
+  value: number;
+  color: string;
+}
 
 interface DashboardData {
   complianceScore: number;
@@ -59,7 +69,13 @@ interface DashboardData {
   overdueTasks: number;
   openIncidents: number;
   evidenceCount: number;
-  statusDistribution: { name: string; value: number; color: string }[];
+  statusDistribution: StatusItem[];
+  objectiveStatusDistribution?: StatusItem[];
+  nis2AtomicStatusDistribution?: StatusItem[];
+  cirStatusDistribution?: StatusItem[];
+  nis2ObjectiveMaturity?: number;
+  nis2AtomicMaturity?: number;
+  cirMaturity?: number;
   categoryScores: { category: string; score: number }[];
   recentTasks: { id: number; title: string; status: string; priority: string; dueDate: string | null }[];
 }
@@ -101,6 +117,37 @@ function TrendBadge({ current, previous, suffix = "%" }: { current: number; prev
       {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
       {isUp ? "+" : ""}{diff.toFixed(1)}{suffix} vs previous
     </span>
+  );
+}
+
+function MiniStatusBar({ distribution, total }: { distribution: StatusItem[]; total: number }) {
+  if (total === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex h-2.5 rounded-sm overflow-hidden">
+        {distribution.map((item) => {
+          const pct = (item.value / total) * 100;
+          if (pct === 0) return null;
+          return (
+            <div
+              key={item.name}
+              className="h-full transition-all"
+              style={{ width: `${pct}%`, backgroundColor: item.color }}
+              title={`${item.name}: ${item.value} (${Math.round(pct)}%)`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {distribution.map((item) => (
+          <div key={item.name} className="flex items-center gap-1 text-[10px]">
+            <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: item.color }} />
+            <span className="text-muted-foreground">{item.name}</span>
+            <span className="font-medium">{item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -238,6 +285,19 @@ export default function Dashboard() {
     .sort((a, b) => a.score - b.score)
     .slice(0, 5);
 
+  const hasAtomicControls = (data.nis2AtomicControls ?? 0) > 0;
+  const hasCir = (data.cirControls ?? 0) > 0;
+
+  const objCompletionPct = (data.nis2ObjectiveControls ?? 0) > 0
+    ? Math.round(((data.nis2ObjectiveImplemented ?? 0) / (data.nis2ObjectiveControls ?? 1)) * 100)
+    : 0;
+  const atomicCompletionPct = (data.nis2AtomicControls ?? 0) > 0
+    ? Math.round(((data.nis2AtomicImplemented ?? 0) / (data.nis2AtomicControls ?? 1)) * 100)
+    : 0;
+  const cirCompletionPct = (data.cirControls ?? 0) > 0
+    ? Math.round(((data.cirImplemented ?? 0) / (data.cirControls ?? 1)) * 100)
+    : 0;
+
   return (
     <div className="p-6 space-y-6" data-testid="dashboard-page">
       <div>
@@ -262,58 +322,145 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {((data.nis2AtomicControls ?? 0) > 0 || (data.cirControls ?? 0) > 0) && (
-        <div className={`grid grid-cols-1 ${(data.cirControls ?? 0) > 0 ? "md:grid-cols-3" : "md:grid-cols-2"} gap-4`} data-testid="nis2-cir-breakdown">
+      {(hasAtomicControls || hasCir) && (
+        <div data-testid="nis2-cir-breakdown">
           <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="text-sm text-muted-foreground">NIS2 Objectives</span>
-                <ClipboardCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+              <div>
+                <h3 className="font-semibold">Control Type Breakdown</h3>
+                <p className="text-xs text-muted-foreground">Detailed compliance view by control type</p>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold">{data.nis2ObjectiveImplemented ?? 0}</span>
-                <span className="text-sm text-muted-foreground">/ {data.nis2ObjectiveControls ?? 0} implemented</span>
+              <Layers className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Card className="border-blue-200 dark:border-blue-800/50">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="p-2 rounded-md bg-blue-500/10 shrink-0">
+                        <ClipboardCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-semibold text-sm" data-testid="text-objectives-title">NIS2 Objectives</h4>
+                          <Badge variant="outline" className="text-[10px]">EU 2022/2555</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          41 high-level control areas from the NIS2 Directive covering governance, risk management, incident handling, and technical measures.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-lg font-bold" data-testid="text-objectives-pct">{objCompletionPct}%</div>
+                      <div className="text-[10px] text-muted-foreground">{data.nis2ObjectiveImplemented ?? 0}/{data.nis2ObjectiveControls ?? 0}</div>
+                    </div>
+                  </div>
+                  <Progress value={objCompletionPct} className="h-2" />
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <BarChart3 className="w-3 h-3" />
+                      Maturity: {(data.nis2ObjectiveMaturity ?? 0).toFixed(1)}/5.0
+                    </div>
+                  </div>
+                  {data.objectiveStatusDistribution && (
+                    <MiniStatusBar
+                      distribution={data.objectiveStatusDistribution}
+                      total={data.nis2ObjectiveControls ?? 0}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+
+              {hasAtomicControls && (
+                <Card className="border-emerald-200 dark:border-emerald-800/50">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="p-2 rounded-md bg-emerald-500/10 shrink-0">
+                          <Target className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-semibold text-sm" data-testid="text-atomic-title">NIS2 Atomic Controls</h4>
+                            <Badge variant="outline" className="text-[10px]">EU 2022/2555</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Granular, actionable requirements derived from the NIS2 Directive. Filtered by your entity type (essential/important) and subsector. These break each high-level objective into specific, verifiable items.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-bold" data-testid="text-atomic-pct">{atomicCompletionPct}%</div>
+                        <div className="text-[10px] text-muted-foreground">{data.nis2AtomicImplemented ?? 0}/{data.nis2AtomicControls ?? 0}</div>
+                      </div>
+                    </div>
+                    <Progress value={atomicCompletionPct} className="h-2" />
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <BarChart3 className="w-3 h-3" />
+                        Maturity: {(data.nis2AtomicMaturity ?? 0).toFixed(1)}/5.0
+                      </div>
+                    </div>
+                    {data.nis2AtomicStatusDistribution && (
+                      <MiniStatusBar
+                        distribution={data.nis2AtomicStatusDistribution}
+                        total={data.nis2AtomicControls ?? 0}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {hasCir && (
+                <Card className="border-purple-200 dark:border-purple-800/50">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="p-2 rounded-md bg-purple-500/10 shrink-0">
+                          <Scale className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-semibold text-sm" data-testid="text-cir-title">CIR 2024/2690 Controls</h4>
+                            <Badge variant="outline" className="text-[10px]">Implementing Regulation</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Controls from the Commission Implementing Regulation (CIR) 2024/2690, applicable to digital infrastructure, ICT service management (B2B), and digital providers. These provide sector-specific technical requirements.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-bold" data-testid="text-cir-pct">{cirCompletionPct}%</div>
+                        <div className="text-[10px] text-muted-foreground">{data.cirImplemented ?? 0}/{data.cirControls ?? 0}</div>
+                      </div>
+                    </div>
+                    <Progress value={cirCompletionPct} className="h-2" />
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <BarChart3 className="w-3 h-3" />
+                        Maturity: {(data.cirMaturity ?? 0).toFixed(1)}/5.0
+                      </div>
+                    </div>
+                    {data.cirStatusDistribution && (
+                      <MiniStatusBar
+                        distribution={data.cirStatusDistribution}
+                        total={data.cirControls ?? 0}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="p-3 rounded-md bg-muted/40 flex items-start gap-2">
+                <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong>Objectives</strong> are 41 high-level compliance goals from the NIS2 Directive. They define <em>what</em> you need to achieve.</p>
+                  <p><strong>Atomic Controls</strong> are granular requirements that break objectives into specific, verifiable items. They define <em>how</em> to achieve compliance and vary based on your entity type and sector.</p>
+                  {hasCir && <p><strong>CIR Controls</strong> are sector-specific requirements from the Implementing Regulation, adding detailed technical controls for digital infrastructure and ICT services.</p>}
+                </div>
               </div>
-              <Progress
-                value={((data.nis2ObjectiveImplemented ?? 0) / Math.max(data.nis2ObjectiveControls ?? 1, 1)) * 100}
-                className="h-2 mt-3"
-              />
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="text-sm text-muted-foreground">NIS2 Atomic Controls</span>
-                <Target className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold">{data.nis2AtomicImplemented ?? 0}</span>
-                <span className="text-sm text-muted-foreground">/ {data.nis2AtomicControls ?? 0} implemented</span>
-              </div>
-              <Progress
-                value={((data.nis2AtomicImplemented ?? 0) / Math.max(data.nis2AtomicControls ?? 1, 1)) * 100}
-                className="h-2 mt-3"
-              />
-            </CardContent>
-          </Card>
-          {(data.cirControls ?? 0) > 0 && (
-            <Card>
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <span className="text-sm text-muted-foreground">CIR 2024/2690 Controls</span>
-                  <FileCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold">{data.cirImplemented ?? 0}</span>
-                  <span className="text-sm text-muted-foreground">/ {data.cirControls ?? 0} implemented</span>
-                </div>
-                <Progress
-                  value={((data.cirImplemented ?? 0) / Math.max(data.cirControls ?? 1, 1)) * 100}
-                  className="h-2 mt-3"
-                />
-              </CardContent>
-            </Card>
-          )}
         </div>
       )}
 
@@ -464,7 +611,7 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <div>
               <h3 className="font-semibold">Implementation Status</h3>
-              <p className="text-xs text-muted-foreground">Distribution across controls</p>
+              <p className="text-xs text-muted-foreground">Distribution across all controls</p>
             </div>
           </CardHeader>
           <CardContent>

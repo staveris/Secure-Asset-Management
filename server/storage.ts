@@ -674,12 +674,23 @@ export class DatabaseStorage implements IStorage {
     const openIncidents = tenantIncidents.filter((i) => i.status !== "CLOSED").length;
 
     const statusCounts = { NOT_STARTED: 0, IN_PROGRESS: 0, IMPLEMENTED: 0, VERIFIED: 0 };
+    const objStatusCounts = { NOT_STARTED: 0, IN_PROGRESS: 0, IMPLEMENTED: 0, VERIFIED: 0 };
+    const nis2AtomicStatusCounts = { NOT_STARTED: 0, IN_PROGRESS: 0, IMPLEMENTED: 0, VERIFIED: 0 };
+    const cirStatusCounts = { NOT_STARTED: 0, IN_PROGRESS: 0, IMPLEMENTED: 0, VERIFIED: 0 };
     for (const r of allResponses) {
       statusCounts[r.implementationStatus as keyof typeof statusCounts]++;
+      objStatusCounts[r.implementationStatus as keyof typeof objStatusCounts]++;
     }
     for (const r of allAtomicResponses) {
       const status = r.implementationStatus as keyof typeof statusCounts;
       if (status in statusCounts) statusCounts[status]++;
+      const ctrl = atomicControlMap.get(r.atomicControlId);
+      const isCir = ctrl?.sourceKey === "CIR_2024_2690";
+      if (isCir) {
+        if (status in cirStatusCounts) cirStatusCounts[status]++;
+      } else {
+        if (status in nis2AtomicStatusCounts) nis2AtomicStatusCounts[status]++;
+      }
     }
 
     const categoryCounts: Record<string, { total: number; implemented: number }> = {};
@@ -737,6 +748,27 @@ export class DatabaseStorage implements IStorage {
         { name: "Implemented", value: statusCounts.IMPLEMENTED, color: "#22c55e" },
         { name: "Verified", value: statusCounts.VERIFIED, color: "#8b5cf6" },
       ],
+      objectiveStatusDistribution: [
+        { name: "Not Started", value: objStatusCounts.NOT_STARTED, color: "#6b7280" },
+        { name: "In Progress", value: objStatusCounts.IN_PROGRESS, color: "#3b82f6" },
+        { name: "Implemented", value: objStatusCounts.IMPLEMENTED, color: "#22c55e" },
+        { name: "Verified", value: objStatusCounts.VERIFIED, color: "#8b5cf6" },
+      ],
+      nis2AtomicStatusDistribution: [
+        { name: "Not Started", value: nis2AtomicStatusCounts.NOT_STARTED, color: "#6b7280" },
+        { name: "In Progress", value: nis2AtomicStatusCounts.IN_PROGRESS, color: "#3b82f6" },
+        { name: "Implemented", value: nis2AtomicStatusCounts.IMPLEMENTED, color: "#22c55e" },
+        { name: "Verified", value: nis2AtomicStatusCounts.VERIFIED, color: "#8b5cf6" },
+      ],
+      cirStatusDistribution: [
+        { name: "Not Started", value: cirStatusCounts.NOT_STARTED, color: "#6b7280" },
+        { name: "In Progress", value: cirStatusCounts.IN_PROGRESS, color: "#3b82f6" },
+        { name: "Implemented", value: cirStatusCounts.IMPLEMENTED, color: "#22c55e" },
+        { name: "Verified", value: cirStatusCounts.VERIFIED, color: "#8b5cf6" },
+      ],
+      nis2ObjectiveMaturity: nis2ObjTotal > 0 ? parseFloat((allResponses.reduce((sum, r) => sum + r.maturityLevel, 0) / nis2ObjTotal).toFixed(1)) : 0,
+      nis2AtomicMaturity: nis2AtomicTotal > 0 ? parseFloat((allAtomicResponses.filter(r => atomicControlMap.get(r.atomicControlId)?.sourceKey !== "CIR_2024_2690").reduce((sum, r) => sum + r.maturityLevel, 0) / nis2AtomicTotal).toFixed(1)) : 0,
+      cirMaturity: cirTotal > 0 ? parseFloat((allAtomicResponses.filter(r => atomicControlMap.get(r.atomicControlId)?.sourceKey === "CIR_2024_2690").reduce((sum, r) => sum + r.maturityLevel, 0) / cirTotal).toFixed(1)) : 0,
       categoryScores: Object.entries(categoryCounts).map(([category, data]) => ({
         category: category.length > 20 ? category.slice(0, 20) + "..." : category,
         score: data.total > 0 ? Math.round((data.implemented / data.total) * 100) : 0,

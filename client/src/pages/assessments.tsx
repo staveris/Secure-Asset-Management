@@ -277,6 +277,27 @@ export default function Assessments() {
                     <MaturityIndicator value={assessment.maturityAvg} />
                   </div>
 
+                  {hasAtomicInfo && (
+                    <div className="flex items-center gap-2 flex-wrap pt-1 border-t text-[10px] text-muted-foreground" data-testid={`text-type-breakdown-${assessment.id}`}>
+                      <span className="flex items-center gap-1">
+                        <ClipboardCheck className="w-3 h-3 text-blue-500" />
+                        Objectives: {Math.max(0, assessment.totalControls - (assessment.cirInfo?.nis2AtomicTotal ?? 0) - (assessment.cirInfo?.cirTotal ?? 0))}
+                      </span>
+                      {hasNis2Atomic && (
+                        <span className="flex items-center gap-1" data-testid={`text-nis2-atomic-${assessment.id}`}>
+                          <Target className="w-3 h-3 text-emerald-500" />
+                          Atomic: {assessment.cirInfo!.nis2AtomicImplemented}/{assessment.cirInfo!.nis2AtomicTotal}
+                        </span>
+                      )}
+                      {hasCir && (
+                        <span className="flex items-center gap-1" data-testid={`text-cir-controls-${assessment.id}`}>
+                          <ShieldCheck className="w-3 h-3 text-purple-500" />
+                          CIR: {assessment.cirInfo!.cirImplemented}/{assessment.cirInfo!.cirTotal}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between pt-1 border-t">
                     <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                       <span className="flex items-center gap-1">
@@ -285,18 +306,8 @@ export default function Assessments() {
                       </span>
                       <span className="flex items-center gap-1" data-testid={`text-controls-${assessment.id}`}>
                         <ClipboardCheck className="w-3 h-3" />
-                        {assessment.implementedControls}/{assessment.totalControls} controls
+                        {assessment.implementedControls}/{assessment.totalControls} total controls
                       </span>
-                      {hasNis2Atomic && (
-                        <span className="flex items-center gap-1 text-[10px]" data-testid={`text-nis2-atomic-${assessment.id}`}>
-                          NIS2 Atomic: {assessment.cirInfo!.nis2AtomicImplemented}/{assessment.cirInfo!.nis2AtomicTotal}
-                        </span>
-                      )}
-                      {hasCir && (
-                        <span className="flex items-center gap-1 text-[10px]" data-testid={`text-cir-controls-${assessment.id}`}>
-                          CIR: {assessment.cirInfo!.cirImplemented}/{assessment.cirInfo!.cirTotal}
-                        </span>
-                      )}
                     </div>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       Open <ChevronRight className="w-3 h-3" />
