@@ -350,19 +350,23 @@ export default function AdminTenants() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Country (optional)</Label>
-                <Input
-                  placeholder="e.g. Germany"
-                  value={newTenant.country}
-                  onChange={(e) => setNewTenant(prev => ({ ...prev, country: e.target.value }))}
-                  data-testid="input-tenant-country"
-                />
+                <Label>Country <span className="text-destructive">*</span></Label>
+                <Select value={newTenant.country} onValueChange={(v) => setNewTenant(prev => ({ ...prev, country: v }))}>
+                  <SelectTrigger data-testid="select-tenant-country">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EU_COUNTRIES.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
               <Button
                 onClick={() => createMutation.mutate(newTenant)}
-                disabled={!newTenant.name || createMutation.isPending}
+                disabled={!newTenant.name || !newTenant.country || createMutation.isPending}
                 data-testid="button-submit-tenant"
               >
                 {createMutation.isPending ? "Creating..." : "Create Tenant"}
