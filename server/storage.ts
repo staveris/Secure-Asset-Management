@@ -260,7 +260,17 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTenant(id: number): Promise<void> {
     await db.delete(tenantDailySnapshots).where(eq(tenantDailySnapshots.tenantId, id));
+    await db.delete(tenantDailyAtomicSnapshots).where(eq(tenantDailyAtomicSnapshots.tenantId, id));
+    await db.delete(taskAtomicLinks).where(
+      sql`${taskAtomicLinks.taskId} IN (SELECT id FROM tasks WHERE tenant_id = ${id})`
+    );
     await db.delete(tasks).where(eq(tasks.tenantId, id));
+    await db.delete(atomicAssessmentResponses).where(
+      sql`${atomicAssessmentResponses.atomicAssessmentId} IN (SELECT aa.id FROM atomic_assessments aa JOIN assessments a ON aa.parent_assessment_id = a.id WHERE a.tenant_id = ${id})`
+    );
+    await db.delete(atomicAssessments).where(
+      sql`${atomicAssessments.parentAssessmentId} IN (SELECT id FROM assessments WHERE tenant_id = ${id})`
+    );
     await db.delete(assessmentResponses).where(
       sql`${assessmentResponses.assessmentId} IN (SELECT id FROM assessments WHERE tenant_id = ${id})`
     );
@@ -279,6 +289,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(riskItems).where(eq(riskItems.tenantId, id));
     await db.delete(auditLogs).where(eq(auditLogs.tenantId, id));
     await db.delete(inviteTokens).where(eq(inviteTokens.tenantId, id));
+    await db.delete(featureFlags).where(eq(featureFlags.tenantId, id));
+    await db.delete(importRuns).where(
+      sql`${importRuns.actorUserId} IN (SELECT id FROM users WHERE tenant_id = ${id})`
+    );
     await db.delete(passwordHistory).where(
       sql`${passwordHistory.userId} IN (SELECT id FROM users WHERE tenant_id = ${id})`
     );
