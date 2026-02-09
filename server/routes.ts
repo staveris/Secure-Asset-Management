@@ -18,7 +18,7 @@ import sanitizeHtml from "sanitize-html";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
 import { getAppBaseUrl } from "./email";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
-import { platformSettings, users, passwordHistory, controls as controlsTable, controlObjectives } from "@shared/schema";
+import { platformSettings, users, passwordHistory, controlObjectives } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -1484,23 +1484,20 @@ export async function registerRoutes(
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
-      const [assessments, tasks, incidents, controlsWithObjectives] = await Promise.all([
+      const [assessments, tasks, incidents, allControlObjectives] = await Promise.all([
         storage.getAssessmentsByTenant(user.tenantId),
         storage.getTasksByTenant(user.tenantId),
         storage.getIncidentsByTenant(user.tenantId),
         db.select({
-          id: controlsTable.id,
+          id: controlObjectives.id,
           title: controlObjectives.title,
-        })
-        .from(controlsTable)
-        .leftJoin(controlObjectives, eq(controlsTable.controlObjectiveId, controlObjectives.id))
-        .where(eq(controlsTable.tenantId, user.tenantId)),
+        }).from(controlObjectives),
       ]);
       res.json({
         assessments: assessments.map(a => ({ id: a.id, label: a.name })),
         tasks: tasks.map(t => ({ id: t.id, label: t.title })),
         incidents: incidents.map(i => ({ id: i.id, label: i.title })),
-        controls: controlsWithObjectives.map(c => ({ id: c.id, label: c.title || `Control #${c.id}` })),
+        controls: allControlObjectives.map(c => ({ id: c.id, label: c.title || `Control #${c.id}` })),
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
