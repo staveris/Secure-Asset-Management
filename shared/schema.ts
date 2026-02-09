@@ -386,6 +386,13 @@ export const tenantDailySnapshots = pgTable("tenant_daily_snapshots", {
   incidentsOpen: integer("incidents_open").notNull().default(0),
 });
 
+export const passwordHistory = pgTable("password_history", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertTenantSchema = createInsertSchema(tenants).omit({
   id: true,
   createdAt: true,
@@ -518,6 +525,10 @@ export const platformSettings = pgTable("platform_settings", {
 export const insertPlatformSettingSchema = createInsertSchema(platformSettings).omit({ id: true, updatedAt: true });
 export type PlatformSetting = typeof platformSettings.$inferSelect;
 export type InsertPlatformSetting = z.infer<typeof insertPlatformSettingSchema>;
+
+export const insertPasswordHistorySchema = createInsertSchema(passwordHistory).omit({ id: true, createdAt: true });
+export type PasswordHistory = typeof passwordHistory.$inferSelect;
+export type InsertPasswordHistory = z.infer<typeof insertPasswordHistorySchema>;
 
 export const loginSchema = z.object({
   email: z.string().email(),

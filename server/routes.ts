@@ -14,12 +14,13 @@ import fs from "fs";
 import crypto from "crypto";
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
+import sanitizeHtml from "sanitize-html";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
 import { getAppBaseUrl } from "./email";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
-import { platformSettings, users } from "@shared/schema";
+import { platformSettings, users, passwordHistory } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 const PgSession = connectPgSimple(session);
 
@@ -92,6 +93,109 @@ async function destroyUserSessions(userId: number): Promise<void> {
 function logSecurityEvent(event: string, details: Record<string, any>) {
   const timestamp = new Date().toISOString();
   console.log(`[SECURITY] ${timestamp} | ${event} | ${JSON.stringify(details)}`);
+}
+
+const sanitizeOptions: sanitizeHtml.IOptions = {
+  allowedTags: [],
+  allowedAttributes: {},
+  disallowedTagsMode: "recursiveEscape",
+};
+
+function sanitizeString(value: string): string {
+  return sanitizeHtml(value, sanitizeOptions).trim();
+}
+
+function sanitizeObject(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "string") return sanitizeString(obj);
+  if (Array.isArray(obj)) return obj.map(sanitizeObject);
+  if (typeof obj === "object") {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      if (key === "password" || key === "currentPassword" || key === "newPassword" || key === "confirmPassword" || key === "passwordHash" || key === "code" || key === "token" || key === "secret") {
+        cleaned[key] = obj[key];
+      } else {
+        cleaned[key] = sanitizeObject(obj[key]);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+const SENSITIVE_FIELDS = new Set([
+  "passwordHash", "password_hash",
+  "totpSecret", "totp_secret",
+  "passwordResetToken", "password_reset_token",
+  "passwordResetExpires", "password_reset_expires",
+  "emailVerificationToken", "email_verification_token",
+  "emailVerificationExpires", "email_verification_expires",
+  "csrfToken", "csrf_token",
+  "failedLoginAttempts", "failed_login_attempts",
+  "lockedUntil", "locked_until",
+]);
+
+function stripSensitiveFields(obj: any): any {
+  if (obj === null || obj === undefined || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(stripSensitiveFields);
+  const cleaned: any = {};
+  for (const key of Object.keys(obj)) {
+    if (SENSITIVE_FIELDS.has(key)) continue;
+    cleaned[key] = typeof obj[key] === "object" ? stripSensitiveFields(obj[key]) : obj[key];
+  }
+  return cleaned;
+}
+
+const FILE_MAGIC_BYTES: Record<string, Buffer[]> = {
+  "application/pdf": [Buffer.from([0x25, 0x50, 0x44, 0x46])],
+  "image/png": [Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])],
+  "image/jpeg": [Buffer.from([0xFF, 0xD8, 0xFF])],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [Buffer.from([0x50, 0x4B, 0x03, 0x04])],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [Buffer.from([0x50, 0x4B, 0x03, 0x04])],
+};
+
+function validateFileMagicBytes(filePath: string, declaredMimeType: string): boolean {
+  const signatures = FILE_MAGIC_BYTES[declaredMimeType];
+  if (!signatures) return true;
+  try {
+    const fd = fs.openSync(filePath, "r");
+    const buf = Buffer.alloc(8);
+    fs.readSync(fd, buf, 0, 8, 0);
+    fs.closeSync(fd);
+    return signatures.some(sig => buf.subarray(0, sig.length).equals(sig));
+  } catch {
+    return false;
+  }
+}
+
+const PASSWORD_HISTORY_COUNT = 5;
+
+async function checkPasswordHistory(userId: number, newPassword: string): Promise<boolean> {
+  const history = await db.select()
+    .from(passwordHistory)
+    .where(eq(passwordHistory.userId, userId))
+    .orderBy(desc(passwordHistory.createdAt))
+    .limit(PASSWORD_HISTORY_COUNT);
+  for (const entry of history) {
+    if (await bcrypt.compare(newPassword, entry.passwordHash)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function addPasswordToHistory(userId: number, hash: string): Promise<void> {
+  await db.insert(passwordHistory).values({ userId, passwordHash: hash });
+  const all = await db.select({ id: passwordHistory.id })
+    .from(passwordHistory)
+    .where(eq(passwordHistory.userId, userId))
+    .orderBy(desc(passwordHistory.createdAt));
+  if (all.length > PASSWORD_HISTORY_COUNT) {
+    const toDelete = all.slice(PASSWORD_HISTORY_COUNT);
+    for (const entry of toDelete) {
+      await db.delete(passwordHistory).where(eq(passwordHistory.id, entry.id));
+    }
+  }
 }
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -183,6 +287,24 @@ export async function registerRoutes(
 
   app.use("/api", verifyCsrf);
 
+  app.use("/api", (req: Request, _res: Response, next: NextFunction) => {
+    if (req.body && typeof req.body === "object" && req.method !== "GET" && req.method !== "HEAD") {
+      req.body = sanitizeObject(req.body);
+    }
+    next();
+  });
+
+  app.use("/api", (_req: Request, res: Response, next: NextFunction) => {
+    const origJson = res.json.bind(res);
+    res.json = function(body: any) {
+      if (body && typeof body === "object") {
+        body = stripSensitiveFields(body);
+      }
+      return origJson(body);
+    };
+    next();
+  });
+
   app.post("/api/auth/register", authLimiter, async (req, res) => {
     try {
       const data = registerSchema.parse(req.body);
@@ -214,6 +336,8 @@ export async function registerRoutes(
         emailVerificationToken: verificationToken,
         emailVerificationExpires: verificationExpires,
       });
+
+      await addPasswordToHistory(user.id, passwordHash);
 
       await storage.createAuditLog({
         tenantId: tenant.id,
@@ -623,10 +747,16 @@ export async function registerRoutes(
         return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
       }
 
+      const canUse = await checkPasswordHistory(user.id, password);
+      if (!canUse) {
+        return res.status(400).json({ message: "You cannot reuse any of your last 5 passwords. Please choose a different password." });
+      }
+
       const newHash = await bcrypt.hash(password, 10);
       await db.update(users)
         .set({ passwordHash: newHash, passwordResetToken: null, passwordResetExpires: null, failedLoginAttempts: 0, lockedUntil: null })
         .where(eq(users.id, user.id));
+      await addPasswordToHistory(user.id, newHash);
 
       await destroyUserSessions(user.id);
 
@@ -668,8 +798,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Current password is incorrect" });
       }
 
+      const canUse = await checkPasswordHistory(user.id, newPassword);
+      if (!canUse) {
+        return res.status(400).json({ message: "You cannot reuse any of your last 5 passwords. Please choose a different password." });
+      }
+
       const newHash = await bcrypt.hash(newPassword, 10);
       await storage.updateUserPassword(user.id, newHash);
+      await addPasswordToHistory(user.id, newHash);
 
       const currentSessionId = req.sessionID;
       await destroyUserSessions(user.id);
@@ -1034,6 +1170,12 @@ export async function registerRoutes(
 
       const file = req.file;
       if (!file) return res.status(400).json({ message: "No file provided" });
+
+      if (!validateFileMagicBytes(file.path, file.mimetype)) {
+        fs.unlinkSync(file.path);
+        logSecurityEvent("FILE_UPLOAD_MAGIC_MISMATCH", { userId: user.id, declaredType: file.mimetype, filename: file.originalname, ip: req.ip });
+        return res.status(400).json({ message: "File content does not match its declared type. Upload rejected for security." });
+      }
 
       const tenant = await storage.getTenant(user.tenantId);
       if (!tenant) {

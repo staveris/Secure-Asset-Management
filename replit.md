@@ -122,3 +122,10 @@ All routes prefixed with `/api/`:
   - New schema fields: totpSecret (text), totpEnabled (boolean) on users table
   - New API endpoints: POST /api/auth/totp-setup, /api/auth/totp-enable, /api/auth/totp-disable, /api/auth/totp-verify
   - New frontend component: client/src/components/idle-timeout.tsx (IdleTimeoutWarning)
+- 2026-02-09: Security hardening phase 4:
+  - Input sanitization: sanitize-html middleware strips all HTML tags from text inputs on all API endpoints; password fields excluded from sanitization
+  - Password history: password_history table stores last 5 hashes per user; prevents reuse on password change and reset; initial password recorded on registration
+  - API response stripping: middleware automatically removes sensitive fields (passwordHash, totpSecret, resetToken, etc.) from all JSON API responses
+  - File upload scanning: magic byte validation verifies file content matches declared MIME type (PDF, PNG, JPEG, DOCX, XLSX); rejects mismatched files with security logging
+  - Database query parameterization audit: confirmed all queries use Drizzle ORM parameterized queries or pg pool parameterized queries ($1 placeholders); no raw string interpolation found
+  - CSRF path fix: corrected exemption paths in verifyCsrf middleware (removed /api prefix for mounted middleware)

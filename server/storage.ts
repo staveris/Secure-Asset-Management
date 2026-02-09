@@ -21,6 +21,7 @@ import {
   inviteTokens,
   evidenceAccessLogs,
   evidenceUnlockRequests,
+  passwordHistory,
   type InsertTenant,
   type InsertUser,
   type InsertRequirement,
@@ -202,6 +203,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(riskItems).where(eq(riskItems.tenantId, id));
     await db.delete(auditLogs).where(eq(auditLogs.tenantId, id));
     await db.delete(inviteTokens).where(eq(inviteTokens.tenantId, id));
+    await db.delete(passwordHistory).where(
+      sql`${passwordHistory.userId} IN (SELECT id FROM users WHERE tenant_id = ${id})`
+    );
     await db.delete(users).where(eq(users.tenantId, id));
     await db.delete(tenants).where(eq(tenants.id, id));
   }
