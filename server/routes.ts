@@ -2072,7 +2072,7 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/tenant/profile", requirePlatformAdmin, async (req, res) => {
+  app.patch("/api/tenant/profile", requireAuth, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
