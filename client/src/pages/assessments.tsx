@@ -494,23 +494,38 @@ export default function Assessments() {
                           </div>
 
                           {hasAtomicInfo && (
-                            <div className="flex items-center gap-3 flex-wrap text-[10px] text-muted-foreground" data-testid={`text-type-breakdown-${assessment.id}`}>
-                              <span className="flex items-center gap-1" data-testid={`text-objectives-${assessment.id}`}>
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" />
-                                {objectivesCount} Objectives
-                              </span>
-                              {hasNis2Atomic && (
-                                <span className="flex items-center gap-1" data-testid={`text-nis2-atomic-${assessment.id}`}>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                                  {assessment.cirInfo!.nis2AtomicImplemented}/{assessment.cirInfo!.nis2AtomicTotal} Atomic
-                                </span>
-                              )}
-                              {hasCir && (
-                                <span className="flex items-center gap-1" data-testid={`text-cir-controls-${assessment.id}`}>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block" />
-                                  {assessment.cirInfo!.cirImplemented}/{assessment.cirInfo!.cirTotal} CIR
-                                </span>
-                              )}
+                            <div className="pt-2 border-t space-y-1.5" data-testid={`text-type-breakdown-${assessment.id}`}>
+                              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Independent Control Sets</p>
+                              <div className="grid grid-cols-1 gap-1">
+                                <div className="flex items-center justify-between gap-2 text-[11px]" data-testid={`text-objectives-${assessment.id}`}>
+                                  <span className="flex items-center gap-1.5">
+                                    <ClipboardCheck className="w-3 h-3 text-blue-500 shrink-0" />
+                                    <span>NIS2 Objectives</span>
+                                    <span className="text-muted-foreground text-[10px]">(Directive goals)</span>
+                                  </span>
+                                  <span className="text-muted-foreground tabular-nums">{objectivesCount}</span>
+                                </div>
+                                {hasNis2Atomic && (
+                                  <div className="flex items-center justify-between gap-2 text-[11px]" data-testid={`text-nis2-atomic-${assessment.id}`}>
+                                    <span className="flex items-center gap-1.5">
+                                      <Target className="w-3 h-3 text-emerald-500 shrink-0" />
+                                      <span>NIS2 Atomic Controls</span>
+                                      <span className="text-muted-foreground text-[10px]">(Regulation details)</span>
+                                    </span>
+                                    <span className="text-muted-foreground tabular-nums">{assessment.cirInfo!.nis2AtomicImplemented}/{assessment.cirInfo!.nis2AtomicTotal}</span>
+                                  </div>
+                                )}
+                                {hasCir && (
+                                  <div className="flex items-center justify-between gap-2 text-[11px]" data-testid={`text-cir-controls-${assessment.id}`}>
+                                    <span className="flex items-center gap-1.5">
+                                      <ShieldCheck className="w-3 h-3 text-purple-500 shrink-0" />
+                                      <span>CIR Controls</span>
+                                      <span className="text-muted-foreground text-[10px]">(Sector-specific)</span>
+                                    </span>
+                                    <span className="text-muted-foreground tabular-nums">{assessment.cirInfo!.cirImplemented}/{assessment.cirInfo!.cirTotal}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
 

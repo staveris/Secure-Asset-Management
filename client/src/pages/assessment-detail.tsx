@@ -768,59 +768,68 @@ export default function AssessmentDetail({ id }: { id: string }) {
       </div>
 
       {hasAtomicControls && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3" data-testid="control-type-summary">
-          <Card className="border-blue-200 dark:border-blue-800/50">
-            <CardContent className="p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="w-4 h-4 text-blue-500" />
-                <span className="text-xs font-semibold">NIS2 Objectives</span>
-                <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2ObjectiveCount}</Badge>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-tight">
-                High-level control areas from the NIS2 Directive defining what you need to achieve.
-              </p>
-              <Progress
-                value={stats.nis2ObjectiveCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_OBJECTIVE" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2ObjectiveCount) * 100 : 0}
-                className="h-1.5"
-              />
-            </CardContent>
-          </Card>
-          {(stats.nis2AtomicCount > 0) && (
-            <Card className="border-emerald-200 dark:border-emerald-800/50">
+        <div className="space-y-2" data-testid="control-type-summary">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold">Three Independent Control Sets</h2>
+            <span className="text-[10px] text-muted-foreground">Each assessed separately</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Card className="border-blue-200 dark:border-blue-800/50">
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-emerald-500" />
-                  <span className="text-xs font-semibold">NIS2 Atomic Controls</span>
-                  <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2AtomicCount}</Badge>
+                  <ClipboardCheck className="w-4 h-4 text-blue-500" />
+                  <span className="text-xs font-semibold">NIS2 Objectives</span>
+                  <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2ObjectiveCount}</Badge>
                 </div>
                 <p className="text-[10px] text-muted-foreground leading-tight">
-                  Granular requirements breaking each objective into specific, verifiable items.
+                  High-level goals from the NIS2 Directive (2022/2555). These define what your organisation must achieve for compliance.
                 </p>
                 <Progress
-                  value={stats.nis2AtomicCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_2022_2555" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2AtomicCount) * 100 : 0}
+                  value={stats.nis2ObjectiveCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_OBJECTIVE" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2ObjectiveCount) * 100 : 0}
                   className="h-1.5"
                 />
+                <p className="text-[9px] text-blue-600 dark:text-blue-400 font-medium">Source: NIS2 Directive</p>
               </CardContent>
             </Card>
-          )}
-          {(stats.cirCount > 0) && (
-            <Card className="border-purple-200 dark:border-purple-800/50">
-              <CardContent className="p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-purple-500" />
-                  <span className="text-xs font-semibold">CIR 2024/2690</span>
-                  <Badge variant="outline" className="text-[10px] ml-auto">{stats.cirCount}</Badge>
-                </div>
-                <p className="text-[10px] text-muted-foreground leading-tight">
-                  Sector-specific requirements from the Implementing Regulation for your industry.
-                </p>
-                <Progress
-                  value={stats.cirCount > 0 ? (allResponses.filter(r => r.sourceKey === "CIR_2024_2690" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.cirCount) * 100 : 0}
-                  className="h-1.5"
-                />
-              </CardContent>
-            </Card>
-          )}
+            {(stats.nis2AtomicCount > 0) && (
+              <Card className="border-emerald-200 dark:border-emerald-800/50">
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-emerald-500" />
+                    <span className="text-xs font-semibold">NIS2 Atomic Controls</span>
+                    <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2AtomicCount}</Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    Detailed, granular requirements from the NIS2 Regulation. A separate set of controls filtered by your entity type and subsector.
+                  </p>
+                  <Progress
+                    value={stats.nis2AtomicCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_2022_2555" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2AtomicCount) * 100 : 0}
+                    className="h-1.5"
+                  />
+                  <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">Source: Directive 2022/2555</p>
+                </CardContent>
+              </Card>
+            )}
+            {(stats.cirCount > 0) && (
+              <Card className="border-purple-200 dark:border-purple-800/50">
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-purple-500" />
+                    <span className="text-xs font-semibold">CIR Controls</span>
+                    <Badge variant="outline" className="text-[10px] ml-auto">{stats.cirCount}</Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    Sector-specific technical requirements from the Implementing Regulation. Applies only to digital infrastructure, ICT, and digital providers.
+                  </p>
+                  <Progress
+                    value={stats.cirCount > 0 ? (allResponses.filter(r => r.sourceKey === "CIR_2024_2690" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.cirCount) * 100 : 0}
+                    className="h-1.5"
+                  />
+                  <p className="text-[9px] text-purple-600 dark:text-purple-400 font-medium">Source: CIR 2024/2690</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       )}
 
@@ -852,30 +861,34 @@ export default function AssessmentDetail({ id }: { id: string }) {
       </Card>
 
       {hasAtomicControls && (
-        <div className="flex items-center gap-1.5 flex-wrap" data-testid="control-type-tabs">
-          {[
-            { value: "ALL" as ControlTypeFilter, label: "All Controls", count: stats.total },
-            { value: "OBJECTIVES" as ControlTypeFilter, label: "Objectives", count: stats.nis2ObjectiveCount, color: "text-blue-600 dark:text-blue-400" },
-            { value: "NIS2_ATOMIC" as ControlTypeFilter, label: "NIS2 Atomic", count: stats.nis2AtomicCount, color: "text-emerald-600 dark:text-emerald-400" },
-            ...(hasCir ? [{ value: "CIR" as ControlTypeFilter, label: "CIR Controls", count: stats.cirCount, color: "text-purple-600 dark:text-purple-400" }] : []),
-          ].map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setControlTypeFilter(tab.value)}
-              className={`px-3 h-8 rounded-md text-xs font-medium border transition-all flex items-center gap-1.5 ${
-                controlTypeFilter === tab.value
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
-              }`}
-              data-testid={`button-type-filter-${tab.value.toLowerCase()}`}
-            >
-              {tab.label}
-              <span className={`text-[10px] tabular-nums ${controlTypeFilter === tab.value ? "opacity-80" : ""}`}>
-                ({tab.count})
-              </span>
-            </button>
-          ))}
+        <div className="space-y-1.5">
+          <p className="text-[11px] text-muted-foreground font-medium">Filter by Control Set</p>
+          <div className="flex items-center gap-1.5 flex-wrap" data-testid="control-type-tabs">
+            {[
+              { value: "ALL" as ControlTypeFilter, label: "All Controls", count: stats.total, dotColor: "" },
+              { value: "OBJECTIVES" as ControlTypeFilter, label: "NIS2 Objectives", count: stats.nis2ObjectiveCount, dotColor: "bg-blue-500" },
+              { value: "NIS2_ATOMIC" as ControlTypeFilter, label: "Atomic Controls", count: stats.nis2AtomicCount, dotColor: "bg-emerald-500" },
+              ...(hasCir ? [{ value: "CIR" as ControlTypeFilter, label: "CIR Controls", count: stats.cirCount, dotColor: "bg-purple-500" }] : []),
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setControlTypeFilter(tab.value)}
+                className={`px-3 h-8 rounded-md text-xs font-medium border transition-all flex items-center gap-1.5 ${
+                  controlTypeFilter === tab.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+                }`}
+                data-testid={`button-type-filter-${tab.value.toLowerCase()}`}
+              >
+                {tab.dotColor && <span className={`w-2 h-2 rounded-full ${tab.dotColor} shrink-0`} />}
+                {tab.label}
+                <span className={`text-[10px] tabular-nums ${controlTypeFilter === tab.value ? "opacity-80" : ""}`}>
+                  ({tab.count})
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
