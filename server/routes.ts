@@ -30,6 +30,23 @@ const CIR_APPLICABLE_SECTORS = [
   "Digital providers",
 ];
 
+const CIR_SUBSECTOR_MAP: Record<string, string> = {
+  "DNS service providers": "DNS",
+  "TLD name registries": "TLD",
+  "Cloud computing service providers": "CLOUD",
+  "Data centre service providers": "DC",
+  "Content delivery network providers": "CDN",
+  "Trust service providers": "TRUST",
+  "Internet Exchange Point providers": "IXP",
+  "Providers of public electronic communications networks": "TELCO",
+  "Providers of publicly available electronic communications services": "TELCO",
+  "Managed service providers": "MSP",
+  "Managed security service providers": "MSSP",
+  "Online marketplaces": "ONLINE_PLATFORM",
+  "Online search engines": "ONLINE_PLATFORM",
+  "Social networking services platforms": "ONLINE_PLATFORM",
+};
+
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -969,9 +986,20 @@ export async function registerRoutes(
       const tenant = await storage.getTenant(user.tenantId);
       let cirAssessmentId: number | null = null;
       let cirControlCount = 0;
-      if (tenant && tenant.sector && CIR_APPLICABLE_SECTORS.some(s => s.toLowerCase() === tenant.sector!.toLowerCase())) {
+      const tenantSubsector = tenant?.subsector || null;
+      const tenantCirCode = tenantSubsector ? CIR_SUBSECTOR_MAP[tenantSubsector] || null : null;
+      if (tenant && tenant.sector && CIR_APPLICABLE_SECTORS.some(s => s.toLowerCase() === tenant.sector!.toLowerCase()) && tenantCirCode) {
         const cirControls = await storage.getAtomicControlsBySource("CIR_2024_2690");
-        const activeControls = cirControls.filter((c: any) => c.isActive !== false);
+        const activeControls = cirControls.filter((c: any) => {
+          if (c.isActive === false) return false;
+          try {
+            const applicability = typeof c.applicability === 'string' ? JSON.parse(c.applicability) : c.applicability;
+            const entities: string[] = applicability?.entities || applicability?.tags || [];
+            return entities.includes(tenantCirCode!) || entities.includes("ALL");
+          } catch {
+            return true;
+          }
+        });
         if (activeControls.length > 0) {
           const cirAssessment = await storage.createAtomicAssessment({
             tenantId: user.tenantId,
