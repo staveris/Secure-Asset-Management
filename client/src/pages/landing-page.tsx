@@ -236,7 +236,6 @@ export default function LandingPage() {
             <div className="space-y-4" data-testid="compliance-checklist">
               {[
                 { title: "Risk Assessment & Management", desc: "Systematic identification and mitigation of cybersecurity risks aligned with NIS2 requirements" },
-                { title: "Incident Reporting Workflows", desc: "Automated timelines ensuring compliance with EU-mandated 24h, 72h, and 30-day reporting windows" },
                 { title: "Supply Chain Security", desc: "Third-party risk management with comprehensive supplier assessment and monitoring" },
                 { title: "Audit Trail & Evidence", desc: "Complete audit logging with tamper-proof records and secure evidence management" },
               ].map((item) => (
@@ -322,7 +321,6 @@ export default function LandingPage() {
                 <span className="block text-slate-400 text-sm">NIS2 Directive</span>
                 <span className="block text-slate-400 text-sm">CIR 2024/2690</span>
                 <span className="block text-slate-400 text-sm">Risk Management</span>
-                <span className="block text-slate-400 text-sm">Incident Response</span>
               </div>
             </div>
 
