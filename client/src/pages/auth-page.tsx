@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -93,7 +93,12 @@ const stats = [
 ];
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [location] = useLocation();
+  const [isLogin, setIsLogin] = useState(location !== "/register");
+
+  useEffect(() => {
+    setIsLogin(location !== "/register");
+  }, [location]);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
@@ -118,7 +123,7 @@ export default function AuthPage() {
   const [regCompany, setRegCompany] = useState("");
 
   if (user) {
-    navigate("/");
+    navigate("/dashboard");
     return null;
   }
 
@@ -130,7 +135,7 @@ export default function AuthPage() {
       if (result === "requireTotp") {
         setShowTotpStep(true);
       } else {
-        navigate("/");
+        navigate("/dashboard");
       }
     } catch (err: any) {
       const msg = err.message || "";
@@ -153,7 +158,7 @@ export default function AuthPage() {
     setTotpLoading(true);
     try {
       await verifyTotp(totpCode);
-      navigate("/");
+      navigate("/dashboard");
     } catch (err: any) {
       const msg = err.message || "";
       toast({ title: "Verification failed", description: msg.replace(/^\d+:\s*/, "").replace(/[{}"]/g, "").replace(/message:/i, "").trim() || "Invalid verification code", variant: "destructive" });
@@ -520,7 +525,7 @@ export default function AuthPage() {
                 <div className="text-center pt-3">
                   <button
                     type="button"
-                    onClick={() => setIsLogin(false)}
+                    onClick={() => { setIsLogin(false); navigate("/register"); }}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                     data-testid="link-switch-register"
                   >
@@ -629,7 +634,7 @@ export default function AuthPage() {
                 <div className="text-center pt-3">
                   <button
                     type="button"
-                    onClick={() => setIsLogin(true)}
+                    onClick={() => { setIsLogin(true); navigate("/login"); }}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                     data-testid="link-switch-login"
                   >
@@ -642,8 +647,15 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 text-center border-t">
+        <div className="p-4 text-center border-t space-y-2">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="link-back-to-home"
+          >
+            &larr; Back to Home
+          </button>
           <p className="text-[11px] text-muted-foreground tracking-wide">
             Powered by <span className="font-medium">Tools of Tech</span> &middot; Innovation & Strategy
           </p>

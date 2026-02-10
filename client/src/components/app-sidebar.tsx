@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const tenantMenuItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, requiresFullAccess: false },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, requiresFullAccess: false },
   { title: "Assessments", url: "/assessments", icon: ClipboardCheck, requiresFullAccess: false },
   { title: "Tasks", url: "/tasks", icon: ListTodo, requiresFullAccess: true },
   { title: "Evidence", url: "/evidence", icon: FileBox, requiresFullAccess: true },
@@ -133,11 +133,7 @@ export function AppSidebar() {
                       ) : (
                         <SidebarMenuButton
                           asChild
-                          isActive={
-                            item.url === "/"
-                              ? location === "/"
-                              : location.startsWith(item.url)
-                          }
+                          isActive={location.startsWith(item.url)}
                         >
                           <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
                             <item.icon className="w-4 h-4" />

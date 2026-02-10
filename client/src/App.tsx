@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,6 +11,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IdleTimeoutWarning } from "@/components/idle-timeout";
 
+import LandingPage from "@/pages/landing-page";
 import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
 import Assessments from "@/pages/assessments";
@@ -81,6 +82,10 @@ function WithFullAccess({ component: Component }: { component: React.ComponentTy
 function AdminRouter() {
   return (
     <Switch>
+      <Route path="/"><Redirect to="/admin" /></Route>
+      <Route path="/login"><Redirect to="/admin" /></Route>
+      <Route path="/register"><Redirect to="/admin" /></Route>
+      <Route path="/dashboard"><Redirect to="/admin" /></Route>
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/tenants" component={AdminTenants} />
       <Route path="/admin/storage" component={AdminStorage} />
@@ -98,7 +103,10 @@ function AdminRouter() {
 function TenantRouter() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/"><Redirect to="/dashboard" /></Route>
+      <Route path="/login"><Redirect to="/dashboard" /></Route>
+      <Route path="/register"><Redirect to="/dashboard" /></Route>
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/assessments" component={Assessments} />
       <Route path="/assessments/:id">
         {(params) => <AssessmentDetail id={params.id} />}
@@ -123,6 +131,7 @@ function TenantRouter() {
 
 function AppContent() {
   const { user, isLoading, isPlatformAdmin } = useAuth();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -135,16 +144,22 @@ function AppContent() {
     );
   }
 
-  if (window.location.pathname === "/verify-email") {
+  if (location === "/verify-email") {
     return <VerifyEmail />;
   }
 
-  if (window.location.pathname === "/reset-password") {
+  if (location === "/reset-password") {
     return <ResetPassword />;
   }
 
   if (!user) {
-    return <AuthPage />;
+    return (
+      <Switch>
+        <Route path="/login" component={AuthPage} />
+        <Route path="/register" component={AuthPage} />
+        <Route component={LandingPage} />
+      </Switch>
+    );
   }
 
   if (!user.emailVerified && user.role !== "PLATFORM_ADMIN") {
