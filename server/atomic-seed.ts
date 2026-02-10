@@ -315,10 +315,68 @@ const CIR_CONTROLS: AtomicControlSeed[] = [
   },
 ];
 
+async function autoImportFromJsonFile(): Promise<void> {
+  const fs = await import("fs");
+  const path = await import("path");
+  const controlsPath = path.join(process.cwd(), "data", "atomic_controls_nis2_optionB.json");
+  if (!fs.existsSync(controlsPath)) {
+    console.log("No JSON import file found at data/atomic_controls_nis2_optionB.json, skipping auto-import.");
+    return;
+  }
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(controlsPath, "utf-8"));
+    const controls: any[] = raw.controls || raw;
+    if (!Array.isArray(controls) || controls.length === 0) {
+      console.log("Import file is empty or invalid, skipping auto-import.");
+      return;
+    }
+
+    const { validateControls, computeDiff } = await import("./import-service");
+    const validation = validateControls(controls);
+    if (!validation.valid) {
+      console.log(`Import file validation failed (${validation.errors.length} errors), skipping auto-import.`);
+      return;
+    }
+
+    const diff = await computeDiff(controls);
+    if (diff.added.length === 0) {
+      console.log(`Auto-import: no new controls to add (${diff.unchanged.length} unchanged, ${diff.updated.length} updated).`);
+      return;
+    }
+
+    const { runImport } = await import("./import-service");
+    const legalSourcesPath = path.join(process.cwd(), "data", "legal_sources.json");
+    let legalSourcesData: any[] = [];
+    if (fs.existsSync(legalSourcesPath)) {
+      legalSourcesData = JSON.parse(fs.readFileSync(legalSourcesPath, "utf-8"));
+    }
+
+    const { db } = await import("./db");
+    const { users } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    const [adminUser] = await db.select({ id: users.id }).from(users).where(eq(users.role, "PLATFORM_ADMIN")).limit(1);
+    if (!adminUser) {
+      console.log("Auto-import: no admin user found, skipping.");
+      return;
+    }
+
+    const result = await runImport(controls, legalSourcesData, "IMPORT", adminUser.id);
+    if (result.success) {
+      console.log(`Auto-import completed: +${result.addedCount} added, ~${result.updatedCount} updated, =${result.unchangedCount} unchanged`);
+    } else {
+      console.log(`Auto-import failed: ${result.errors?.join(", ")}`);
+    }
+  } catch (error: any) {
+    console.log(`Auto-import error: ${error.message}`);
+  }
+}
+
 export async function seedAtomicControls(): Promise<void> {
   const existingControls = await storage.getAllAtomicControls();
   if (existingControls.length > 0) {
-    console.log(`Atomic controls already seeded (${existingControls.length} controls found). Skipping.`);
+    console.log(`Atomic controls already seeded (${existingControls.length} controls found).`);
+    await autoImportFromJsonFile();
     return;
   }
 
@@ -379,4 +437,6 @@ export async function seedAtomicControls(): Promise<void> {
   });
 
   console.log(`Seeded ${createdCount} atomic controls (${NIS2_CONTROLS.length} NIS2 + ${CIR_CONTROLS.length} CIR)`);
+
+  await autoImportFromJsonFile();
 }
