@@ -33,12 +33,22 @@ import {
   Shield, ClipboardList, Pencil, Trash2, MessageSquare, Send,
 } from "lucide-react";
 import type { Task } from "@shared/schema";
+import { useAuth } from "@/lib/auth";
+import { User } from "lucide-react";
+
+type TenantUser = {
+  id: number;
+  fullName: string;
+  email: string;
+  role: string;
+};
 
 type EnrichedTask = Task & {
   controlTitle?: string | null;
   requirementCode?: string | null;
   category?: string | null;
   assessmentName?: string | null;
+  ownerName?: string | null;
 };
 
 type ControlObjective = {
@@ -160,6 +170,9 @@ function TaskComments({ taskId }: { taskId: number }) {
 }
 
 export default function Tasks() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "TENANT_ADMIN" || user?.role === "TENANT_MANAGER" || user?.role === "PLATFORM_ADMIN";
+
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -167,7 +180,9 @@ export default function Tasks() {
   const [dueDate, setDueDate] = useState("");
   const [controlObjectiveId, setControlObjectiveId] = useState("");
   const [assessmentId, setAssessmentId] = useState("");
+  const [assigneeId, setAssigneeId] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [filterByUser, setFilterByUser] = useState("all");
 
   const [editingTask, setEditingTask] = useState<EnrichedTask | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -175,6 +190,7 @@ export default function Tasks() {
   const [editPriority, setEditPriority] = useState("MEDIUM");
   const [editDueDate, setEditDueDate] = useState("");
   const [editStatus, setEditStatus] = useState("TODO");
+  const [editAssigneeId, setEditAssigneeId] = useState("");
 
   const [deletingTask, setDeletingTask] = useState<EnrichedTask | null>(null);
   const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
@@ -191,6 +207,10 @@ export default function Tasks() {
 
   const { data: assessments, isLoading: assessmentsLoading } = useQuery<AssessmentSummary[]>({
     queryKey: ["/api/assessments"],
+  });
+
+  const { data: tenantUsers } = useQuery<TenantUser[]>({
+    queryKey: ["/api/tenant-users"],
   });
 
   const activeAssessments = useMemo(() => {
@@ -218,6 +238,7 @@ export default function Tasks() {
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
         controlObjectiveId: parseInt(controlObjectiveId),
         assessmentId: parseInt(assessmentId),
+        ownerUserId: assigneeId ? parseInt(assigneeId) : null,
       });
     },
     onSuccess: () => {
@@ -230,6 +251,7 @@ export default function Tasks() {
       setDueDate("");
       setControlObjectiveId("");
       setAssessmentId("");
+      setAssigneeId("");
       toast({ title: "Task created" });
     },
     onError: (err: any) => {
@@ -256,6 +278,7 @@ export default function Tasks() {
         priority: editPriority,
         status: editStatus,
         dueDate: editDueDate ? new Date(editDueDate).toISOString() : null,
+        ownerUserId: editAssigneeId ? parseInt(editAssigneeId) : null,
       });
     },
     onSuccess: () => {
@@ -291,12 +314,14 @@ export default function Tasks() {
     setEditPriority(task.priority);
     setEditStatus(task.status);
     setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : "");
+    setEditAssigneeId(task.ownerUserId ? String(task.ownerUserId) : "");
     setEditingTask(task);
   };
 
   const filteredTasks = tasks?.filter((t) => {
-    if (activeTab === "all") return true;
-    return t.status === activeTab;
+    if (activeTab !== "all" && t.status !== activeTab) return false;
+    if (isAdmin && filterByUser !== "all" && String(t.ownerUserId) !== filterByUser) return false;
+    return true;
   }) || [];
 
   return (
@@ -400,6 +425,23 @@ export default function Tasks() {
                   />
                 </div>
               </div>
+              {isAdmin && tenantUsers && tenantUsers.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Assign To</Label>
+                  <Select value={assigneeId} onValueChange={setAssigneeId}>
+                    <SelectTrigger data-testid="select-task-assignee">
+                      <SelectValue placeholder="Select a user (defaults to you)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenantUsers.map((u) => (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          {u.fullName} ({u.role.replace("TENANT_", "")})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <Button
                 onClick={() => createMutation.mutate()}
                 disabled={!title || !controlObjectiveId || !assessmentId || createMutation.isPending}
@@ -413,15 +455,33 @@ export default function Tasks() {
         </Dialog>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList data-testid="tabs-task-filter">
-          <TabsTrigger value="all">All ({tasks?.length || 0})</TabsTrigger>
-          <TabsTrigger value="TODO">To Do ({tasks?.filter((t) => t.status === "TODO").length || 0})</TabsTrigger>
-          <TabsTrigger value="IN_PROGRESS">In Progress ({tasks?.filter((t) => t.status === "IN_PROGRESS").length || 0})</TabsTrigger>
-          <TabsTrigger value="IN_REVIEW">In Review ({tasks?.filter((t) => t.status === "IN_REVIEW").length || 0})</TabsTrigger>
-          <TabsTrigger value="DONE">Done ({tasks?.filter((t) => t.status === "DONE").length || 0})</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex items-center gap-4 flex-wrap">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+          <TabsList data-testid="tabs-task-filter">
+            <TabsTrigger value="all">All ({tasks?.length || 0})</TabsTrigger>
+            <TabsTrigger value="TODO">To Do ({tasks?.filter((t) => t.status === "TODO").length || 0})</TabsTrigger>
+            <TabsTrigger value="IN_PROGRESS">In Progress ({tasks?.filter((t) => t.status === "IN_PROGRESS").length || 0})</TabsTrigger>
+            <TabsTrigger value="IN_REVIEW">In Review ({tasks?.filter((t) => t.status === "IN_REVIEW").length || 0})</TabsTrigger>
+            <TabsTrigger value="DONE">Done ({tasks?.filter((t) => t.status === "DONE").length || 0})</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {isAdmin && tenantUsers && tenantUsers.length > 1 && (
+          <Select value={filterByUser} onValueChange={setFilterByUser}>
+            <SelectTrigger className="w-48" data-testid="select-filter-user">
+              <User className="w-4 h-4 mr-1 shrink-0" />
+              <SelectValue placeholder="Filter by user" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Users</SelectItem>
+              {tenantUsers.map((u) => (
+                <SelectItem key={u.id} value={String(u.id)}>
+                  {u.fullName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -480,6 +540,14 @@ export default function Tasks() {
                             <ClipboardList className="w-3 h-3 text-blue-500 shrink-0" />
                             <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-assessment-${task.id}`}>
                               {task.assessmentName}
+                            </span>
+                          </div>
+                        )}
+                        {task.ownerName && (
+                          <div className="flex items-center gap-1.5">
+                            <User className="w-3 h-3 text-orange-500 shrink-0" />
+                            <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-owner-${task.id}`}>
+                              {task.ownerName}
                             </span>
                           </div>
                         )}
@@ -610,6 +678,23 @@ export default function Tasks() {
                 data-testid="input-edit-task-due-date"
               />
             </div>
+            {isAdmin && tenantUsers && tenantUsers.length > 0 && (
+              <div className="space-y-2">
+                <Label>Assign To</Label>
+                <Select value={editAssigneeId} onValueChange={setEditAssigneeId}>
+                  <SelectTrigger data-testid="select-edit-task-assignee">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tenantUsers.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.fullName} ({u.role.replace("TENANT_", "")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <Button
               onClick={() => editMutation.mutate()}
               disabled={!editTitle || editMutation.isPending}

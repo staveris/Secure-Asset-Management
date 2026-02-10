@@ -1297,30 +1297,46 @@ export async function registerRoutes(
   app.get("/api/tasks", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
-    const list = await storage.getTasksByTenant(user.tenantId);
+    let list = await storage.getTasksByTenant(user.tenantId);
+    const isAdmin = user.role === "TENANT_ADMIN" || user.role === "TENANT_MANAGER" || user.role === "PLATFORM_ADMIN";
+    if (!isAdmin) {
+      list = list.filter(t => t.ownerUserId === user.id);
+    }
     const controls = await storage.getAllControlObjectives();
     const reqs = await storage.getAllRequirements();
     const assessments = await storage.getAssessmentsByTenant(user.tenantId);
+    const tenantUsers = await storage.getUsersByTenant(user.tenantId);
     const enriched = list.map((t) => {
       const control = t.controlObjectiveId ? controls.find((c) => c.id === t.controlObjectiveId) : null;
       const req = control ? reqs.find((r) => r.id === control.requirementId) : null;
       const assessment = t.assessmentId ? assessments.find((a) => a.id === t.assessmentId) : null;
+      const owner = t.ownerUserId ? tenantUsers.find(u => u.id === t.ownerUserId) : null;
       return {
         ...t,
         controlTitle: control?.title || null,
         requirementCode: req?.code || null,
         category: req?.category || null,
         assessmentName: assessment?.name || null,
+        ownerName: owner?.fullName || null,
       };
     });
     res.json(enriched);
+  });
+
+  app.get("/api/tenant-users", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const users = await storage.getUsersByTenant(user.tenantId);
+    res.json(users.filter(u => u.role !== "PLATFORM_ADMIN" && u.isActive).map(u => ({
+      id: u.id, fullName: u.fullName, email: u.email, role: u.role,
+    })));
   });
 
   app.post("/api/tasks", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
-    const { title, description, priority, dueDate, controlObjectiveId, assessmentId } = req.body;
+    const { title, description, priority, dueDate, controlObjectiveId, assessmentId, ownerUserId } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required" });
     if (!controlObjectiveId) return res.status(400).json({ message: "Control objective is required" });
     if (!assessmentId) return res.status(400).json({ message: "Assessment is required" });
@@ -1330,6 +1346,17 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Invalid assessment" });
     }
 
+    let assigneeId = user.id;
+    if (ownerUserId) {
+      const isAdmin = user.role === "TENANT_ADMIN" || user.role === "TENANT_MANAGER" || user.role === "PLATFORM_ADMIN";
+      if (!isAdmin) return res.status(403).json({ message: "Only admins can assign tasks to other users" });
+      const targetUser = await storage.getUser(ownerUserId);
+      if (!targetUser || targetUser.tenantId !== user.tenantId) {
+        return res.status(400).json({ message: "Invalid user" });
+      }
+      assigneeId = ownerUserId;
+    }
+
     const task = await storage.createTask({
       tenantId: user.tenantId,
       title,
@@ -1337,7 +1364,7 @@ export async function registerRoutes(
       priority: priority || "MEDIUM",
       dueDate: dueDate ? new Date(dueDate) : null,
       status: "TODO",
-      ownerUserId: user.id,
+      ownerUserId: assigneeId,
       controlObjectiveId,
       assessmentId,
     });
@@ -1363,7 +1390,26 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Not found" });
     }
 
-    const updated = await storage.updateTask(id, req.body);
+    const { title, description, priority, status, dueDate, ownerUserId } = req.body;
+    const updateData: Record<string, any> = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (priority !== undefined) updateData.priority = priority;
+    if (status !== undefined) updateData.status = status;
+    if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
+    if (ownerUserId !== undefined) {
+      const isAdmin = user.role === "TENANT_ADMIN" || user.role === "TENANT_MANAGER" || user.role === "PLATFORM_ADMIN";
+      if (!isAdmin) return res.status(403).json({ message: "Only admins can reassign tasks" });
+      if (ownerUserId) {
+        const targetUser = await storage.getUser(ownerUserId);
+        if (!targetUser || targetUser.tenantId !== user.tenantId) {
+          return res.status(400).json({ message: "Invalid user" });
+        }
+      }
+      updateData.ownerUserId = ownerUserId || null;
+    }
+
+    const updated = await storage.updateTask(id, updateData);
     if (!updated) return res.status(404).json({ message: "Not found" });
 
     await storage.createAuditLog({
