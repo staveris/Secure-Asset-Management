@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import {
   Shield,
   FileCheck,
-  AlertTriangle,
   BarChart3,
   Layers,
   Scale,
@@ -34,13 +33,6 @@ const features = [
     description: "Full implementation of 17 sector-specific requirements for digital infrastructure, ICT service management, and digital providers.",
     color: "from-violet-500/20 to-violet-600/20",
     iconColor: "text-violet-400",
-  },
-  {
-    icon: AlertTriangle,
-    title: "Incident Management",
-    description: "Automated EU reporting timelines with structured workflows for early warnings, formal notifications, and final report generation.",
-    color: "from-amber-500/20 to-amber-600/20",
-    iconColor: "text-amber-400",
   },
   {
     icon: FileCheck,
@@ -87,7 +79,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3" data-testid="nav-brand">
-              <img src={companyLogo} alt="Tools of Tech" className="h-9 w-9 rounded-md object-cover" />
+              <img src={companyLogo} alt="Tools of Tech" className="h-10 rounded-md object-contain" />
               <div>
                 <span className="text-white font-semibold text-sm tracking-wide">NIS2 Platform</span>
                 <span className="hidden sm:block text-slate-500 text-[10px] tracking-[0.12em] uppercase">by Tools of Tech</span>
@@ -303,7 +295,7 @@ export default function LandingPage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
             <div className="sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-3 mb-4">
-                <img src={companyLogo} alt="Tools of Tech" className="h-9 w-9 rounded-md object-cover" />
+                <img src={companyLogo} alt="Tools of Tech" className="h-10 rounded-md object-contain" />
                 <div>
                   <span className="text-white font-semibold text-sm">Tools of Tech P.C.</span>
                   <span className="block text-slate-500 text-[10px] tracking-[0.12em] uppercase">Innovation & Strategy</span>
