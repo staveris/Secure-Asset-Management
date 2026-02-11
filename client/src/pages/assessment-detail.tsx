@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
@@ -36,11 +41,16 @@ import {
   FileText,
   Upload,
   Lock,
-  Link2,
   Save,
   Plus,
   ListTodo,
   ClipboardCheck,
+  ChevronDown,
+  ChevronsDown,
+  ArrowDown,
+  Loader2,
+  Check,
+  StickyNote,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
@@ -94,11 +104,11 @@ type GroupMode = "domain" | "category";
 type StatusFilter = "ALL" | "NOT_STARTED" | "IN_PROGRESS" | "IMPLEMENTED" | "VERIFIED";
 type ControlTypeFilter = "ALL" | "OBJECTIVES" | "NIS2_ATOMIC" | "CIR";
 
-const statusConfig: Record<string, { icon: any; color: string; bg: string; label: string }> = {
-  NOT_STARTED: { icon: Circle, color: "text-muted-foreground", bg: "bg-muted", label: "Not Started" },
-  IN_PROGRESS: { icon: Clock, color: "text-blue-500", bg: "bg-blue-500/10", label: "In Progress" },
-  IMPLEMENTED: { icon: CheckCircle2, color: "text-green-500", bg: "bg-green-500/10", label: "Implemented" },
-  VERIFIED: { icon: Shield, color: "text-purple-500", bg: "bg-purple-500/10", label: "Verified" },
+const statusConfig: Record<string, { icon: any; color: string; bg: string; label: string; shortLabel: string }> = {
+  NOT_STARTED: { icon: Circle, color: "text-muted-foreground", bg: "bg-muted", label: "Not Started", shortLabel: "Not Started" },
+  IN_PROGRESS: { icon: Clock, color: "text-blue-500", bg: "bg-blue-500/10", label: "In Progress", shortLabel: "In Progress" },
+  IMPLEMENTED: { icon: CheckCircle2, color: "text-green-500", bg: "bg-green-500/10", label: "Implemented", shortLabel: "Done" },
+  VERIFIED: { icon: Shield, color: "text-purple-500", bg: "bg-purple-500/10", label: "Verified", shortLabel: "Verified" },
 };
 
 const maturityLabels = ["None", "Initial", "Repeatable", "Defined", "Managed", "Optimized"];
@@ -144,16 +154,125 @@ interface LocalEdits {
   notes: string;
 }
 
+function useAutoSave(
+  edits: LocalEdits,
+  response: AssessmentResponse,
+  saveFn: () => void,
+  isSaving: boolean,
+  hasError: boolean,
+) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevEditsRef = useRef(edits);
+  const lastSavedEditsRef = useRef(edits);
+
+  const hasChanges =
+    edits.implementationStatus !== response.implementationStatus ||
+    edits.maturityLevel !== response.maturityLevel ||
+    edits.evidenceConfidence !== response.evidenceConfidence ||
+    edits.notes !== (response.notes || "");
+
+  const hasNewEditsAfterError =
+    edits.implementationStatus !== lastSavedEditsRef.current.implementationStatus ||
+    edits.maturityLevel !== lastSavedEditsRef.current.maturityLevel ||
+    edits.evidenceConfidence !== lastSavedEditsRef.current.evidenceConfidence ||
+    edits.notes !== lastSavedEditsRef.current.notes;
+
+  useEffect(() => {
+    const prevEdits = prevEditsRef.current;
+    prevEditsRef.current = edits;
+
+    if (!hasChanges || isSaving) return;
+    if (hasError && !hasNewEditsAfterError) return;
+
+    const isNotesOnly =
+      edits.implementationStatus === prevEdits.implementationStatus &&
+      edits.maturityLevel === prevEdits.maturityLevel &&
+      edits.evidenceConfidence === prevEdits.evidenceConfidence &&
+      edits.notes !== prevEdits.notes;
+
+    const delay = isNotesOnly ? 2000 : 800;
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      lastSavedEditsRef.current = edits;
+      saveFn();
+    }, delay);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [edits, hasChanges, isSaving, hasError, hasNewEditsAfterError, saveFn]);
+
+  useEffect(() => {
+    const timer = timerRef.current;
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+        saveFn();
+      }
+    };
+  }, []);
+
+  return hasChanges;
+}
+
+function QuickStatusButtons({
+  currentStatus,
+  onStatusChange,
+  size = "default",
+}: {
+  currentStatus: string;
+  onStatusChange: (status: string) => void;
+  size?: "default" | "compact";
+}) {
+  const statuses = ["NOT_STARTED", "IN_PROGRESS", "IMPLEMENTED", "VERIFIED"];
+  return (
+    <div className="flex gap-1" data-testid="quick-status-buttons">
+      {statuses.map((status) => {
+        const config = statusConfig[status];
+        const Icon = config.icon;
+        const isActive = currentStatus === status;
+        return (
+          <Tooltip key={status}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => onStatusChange(status)}
+                className={`flex items-center gap-1 rounded-md border text-xs font-medium transition-all ${
+                  size === "compact" ? "px-1.5 py-1" : "px-2 py-1.5"
+                } ${
+                  isActive
+                    ? `${config.bg} ${config.color} border-current`
+                    : "bg-transparent border-transparent text-muted-foreground hover:bg-muted"
+                }`}
+                data-testid={`button-quick-status-${status.toLowerCase()}`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? config.color : ""}`} />
+                {size !== "compact" && <span>{config.shortLabel}</span>}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{config.label}</TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
 function ControlCard({
   response,
   assessmentId,
   controlEvidence,
   controlTasks = [],
+  isExpanded,
+  onToggleExpand,
 }: {
   response: AssessmentResponse;
   assessmentId: string;
   controlEvidence: EvidenceItem[];
   controlTasks?: Task[];
+  isExpanded: boolean;
+  onToggleExpand: () => void;
 }) {
   const { toast } = useToast();
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -162,6 +281,7 @@ function ControlCard({
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPriority, setTaskPriority] = useState("MEDIUM");
+  const [showNotes, setShowNotes] = useState(!!response.notes);
 
   const parsedAssessmentId = parseInt(assessmentId);
   const validAssessmentId = !isNaN(parsedAssessmentId) ? parsedAssessmentId : null;
@@ -214,7 +334,7 @@ function ControlCard({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
       queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
-      toast({ title: "Evidence uploaded", description: `File linked to control "${response.controlTitle}" in this assessment.` });
+      toast({ title: "Evidence uploaded" });
       setUploadOpen(false);
       setSelectedFile(null);
     },
@@ -239,15 +359,11 @@ function ControlCard({
     });
   }, [response.implementationStatus, response.maturityLevel, response.evidenceConfidence, response.notes]);
 
-  const hasChanges =
-    edits.implementationStatus !== response.implementationStatus ||
-    edits.maturityLevel !== response.maturityLevel ||
-    edits.evidenceConfidence !== response.evidenceConfidence ||
-    edits.notes !== (response.notes || "");
-
   const isCir = response.sourceKey === "CIR_2024_2690";
   const isNis2Atomic = response.sourceKey === "NIS2_2022_2555";
   const isAtomicControl = isCir || isNis2Atomic;
+
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -278,336 +394,373 @@ function ControlCard({
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/snapshots"] });
       queryClient.invalidateQueries({ queryKey: ["/api/assessment-history"] });
-      toast({ title: "Saved", description: "Control response updated successfully." });
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2000);
     },
     onError: (err: any) => {
       toast({ title: "Error saving", description: err.message, variant: "destructive" });
+      setSaveState("error");
     },
   });
+
+  const doSave = useCallback(() => {
+    setSaveState("saving");
+    saveMutation.mutate();
+  }, [saveMutation]);
+
+  const hasChanges = useAutoSave(edits, response, doSave, saveMutation.isPending, saveState === "error");
 
   const config = statusConfig[edits.implementationStatus] || statusConfig.NOT_STARTED;
   const StatusIcon = config.icon;
 
   const typeConfig = isCir
-    ? { stripColor: "bg-purple-500", label: "CIR Control", icon: Shield, iconColor: "text-purple-500", badgeClass: "border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300" }
+    ? { stripColor: "bg-purple-500", label: "CIR", icon: Shield, iconColor: "text-purple-500", badgeClass: "border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300" }
     : isNis2Atomic
-      ? { stripColor: "bg-emerald-500", label: "NIS2 Atomic Control", icon: Target, iconColor: "text-emerald-500", badgeClass: "border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300" }
-      : { stripColor: "bg-blue-500", label: "NIS2 Objective", icon: ClipboardCheck, iconColor: "text-blue-500", badgeClass: "border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300" };
-
-  const TypeIcon = typeConfig.icon;
+      ? { stripColor: "bg-emerald-500", label: "Atomic", icon: Target, iconColor: "text-emerald-500", badgeClass: "border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300" }
+      : { stripColor: "bg-blue-500", label: "Objective", icon: ClipboardCheck, iconColor: "text-blue-500", badgeClass: "border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300" };
 
   return (
-    <Card data-testid={`control-card-${isCir ? "cir" : isNis2Atomic ? "nis2-atomic" : "nis2"}-${response.id}`}>
+    <Card
+      data-testid={`control-card-${isCir ? "cir" : isNis2Atomic ? "nis2-atomic" : "nis2"}-${response.id}`}
+      className={`transition-all ${hasChanges ? "ring-1 ring-blue-400/50" : ""} ${saveState === "saved" ? "ring-1 ring-green-400/50" : ""}`}
+    >
       <CardContent className="p-0">
         <div className="flex">
           <div className={`w-1 shrink-0 rounded-l-md ${typeConfig.stripColor}`} />
-          <div className="flex-1 p-4 space-y-4 min-w-0">
-            <div className="flex items-start gap-3">
-              <div className={`p-1.5 rounded-md ${config.bg} shrink-0 mt-0.5`}>
+          <div className="flex-1 min-w-0">
+            <button
+              type="button"
+              className="w-full text-left p-3 flex items-center gap-3 hover:bg-muted/30 transition-colors"
+              onClick={onToggleExpand}
+              data-testid={`button-toggle-control-${response.id}`}
+            >
+              <div className={`p-1.5 rounded-md ${config.bg} shrink-0`}>
                 <StatusIcon className={`w-4 h-4 ${config.color}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline" className={`text-[10px] ${typeConfig.badgeClass}`}>
-                    <TypeIcon className={`w-3 h-3 mr-1 ${typeConfig.iconColor}`} />
                     {typeConfig.label}
                   </Badge>
                   <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
-                  <span className="text-sm font-medium">{response.controlTitle}</span>
+                  <span className="text-sm font-medium truncate">{response.controlTitle}</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{response.controlDescription}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {saveState === "saving" && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />}
+                {saveState === "saved" && <Check className="w-3.5 h-3.5 text-green-500" />}
+                {hasChanges && saveState === "idle" && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}
+                {edits.maturityLevel > 0 && (
+                  <div className="hidden sm:flex gap-0.5">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <div
+                        key={i}
+                        className={`w-1.5 h-3 rounded-sm ${
+                          i < edits.maturityLevel
+                            ? edits.maturityLevel >= 4 ? "bg-green-500" : edits.maturityLevel >= 3 ? "bg-blue-500" : edits.maturityLevel >= 2 ? "bg-yellow-500" : "bg-orange-500"
+                            : "bg-muted"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+              </div>
+            </button>
+
+            {!isExpanded && (
+              <div className="px-3 pb-2 flex items-center gap-1">
+                <QuickStatusButtons
+                  currentStatus={edits.implementationStatus}
+                  onStatusChange={(status) => setEdits(prev => ({ ...prev, implementationStatus: status }))}
+                  size="compact"
+                />
+              </div>
+            )}
+
+            {isExpanded && (
+              <div className="px-4 pb-4 space-y-4">
+                <p className="text-xs text-muted-foreground">{response.controlDescription}</p>
                 {response.guidance && (
-                  <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md italic">
+                  <p className="text-xs text-muted-foreground p-2 bg-muted/50 rounded-md italic">
                     {response.guidance}
                   </p>
                 )}
-              </div>
-            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-10">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Implementation Status</Label>
-            <Select
-              value={edits.implementationStatus}
-              onValueChange={(val) => setEdits(prev => ({ ...prev, implementationStatus: val }))}
-            >
-              <SelectTrigger data-testid={`select-status-${response.id}`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NOT_STARTED">Not Started</SelectItem>
-                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                <SelectItem value="IMPLEMENTED">Implemented</SelectItem>
-                <SelectItem value="VERIFIED">Verified</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center justify-between">
-              <span>Maturity Level</span>
-              <span className="font-medium">{edits.maturityLevel}/5 - {maturityLabels[edits.maturityLevel]}</span>
-            </Label>
-            <div className="flex gap-1 pt-1" data-testid={`maturity-buttons-${response.id}`}>
-              {[0, 1, 2, 3, 4, 5].map((level) => {
-                const isActive = edits.maturityLevel === level;
-                const isFilled = level <= edits.maturityLevel && level > 0;
-                const fillColor = level >= 4 ? "bg-green-500 text-white" : level >= 3 ? "bg-blue-500 text-white" : level >= 2 ? "bg-yellow-500 text-white" : level >= 1 ? "bg-orange-500 text-white" : "";
-                return (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => setEdits(prev => ({ ...prev, maturityLevel: level }))}
-                    className={`flex-1 h-8 rounded-md text-xs font-medium border transition-all ${
-                      isActive
-                        ? `${fillColor || "bg-muted"} ring-2 ring-offset-1 ring-primary/50`
-                        : isFilled
-                          ? `${fillColor} opacity-70`
-                          : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                    }`}
-                    data-testid={`button-maturity-${response.id}-${level}`}
-                  >
-                    {level}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
-              <span>None</span>
-              <span>Optimized</span>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Evidence Confidence</Label>
-            <Select
-              value={edits.evidenceConfidence}
-              onValueChange={(val) => setEdits(prev => ({ ...prev, evidenceConfidence: val }))}
-            >
-              <SelectTrigger data-testid={`select-confidence-${response.id}`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NONE">None</SelectItem>
-                <SelectItem value="LOW">Low</SelectItem>
-                <SelectItem value="MEDIUM">Medium</SelectItem>
-                <SelectItem value="HIGH">High</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="pl-10">
-          <Label className="text-xs">Notes</Label>
-          <Textarea
-            value={edits.notes}
-            onChange={(e) => setEdits(prev => ({ ...prev, notes: e.target.value }))}
-            placeholder="Add implementation notes..."
-            className="mt-1.5 text-sm"
-            data-testid={`textarea-notes-${response.id}`}
-          />
-        </div>
-
-        {hasChanges && (
-          <div className="pl-10">
-            <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              data-testid={`button-save-${response.id}`}
-            >
-              <Save className="w-4 h-4 mr-1.5" />
-              {saveMutation.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-        )}
-
-        {!isAtomicControl && <div className="pl-10 space-y-2" data-testid={`tasks-section-${response.id}`}>
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <Label className="text-xs flex items-center gap-1.5">
-              <ListTodo className="w-3 h-3" />
-              Tasks ({controlTasks.length})
-            </Label>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTaskOpen(true)}
-              data-testid={`button-add-task-${response.id}`}
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Add Task
-            </Button>
-          </div>
-          {controlTasks.length > 0 ? (
-            <div className="space-y-1.5">
-              {controlTasks.map(task => {
-                const isDone = task.status === "DONE";
-                return (
-                  <div
-                    key={task.id}
-                    className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
-                    data-testid={`task-item-${response.id}-${task.id}`}
-                  >
-                    {isDone ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    )}
-                    <span className={`font-medium truncate flex-1 ${isDone ? "line-through text-muted-foreground" : ""}`}>
-                      {task.title}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] shrink-0">
-                      {task.priority}
-                    </Badge>
-                    <Badge variant={isDone ? "secondary" : "outline"} className="text-[10px] shrink-0">
-                      {task.status.replace("_", " ")}
-                    </Badge>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Status</Label>
+                    <QuickStatusButtons
+                      currentStatus={edits.implementationStatus}
+                      onStatusChange={(status) => setEdits(prev => ({ ...prev, implementationStatus: status }))}
+                    />
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
-              No tasks for this control yet.
-            </p>
-          )}
-          <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Task for Control</DialogTitle>
-                <DialogDescription>
-                  Create a task linked to "{response.controlTitle}" ({response.requirementCode}).
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div className="p-3 rounded-md bg-muted/50 text-sm space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
-                    <span className="font-medium">{response.controlTitle}</span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs flex items-center justify-between">
+                        <span>Maturity Level</span>
+                        <span className="font-medium">{edits.maturityLevel}/5 - {maturityLabels[edits.maturityLevel]}</span>
+                      </Label>
+                      <div className="flex gap-1" data-testid={`maturity-buttons-${response.id}`}>
+                        {[0, 1, 2, 3, 4, 5].map((level) => {
+                          const isActive = edits.maturityLevel === level;
+                          const isFilled = level <= edits.maturityLevel && level > 0;
+                          const fillColor = level >= 4 ? "bg-green-500 text-white" : level >= 3 ? "bg-blue-500 text-white" : level >= 2 ? "bg-yellow-500 text-white" : level >= 1 ? "bg-orange-500 text-white" : "";
+                          return (
+                            <button
+                              key={level}
+                              type="button"
+                              onClick={() => setEdits(prev => ({ ...prev, maturityLevel: level }))}
+                              className={`flex-1 h-8 rounded-md text-xs font-medium border transition-all ${
+                                isActive
+                                  ? `${fillColor || "bg-muted"} ring-2 ring-offset-1 ring-primary/50`
+                                  : isFilled
+                                    ? `${fillColor} opacity-70`
+                                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                              }`}
+                              data-testid={`button-maturity-${response.id}-${level}`}
+                            >
+                              {level}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
+                        <span>None</span>
+                        <span>Optimized</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Evidence Confidence</Label>
+                      <Select
+                        value={edits.evidenceConfidence}
+                        onValueChange={(val) => setEdits(prev => ({ ...prev, evidenceConfidence: val }))}
+                      >
+                        <SelectTrigger data-testid={`select-confidence-${response.id}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">None</SelectItem>
+                          <SelectItem value="LOW">Low</SelectItem>
+                          <SelectItem value="MEDIUM">Medium</SelectItem>
+                          <SelectItem value="HIGH">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Title <span className="text-red-500">*</span></Label>
-                  <Input
-                    value={taskTitle}
-                    onChange={(e) => setTaskTitle(e.target.value)}
-                    placeholder="Task title"
-                    data-testid={`input-task-title-${response.id}`}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea
-                    value={taskDescription}
-                    onChange={(e) => setTaskDescription(e.target.value)}
-                    placeholder="Task description"
-                    data-testid={`input-task-desc-${response.id}`}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Priority</Label>
-                  <Select value={taskPriority} onValueChange={setTaskPriority}>
-                    <SelectTrigger data-testid={`select-task-priority-${response.id}`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="LOW">Low</SelectItem>
-                      <SelectItem value="MEDIUM">Medium</SelectItem>
-                      <SelectItem value="HIGH">High</SelectItem>
-                      <SelectItem value="CRITICAL">Critical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  onClick={() => createTaskMutation.mutate()}
-                  disabled={!taskTitle || !validAssessmentId || createTaskMutation.isPending}
-                  className="w-full"
-                  data-testid={`button-submit-task-${response.id}`}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  {createTaskMutation.isPending ? "Creating..." : "Create Task"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>}
 
-        {!isAtomicControl && <div className="pl-10 space-y-2" data-testid={`evidence-section-${response.id}`}>
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <Label className="text-xs flex items-center gap-1.5">
-              <FileText className="w-3 h-3" />
-              Evidence ({controlEvidence.length})
-            </Label>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setUploadOpen(true)}
-              data-testid={`button-upload-evidence-${response.id}`}
-            >
-              <Upload className="w-3 h-3 mr-1" />
-              Upload
-            </Button>
-          </div>
-          {controlEvidence.length > 0 ? (
-            <div className="space-y-1.5">
-              {controlEvidence.map(ev => (
-                <div
-                  key={ev.id}
-                  className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
-                  data-testid={`evidence-item-${response.id}-${ev.id}`}
-                >
-                  <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="font-medium truncate flex-1">{ev.filename}</span>
-                  <Badge variant="outline" className="text-[10px] shrink-0">
-                    {ev.relatedType}
-                  </Badge>
-                  {(ev as any).lockedAt && (
-                    <Lock className="w-3 h-3 text-green-500 shrink-0" />
+                <div>
+                  {!showNotes && !edits.notes ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowNotes(true)}
+                      className="text-xs text-muted-foreground"
+                      data-testid={`button-show-notes-${response.id}`}
+                    >
+                      <StickyNote className="w-3 h-3 mr-1.5" />
+                      Add notes
+                    </Button>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Notes</Label>
+                      <Textarea
+                        value={edits.notes}
+                        onChange={(e) => setEdits(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Add implementation notes..."
+                        className="text-sm min-h-[60px]"
+                        data-testid={`textarea-notes-${response.id}`}
+                      />
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
-              No evidence uploaded for this control yet.
-            </p>
-          )}
-          <Dialog open={uploadOpen} onOpenChange={(v) => { setUploadOpen(v); if (!v) setSelectedFile(null); }}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Upload Evidence for Control</DialogTitle>
-                <DialogDescription>
-                  Upload a file to link as evidence for "{response.controlTitle}" ({response.requirementCode}).
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div className="p-3 rounded-md bg-muted/50 text-sm space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
-                    <span className="font-medium">{response.controlTitle}</span>
+
+                <div className="flex items-center gap-2 pt-1">
+                  {saveState === "saving" && (
+                    <span className="text-xs text-blue-500 flex items-center gap-1.5">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Auto-saving...
+                    </span>
+                  )}
+                  {saveState === "saved" && (
+                    <span className="text-xs text-green-500 flex items-center gap-1.5">
+                      <Check className="w-3 h-3" /> Saved
+                    </span>
+                  )}
+                  {saveState === "error" && (
+                    <span className="text-xs text-red-500 flex items-center gap-1.5">
+                      <AlertCircle className="w-3 h-3" /> Save failed
+                    </span>
+                  )}
+                  {hasChanges && (saveState === "idle" || saveState === "error") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setSaveState("idle"); doSave(); }}
+                      data-testid={`button-save-${response.id}`}
+                    >
+                      <Save className="w-3.5 h-3.5 mr-1.5" />
+                      {saveState === "error" ? "Retry" : "Save Now"}
+                    </Button>
+                  )}
+                </div>
+
+                {!isAtomicControl && (
+                  <div className="flex items-center gap-2 pt-1 border-t">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setTaskOpen(true)}
+                      data-testid={`button-add-task-${response.id}`}
+                    >
+                      <ListTodo className="w-3.5 h-3.5 mr-1.5" />
+                      Tasks ({controlTasks.length})
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setUploadOpen(true)}
+                      data-testid={`button-upload-evidence-${response.id}`}
+                    >
+                      <Upload className="w-3.5 h-3.5 mr-1.5" />
+                      Evidence ({controlEvidence.length})
+                    </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">This evidence will be linked to this specific control.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`evidence-file-${response.id}`}>Select File</Label>
-                  <Input
-                    id={`evidence-file-${response.id}`}
-                    type="file"
-                    accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.svg"
-                    data-testid={`input-evidence-file-${response.id}`}
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  />
-                </div>
-                <Button
-                  onClick={() => selectedFile && uploadMutation.mutate(selectedFile)}
-                  disabled={!selectedFile || uploadMutation.isPending}
-                  className="w-full"
-                  data-testid={`button-submit-evidence-${response.id}`}
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  {uploadMutation.isPending ? "Uploading..." : "Upload Evidence"}
-                </Button>
+                )}
+
+                {!isAtomicControl && controlTasks.length > 0 && (
+                  <div className="space-y-1.5" data-testid={`tasks-section-${response.id}`}>
+                    {controlTasks.map(task => {
+                      const isDone = task.status === "DONE";
+                      return (
+                        <div
+                          key={task.id}
+                          className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
+                          data-testid={`task-item-${response.id}-${task.id}`}
+                        >
+                          {isDone ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                          ) : (
+                            <Circle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          )}
+                          <span className={`font-medium truncate flex-1 ${isDone ? "line-through text-muted-foreground" : ""}`}>
+                            {task.title}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            {task.priority}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {!isAtomicControl && controlEvidence.length > 0 && (
+                  <div className="space-y-1.5" data-testid={`evidence-section-${response.id}`}>
+                    {controlEvidence.map(ev => (
+                      <div
+                        key={ev.id}
+                        className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
+                        data-testid={`evidence-item-${response.id}-${ev.id}`}
+                      >
+                        <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="font-medium truncate flex-1">{ev.filename}</span>
+                        {(ev as any).lockedAt && (
+                          <Lock className="w-3 h-3 text-green-500 shrink-0" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Task for Control</DialogTitle>
+                      <DialogDescription>
+                        Create a task linked to "{response.controlTitle}" ({response.requirementCode}).
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <Label>Title <span className="text-red-500">*</span></Label>
+                        <Input
+                          value={taskTitle}
+                          onChange={(e) => setTaskTitle(e.target.value)}
+                          placeholder="Task title"
+                          data-testid={`input-task-title-${response.id}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Description</Label>
+                        <Textarea
+                          value={taskDescription}
+                          onChange={(e) => setTaskDescription(e.target.value)}
+                          placeholder="Task description"
+                          data-testid={`input-task-desc-${response.id}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Priority</Label>
+                        <Select value={taskPriority} onValueChange={setTaskPriority}>
+                          <SelectTrigger data-testid={`select-task-priority-${response.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="LOW">Low</SelectItem>
+                            <SelectItem value="MEDIUM">Medium</SelectItem>
+                            <SelectItem value="HIGH">High</SelectItem>
+                            <SelectItem value="CRITICAL">Critical</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        onClick={() => createTaskMutation.mutate()}
+                        disabled={!taskTitle || !validAssessmentId || createTaskMutation.isPending}
+                        className="w-full"
+                        data-testid={`button-submit-task-${response.id}`}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {createTaskMutation.isPending ? "Creating..." : "Create Task"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={uploadOpen} onOpenChange={(v) => { setUploadOpen(v); if (!v) setSelectedFile(null); }}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Upload Evidence</DialogTitle>
+                      <DialogDescription>
+                        Upload a file as evidence for "{response.controlTitle}" ({response.requirementCode}).
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <Label htmlFor={`evidence-file-${response.id}`}>Select File</Label>
+                        <Input
+                          id={`evidence-file-${response.id}`}
+                          type="file"
+                          accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.svg"
+                          data-testid={`input-evidence-file-${response.id}`}
+                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        />
+                      </div>
+                      <Button
+                        onClick={() => selectedFile && uploadMutation.mutate(selectedFile)}
+                        disabled={!selectedFile || uploadMutation.isPending}
+                        className="w-full"
+                        data-testid={`button-submit-evidence-${response.id}`}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploadMutation.isPending ? "Uploading..." : "Upload Evidence"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>}
+            )}
           </div>
         </div>
       </CardContent>
@@ -623,6 +776,9 @@ export default function AssessmentDetail({ id }: { id: string }) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [controlTypeFilter, setControlTypeFilter] = useState<ControlTypeFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [expandAll, setExpandAll] = useState(false);
+  const controlRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const { data, isLoading } = useQuery<AssessmentDetail>({
     queryKey: ["/api/assessments", id],
@@ -720,6 +876,49 @@ export default function AssessmentDetail({ id }: { id: string }) {
     );
   }, [filteredResponses, groupMode]);
 
+  const toggleCard = useCallback((cardKey: string) => {
+    setExpandedCards(prev => {
+      const next = new Set(prev);
+      if (next.has(cardKey)) {
+        next.delete(cardKey);
+      } else {
+        next.add(cardKey);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleExpandAll = useCallback(() => {
+    if (expandAll) {
+      setExpandedCards(new Set());
+      setExpandAll(false);
+    } else {
+      const allKeys = new Set(filteredResponses.map(r => `${r.source || "NIS2"}-${r.id}`));
+      setExpandedCards(allKeys);
+      setExpandAll(true);
+    }
+  }, [expandAll, filteredResponses]);
+
+  const jumpToNextIncomplete = useCallback(() => {
+    const nextIncomplete = filteredResponses.find(r => r.implementationStatus === "NOT_STARTED");
+    if (!nextIncomplete) {
+      const nextInProgress = filteredResponses.find(r => r.implementationStatus === "IN_PROGRESS");
+      if (nextInProgress) {
+        const key = `${nextInProgress.source || "NIS2"}-${nextInProgress.id}`;
+        setExpandedCards(prev => new Set(prev).add(key));
+        controlRefs.current.get(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        toast({ title: "All done", description: "All controls have been completed." });
+      }
+      return;
+    }
+    const key = `${nextIncomplete.source || "NIS2"}-${nextIncomplete.id}`;
+    setExpandedCards(prev => new Set(prev).add(key));
+    setTimeout(() => {
+      controlRefs.current.get(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+  }, [filteredResponses, toast]);
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-4">
@@ -752,6 +951,66 @@ export default function AssessmentDetail({ id }: { id: string }) {
           <p className="text-muted-foreground text-sm mt-0.5">
             {data.scope || "Full NIS2 compliance assessment"}
           </p>
+        </div>
+      </div>
+
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b -mx-6 px-6 py-3 space-y-2" data-testid="sticky-progress-bar">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">{stats.completionPct}%</span>
+              <span className="text-xs text-muted-foreground">complete</span>
+            </div>
+            <div className="w-32 sm:w-48">
+              <Progress value={stats.completionPct} className="h-2" />
+            </div>
+            <div className="hidden md:flex items-center gap-3">
+              {Object.entries(statusConfig).map(([key, config]) => {
+                const count = allResponses.filter(r => r.implementationStatus === key).length;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setStatusFilter(statusFilter === key as StatusFilter ? "ALL" : key as StatusFilter)}
+                    className={`flex items-center gap-1 text-xs cursor-pointer transition-opacity ${statusFilter === key ? "opacity-100 font-medium" : "opacity-60 hover:opacity-100"}`}
+                    data-testid={`button-status-count-${key.toLowerCase()}`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${config.color.replace("text-", "bg-")}`} />
+                    <span>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={jumpToNextIncomplete}
+                  data-testid="button-jump-next"
+                >
+                  <ArrowDown className="w-3.5 h-3.5 mr-1.5" />
+                  <span className="hidden sm:inline">Next</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Jump to next incomplete control</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleExpandAll}
+                  data-testid="button-expand-all"
+                >
+                  <ChevronsDown className={`w-3.5 h-3.5 transition-transform ${expandAll ? "rotate-180" : ""}`} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{expandAll ? "Collapse all" : "Expand all"}</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </div>
 
@@ -801,13 +1060,12 @@ export default function AssessmentDetail({ id }: { id: string }) {
                   <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2ObjectiveCount}</Badge>
                 </div>
                 <p className="text-[10px] text-muted-foreground leading-tight">
-                  High-level goals from the NIS2 Directive (2022/2555). These define what your organisation must achieve for compliance.
+                  High-level goals from the NIS2 Directive (2022/2555).
                 </p>
                 <Progress
                   value={stats.nis2ObjectiveCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_OBJECTIVE" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2ObjectiveCount) * 100 : 0}
                   className="h-1.5"
                 />
-                <p className="text-[9px] text-blue-600 dark:text-blue-400 font-medium">Source: NIS2 Directive</p>
               </CardContent>
             </Card>
             {(stats.nis2AtomicCount > 0) && (
@@ -819,13 +1077,12 @@ export default function AssessmentDetail({ id }: { id: string }) {
                     <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2AtomicCount}</Badge>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    Detailed, granular requirements from the NIS2 Regulation. A separate set of controls filtered by your entity type and subsector.
+                    Detailed, granular requirements from the NIS2 Regulation.
                   </p>
                   <Progress
                     value={stats.nis2AtomicCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_2022_2555" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2AtomicCount) * 100 : 0}
                     className="h-1.5"
                   />
-                  <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">Source: Directive 2022/2555</p>
                 </CardContent>
               </Card>
             )}
@@ -838,13 +1095,12 @@ export default function AssessmentDetail({ id }: { id: string }) {
                     <Badge variant="outline" className="text-[10px] ml-auto">{stats.cirCount}</Badge>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    Sector-specific technical requirements from the Implementing Regulation. Applies only to digital infrastructure, ICT, and digital providers.
+                    Sector-specific technical requirements from the Implementing Regulation.
                   </p>
                   <Progress
                     value={stats.cirCount > 0 ? (allResponses.filter(r => r.sourceKey === "CIR_2024_2690" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.cirCount) * 100 : 0}
                     className="h-1.5"
                   />
-                  <p className="text-[9px] text-purple-600 dark:text-purple-400 font-medium">Source: CIR 2024/2690</p>
                 </CardContent>
               </Card>
             )}
@@ -859,23 +1115,6 @@ export default function AssessmentDetail({ id }: { id: string }) {
             <span className="text-muted-foreground">{stats.maturityAvg.toFixed(1)} / 5.0 ({maturityLabels[Math.round(stats.maturityAvg)] || "None"})</span>
           </div>
           <MaturityBar value={Math.round(stats.maturityAvg)} />
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">Completion Progress</span>
-            <span className="text-muted-foreground">{stats.completionPct}%</span>
-          </div>
-          <Progress value={stats.completionPct} className="h-2.5" />
-          <div className="flex items-center gap-4 flex-wrap pt-1">
-            {Object.entries(statusConfig).map(([key, config]) => {
-              const count = allResponses.filter(r => r.implementationStatus === key).length;
-              return (
-                <div key={key} className="flex items-center gap-1.5 text-xs">
-                  <div className={`w-2.5 h-2.5 rounded-full ${config.color.replace("text-", "bg-")}`} />
-                  <span className="text-muted-foreground">{config.label}</span>
-                  <span className="font-medium">{count}</span>
-                </div>
-              );
-            })}
-          </div>
         </CardContent>
       </Card>
 
@@ -951,7 +1190,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <AlertCircle className="w-10 h-10 text-muted-foreground/40 mb-3" />
             <p className="text-sm text-muted-foreground">No controls match your filters</p>
-            <Button variant="ghost" className="mt-2" onClick={() => { setStatusFilter("ALL"); setSearchQuery(""); }}>
+            <Button variant="ghost" className="mt-2" onClick={() => { setStatusFilter("ALL"); setSearchQuery(""); setControlTypeFilter("ALL"); }} data-testid="button-clear-filters">
               Clear filters
             </Button>
           </CardContent>
@@ -962,9 +1201,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
             const groupImplemented = responses.filter(
               r => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED",
             ).length;
-            const groupMaturity = responses.length > 0
-              ? parseFloat((responses.reduce((sum, r) => sum + r.maturityLevel, 0) / responses.length).toFixed(1))
-              : 0;
+            const groupNotStarted = responses.filter(r => r.implementationStatus === "NOT_STARTED").length;
             const groupCompletionPct = responses.length > 0 ? Math.round((groupImplemented / responses.length) * 100) : 0;
 
             const hasObjectives = responses.some(r => r.sourceKey === "NIS2_OBJECTIVE" || (!r.sourceKey && r.source !== "CIR"));
@@ -984,26 +1221,39 @@ export default function AssessmentDetail({ id }: { id: string }) {
                     <Badge variant="outline" className="text-xs">
                       {groupImplemented}/{responses.length}
                     </Badge>
+                    {groupNotStarted > 0 && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {groupNotStarted} remaining
+                      </Badge>
+                    )}
                     <div className="hidden sm:flex items-center gap-2 ml-auto mr-4">
-                      <span className="text-xs text-muted-foreground">Maturity {groupMaturity.toFixed(1)}</span>
                       <div className="w-20">
                         <Progress value={groupCompletionPct} className="h-1.5" />
                       </div>
-                      <span className="text-xs text-muted-foreground">{groupCompletionPct}%</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">{groupCompletionPct}%</span>
                     </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="space-y-3 pb-2">
-                    {responses.map((response) => (
-                      <ControlCard
-                        key={`${response.source || "NIS2"}-${response.id}`}
-                        response={response}
-                        assessmentId={id}
-                        controlEvidence={getControlEvidence(response.controlObjectiveId)}
-                        controlTasks={getControlTasks(response.controlObjectiveId)}
-                      />
-                    ))}
+                  <div className="space-y-2 pb-2">
+                    {responses.map((response) => {
+                      const cardKey = `${response.source || "NIS2"}-${response.id}`;
+                      return (
+                        <div
+                          key={cardKey}
+                          ref={(el) => { if (el) controlRefs.current.set(cardKey, el); }}
+                        >
+                          <ControlCard
+                            response={response}
+                            assessmentId={id}
+                            controlEvidence={getControlEvidence(response.controlObjectiveId)}
+                            controlTasks={getControlTasks(response.controlObjectiveId)}
+                            isExpanded={expandedCards.has(cardKey)}
+                            onToggleExpand={() => toggleCard(cardKey)}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </AccordionContent>
               </AccordionItem>
