@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ import {
 } from "lucide-react";
 import type { Task } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 
 type TenantUser = {
   id: number;
@@ -242,6 +242,15 @@ export default function Tasks() {
   const [deletingTask, setDeletingTask] = useState<EnrichedTask | null>(null);
   const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
 
+  const searchString = useSearch();
+  const highlightedTaskId = useMemo(() => {
+    const params = new URLSearchParams(searchString);
+    const t = params.get("task");
+    return t ? parseInt(t) : null;
+  }, [searchString]);
+  const taskRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const didScrollRef = useRef(false);
+
   const { toast } = useToast();
 
   const { data: tasks, isLoading } = useQuery<EnrichedTask[]>({
@@ -259,6 +268,21 @@ export default function Tasks() {
   const { data: tenantUsers } = useQuery<TenantUser[]>({
     queryKey: ["/api/tenant-users"],
   });
+
+  useEffect(() => {
+    if (highlightedTaskId && tasks && !didScrollRef.current) {
+      setExpandedTaskId(highlightedTaskId);
+      didScrollRef.current = true;
+      setTimeout(() => {
+        const el = taskRefs.current[highlightedTaskId];
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("ring-2", "ring-primary");
+          setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 3000);
+        }
+      }, 200);
+    }
+  }, [highlightedTaskId, tasks]);
 
   const activeAssessments = useMemo(() => {
     if (!assessments) return [];
@@ -694,7 +718,8 @@ export default function Tasks() {
             return (
               <Card
                 key={task.id}
-                className={`transition-colors ${isExpanded ? "ring-1 ring-primary/20" : ""}`}
+                ref={(el: HTMLDivElement | null) => { taskRefs.current[task.id] = el; }}
+                className={`transition-all ${isExpanded ? "ring-1 ring-primary/20" : ""}`}
                 data-testid={`card-task-${task.id}`}
               >
                 <CardContent className="p-0">

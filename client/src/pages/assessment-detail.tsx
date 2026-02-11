@@ -51,9 +51,10 @@ import {
   Loader2,
   Check,
   StickyNote,
+  ExternalLink,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useLocation, useSearch } from "wouter";
+import { useLocation, useSearch, Link } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -662,9 +663,10 @@ function ControlCard({
                     {controlTasks.map(task => {
                       const isDone = task.status === "DONE";
                       return (
-                        <div
+                        <Link
                           key={task.id}
-                          className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
+                          href={`/tasks?task=${task.id}`}
+                          className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs hover-elevate cursor-pointer"
                           data-testid={`task-item-${response.id}-${task.id}`}
                         >
                           {isDone ? (
@@ -678,7 +680,8 @@ function ControlCard({
                           <Badge variant="outline" className="text-[10px] shrink-0">
                             {task.priority}
                           </Badge>
-                        </div>
+                          <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                        </Link>
                       );
                     })}
                   </div>
