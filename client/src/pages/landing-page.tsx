@@ -466,11 +466,11 @@ export default function LandingPage() {
             </div>
 
             <div className="hidden md:flex items-center gap-2">
-              <a href="#features" className="text-slate-400 text-sm px-3 py-2 rounded-md transition-colors" style={{ textDecoration: "none" }}>Features</a>
-              <a href="#preview" className="text-slate-400 text-sm px-3 py-2 rounded-md transition-colors" style={{ textDecoration: "none" }}>Preview</a>
-              <a href="#how-it-works" className="text-slate-400 text-sm px-3 py-2 rounded-md transition-colors" style={{ textDecoration: "none" }}>How It Works</a>
-              <a href="#compliance" className="text-slate-400 text-sm px-3 py-2 rounded-md transition-colors" style={{ textDecoration: "none" }}>Security</a>
-              <a href="#contact" className="text-slate-400 text-sm px-3 py-2 rounded-md transition-colors" style={{ textDecoration: "none" }}>Contact</a>
+              <a href="#features" className="text-slate-400 text-sm px-3 py-2 rounded-md" style={{ textDecoration: "none" }} data-testid="link-nav-features">Features</a>
+              <a href="#preview" className="text-slate-400 text-sm px-3 py-2 rounded-md" style={{ textDecoration: "none" }} data-testid="link-nav-preview">Preview</a>
+              <a href="#how-it-works" className="text-slate-400 text-sm px-3 py-2 rounded-md" style={{ textDecoration: "none" }} data-testid="link-nav-how-it-works">How It Works</a>
+              <a href="#compliance" className="text-slate-400 text-sm px-3 py-2 rounded-md" style={{ textDecoration: "none" }} data-testid="link-nav-security">Security</a>
+              <a href="#contact" className="text-slate-400 text-sm px-3 py-2 rounded-md" style={{ textDecoration: "none" }} data-testid="link-nav-contact">Contact</a>
             </div>
 
             <div className="flex items-center gap-3">
@@ -528,7 +528,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 onClick={() => navigate("/register")}
-                className="bg-blue-600 text-white border-blue-500 px-8"
+                className="bg-blue-600 text-white border-blue-500"
                 data-testid="button-hero-get-started"
               >
                 Start Compliance Journey
@@ -576,7 +576,7 @@ export default function LandingPage() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="group p-6 rounded-lg bg-white/[0.03] border border-white/[0.06] transition-all duration-300"
+                className="group p-6 rounded-lg bg-white/[0.03] border border-white/[0.06]"
                 data-testid={`feature-card-${feature.title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`}
               >
                 <div className={`w-11 h-11 rounded-lg bg-gradient-to-br ${feature.color} border border-white/[0.08] flex items-center justify-center mb-4`}>
@@ -668,7 +668,7 @@ export default function LandingPage() {
             {processSteps.map((step) => (
               <div
                 key={step.step}
-                className="relative p-6 rounded-lg bg-white/[0.03] border border-white/[0.06] transition-all duration-300"
+                className="relative p-6 rounded-lg bg-white/[0.03] border border-white/[0.06]"
                 data-testid={`step-${step.step}`}
               >
                 <div className="flex items-center gap-3 mb-4">
@@ -744,7 +744,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 onClick={() => navigate("/register")}
-                className="bg-blue-600 text-white border-blue-500 px-8"
+                className="bg-blue-600 text-white border-blue-500"
                 data-testid="button-cta-register"
               >
                 Create Your Account
@@ -787,9 +787,9 @@ export default function LandingPage() {
             <div>
               <h4 className="text-white text-sm font-semibold mb-4">Platform</h4>
               <div className="space-y-2.5">
-                <a href="#features" className="block text-slate-400 text-sm" style={{ textDecoration: "none" }}>Features</a>
-                <a href="#preview" className="block text-slate-400 text-sm" style={{ textDecoration: "none" }}>Preview</a>
-                <a href="#compliance" className="block text-slate-400 text-sm" style={{ textDecoration: "none" }}>Security</a>
+                <a href="#features" className="block text-slate-400 text-sm" style={{ textDecoration: "none" }} data-testid="link-footer-features">Features</a>
+                <a href="#preview" className="block text-slate-400 text-sm" style={{ textDecoration: "none" }} data-testid="link-footer-preview">Preview</a>
+                <a href="#compliance" className="block text-slate-400 text-sm" style={{ textDecoration: "none" }} data-testid="link-footer-security">Security</a>
                 <button onClick={() => navigate("/login")} className="block text-slate-400 text-sm" data-testid="link-footer-login">Sign In</button>
                 <button onClick={() => navigate("/register")} className="block text-slate-400 text-sm" data-testid="link-footer-register">Get Started</button>
               </div>
