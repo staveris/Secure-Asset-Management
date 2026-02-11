@@ -1184,6 +1184,18 @@ export async function registerRoutes(
 
     const assessmentTasks = await storage.getTasksByAssessment(id);
 
+    const taskAtomicLinksForAssessment = new Map<number, number>();
+    for (const t of assessmentTasks) {
+      const links = await storage.getTaskAtomicLinks(t.id);
+      if (links.length > 0) {
+        taskAtomicLinksForAssessment.set(t.id, links[0].atomicControlId);
+      }
+    }
+    const enrichedTasks = assessmentTasks.map((t) => ({
+      ...t,
+      atomicControlId: taskAtomicLinksForAssessment.get(t.id) || null,
+    }));
+
     let atomicInfo: any = null;
     const linkedAtomic = await storage.getAtomicAssessmentByParent(id);
     if (linkedAtomic) {
@@ -1229,7 +1241,7 @@ export async function registerRoutes(
       status: assessment!.status,
       createdAt: assessment!.createdAt,
       responses: enrichedResponses,
-      tasks: assessmentTasks,
+      tasks: enrichedTasks,
       cirInfo: atomicInfo,
     });
   });
@@ -1428,9 +1440,9 @@ export async function registerRoutes(
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
-    const { title, description, priority, dueDate, controlObjectiveId, assessmentId, ownerUserId } = req.body;
+    const { title, description, priority, dueDate, controlObjectiveId, assessmentId, ownerUserId, atomicControlId } = req.body;
     if (!title) return res.status(400).json({ message: "Title is required" });
-    if (!controlObjectiveId) return res.status(400).json({ message: "Control objective is required" });
+    if (!controlObjectiveId && !atomicControlId) return res.status(400).json({ message: "A control objective or atomic control is required" });
     if (!assessmentId) return res.status(400).json({ message: "Assessment is required" });
 
     const assessment = await storage.getAssessment(assessmentId);
@@ -1449,6 +1461,21 @@ export async function registerRoutes(
       assigneeId = ownerUserId;
     }
 
+    if (atomicControlId) {
+      const allAtomicControls = await storage.getAllAtomicControls();
+      const atomicCtrl = allAtomicControls.find(c => c.id === atomicControlId);
+      if (!atomicCtrl) {
+        return res.status(400).json({ message: "Invalid atomic control" });
+      }
+      const linkedAtomic = await storage.getAtomicAssessmentByParent(assessmentId);
+      if (!linkedAtomic) {
+        return res.status(400).json({ message: "No atomic assessment linked to this assessment" });
+      }
+      if (linkedAtomic.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+
     const task = await storage.createTask({
       tenantId: user.tenantId,
       title,
@@ -1457,9 +1484,16 @@ export async function registerRoutes(
       dueDate: dueDate ? new Date(dueDate) : null,
       status: "TODO",
       ownerUserId: assigneeId,
-      controlObjectiveId,
+      controlObjectiveId: controlObjectiveId || undefined,
       assessmentId,
     });
+
+    if (atomicControlId) {
+      await storage.createTaskAtomicLink({
+        taskId: task.id,
+        atomicControlId,
+      });
+    }
 
     await storage.createAuditLog({
       tenantId: user.tenantId,

@@ -289,13 +289,18 @@ function ControlCard({
   const createTaskMutation = useMutation({
     mutationFn: async () => {
       if (!validAssessmentId) throw new Error("Invalid assessment");
-      await apiRequest("POST", "/api/tasks", {
+      const payload: Record<string, any> = {
         title: taskTitle,
         description: taskDescription || null,
         priority: taskPriority,
-        controlObjectiveId: response.controlObjectiveId,
         assessmentId: validAssessmentId,
-      });
+      };
+      if (isAtomicControl && response.atomicControlId) {
+        payload.atomicControlId = response.atomicControlId;
+      } else {
+        payload.controlObjectiveId = response.controlObjectiveId;
+      }
+      await apiRequest("POST", "/api/tasks", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
@@ -632,17 +637,15 @@ function ControlCard({
                 </div>
 
                 <div className="flex items-center gap-2 pt-1 border-t">
-                  {!isAtomicControl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setTaskOpen(true)}
-                      data-testid={`button-add-task-${response.id}`}
-                    >
-                      <ListTodo className="w-3.5 h-3.5 mr-1.5" />
-                      Tasks ({controlTasks.length})
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTaskOpen(true)}
+                    data-testid={`button-add-task-${response.id}`}
+                  >
+                    <ListTodo className="w-3.5 h-3.5 mr-1.5" />
+                    Tasks ({controlTasks.length})
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -654,7 +657,7 @@ function ControlCard({
                   </Button>
                 </div>
 
-                {!isAtomicControl && controlTasks.length > 0 && (
+                {controlTasks.length > 0 && (
                   <div className="space-y-1.5" data-testid={`tasks-section-${response.id}`}>
                     {controlTasks.map(task => {
                       const isDone = task.status === "DONE";
@@ -849,8 +852,12 @@ export default function AssessmentDetail({ id }: { id: string }) {
     }, 300);
   }, [data, allResponses, searchString]);
 
-  const getControlTasks = (controlObjectiveId: number | undefined): Task[] => {
-    if (!data?.tasks || !controlObjectiveId) return [];
+  const getControlTasks = (controlObjectiveId: number | undefined, atomicControlId?: number): Task[] => {
+    if (!data?.tasks) return [];
+    if (atomicControlId) {
+      return data.tasks.filter((t: any) => t.atomicControlId === atomicControlId);
+    }
+    if (!controlObjectiveId) return [];
     return data.tasks.filter(t => t.controlObjectiveId === controlObjectiveId);
   };
 
@@ -1322,7 +1329,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
                             response={response}
                             assessmentId={id}
                             controlEvidence={getControlEvidence(response.controlObjectiveId, response.atomicControlId)}
-                            controlTasks={getControlTasks(response.controlObjectiveId)}
+                            controlTasks={getControlTasks(response.controlObjectiveId, response.atomicControlId)}
                             isExpanded={expandedCards.has(cardKey)}
                             onToggleExpand={() => toggleCard(cardKey)}
                           />
