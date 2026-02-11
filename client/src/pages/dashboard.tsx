@@ -43,6 +43,9 @@ import {
   Shield,
   Layers,
   Scale,
+  Truck,
+  ShieldAlert,
+  AlertTriangle,
 } from "lucide-react";
 
 interface StatusItem {
@@ -825,6 +828,72 @@ export default function Dashboard() {
             </Card>
           )}
         </div>
+      </div>
+
+      <SupplierRiskSummary />
+    </div>
+  );
+}
+
+function SupplierRiskSummary() {
+  const { data, isLoading } = useQuery<{
+    totalSuppliers: number;
+    criticalSuppliers: number;
+    assessedCriticalPct: number;
+    overdueReviews: number;
+    highRiskSuppliers: number;
+    openSupplierIncidents: number;
+    totalAssessments: number;
+    pendingExceptions: number;
+  }>({
+    queryKey: ["/api/supplier-risk-summary"],
+  });
+
+  if (isLoading) return <Skeleton className="h-32" />;
+  if (!data || data.totalSuppliers === 0) return null;
+
+  return (
+    <div className="space-y-4" data-testid="supplier-risk-summary">
+      <div className="flex items-center gap-2">
+        <Truck className="w-5 h-5 text-muted-foreground" />
+        <h2 className="text-lg font-semibold">Supply Chain Risk Overview</h2>
+        <Badge variant="outline" className="text-xs">Art. 21(2)(d)</Badge>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Total Suppliers</p>
+            <p className="text-2xl font-bold mt-1" data-testid="text-total-suppliers">{data.totalSuppliers}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{data.criticalSuppliers} high/critical</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Critical Assessed</p>
+            <p className="text-2xl font-bold mt-1" data-testid="text-assessed-critical">{data.assessedCriticalPct}%</p>
+            <p className="text-xs text-muted-foreground mt-0.5">of high/critical suppliers</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">High Risk</p>
+            </div>
+            <p className="text-2xl font-bold mt-1" data-testid="text-high-risk">{data.highRiskSuppliers}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{data.overdueReviews} overdue reviews</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Open Incidents</p>
+            </div>
+            <p className="text-2xl font-bold mt-1" data-testid="text-open-incidents">{data.openSupplierIncidents}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{data.pendingExceptions} pending exceptions</p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

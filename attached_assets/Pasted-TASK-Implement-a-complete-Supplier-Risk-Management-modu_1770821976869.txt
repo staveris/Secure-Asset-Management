@@ -1,0 +1,277 @@
+TASK
+Implement a complete “Supplier Risk Management” module that fully supports NIS2 supply-chain obligations:
+- Article 21(2)(d): supply-chain security (direct suppliers/service providers)
+- Article 21(3): consider supplier vulnerabilities + quality of cybersecurity practices (incl. secure development)
+- Article 22: coordinated EU supply-chain risk assessments (ingestion + impact + actions)
+Also support Commission Implementing Regulation (EU) 2024/2690 Annex supply chain controls (5.1/5.2) WHEN tenant profile indicates CIR applies (DNS/TLD/Cloud/DC/CDN/MSP/MSSP/Online platforms/Trust).
+
+IMPORTANT CONSTRAINTS
+- This is an ADD-ON. Do NOT rewrite the whole platform.
+- Backward compatible: existing suppliers, assessments, dashboards must keep working.
+- Multi-tenant isolation and security are mandatory.
+- All actions are auditable.
+- Provide “audit-grade” evidence trails.
+
+STACK ASSUMPTION
+Use the existing stack in the repo. If it’s Next.js + Prisma + Postgres, keep it.
+If it differs, adapt but maintain the same functional outcomes.
+
+------------------------------------------------------------
+1) DATA MODEL (ADDITIVE MIGRATIONS)
+------------------------------------------------------------
+Keep the existing Supplier table as-is and EXTEND it with additive columns (safe defaults),
+and add new tables for structured supplier risk governance.
+
+A) Extend Supplier (existing)
+Add optional fields with defaults:
+- supplierType enum: ICT, CLOUD, MSP, MSSP, SOFTWARE, HARDWARE, OUTSOURCER, TELCO, CONSULTING, OTHER
+- legalName, taxIdOrRegNo, country, website
+- primaryContactName, primaryContactEmail, securityContactEmail, incidentHotline
+- contractStatus enum: NONE, DRAFT, ACTIVE, EXPIRED, TERMINATED
+- contractStartDate, contractEndDate, renewalDate
+- accessLevel enum: NONE, NETWORK, VPN, PRIVILEGED, APPLICATION, DATA
+- dataTypes JSON (e.g., personal, health, financial, trade_secrets)
+- dataClassification enum: PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED
+- subprocessorsAllowed boolean default false
+- lastReviewAt, nextReviewDueAt
+- inherentRiskScore int default 0
+- residualRiskScore int default 0
+- assuranceLevel enum: NONE, BASIC, STANDARD, ADVANCED
+- status enum: ACTIVE, INACTIVE, ONBOARDING
+Ensure existing code remains valid (all new fields nullable or defaulted).
+
+B) New tables (Prisma models)
+1. SupplierServiceDependency
+- id, tenantId, supplierId
+- dependencyType enum: SERVICE, SYSTEM, APPLICATION, DATASET, PROCESS, LOCATION
+- name
+- criticalityImpact enum: LOW, MEDIUM, HIGH, CRITICAL
+- description
+Purpose: map each supplier to “what they touch” (services/systems/data/processes) for audit-grade traceability.
+
+2. SupplierQuestionnaireTemplate (library, admin-managed)
+- id, key, name, version, appliesTo JSON (supplierType/accessLevel/criticality), isActive
+3. SupplierQuestionnaireQuestion
+- id, templateId, section, questionText, responseType enum (Y/N, SCALE, TEXT, MULTI), weight int
+- evidenceRequired boolean, evidenceTypes JSON
+- nis2Ref JSON (e.g., ["Art21(2)(d)","Art21(3)"])
+- cirRef JSON optional (e.g., ["ANNEX-5.1","ANNEX-5.2"])
+4. SupplierAssessment
+- id, tenantId, supplierId, templateId, status enum: DRAFT, IN_PROGRESS, SUBMITTED, APPROVED
+- createdBy, createdAt, submittedAt, approvedBy, approvedAt
+- score float, riskRating enum: LOW, MEDIUM, HIGH, CRITICAL
+5. SupplierAssessmentResponse
+- id, supplierAssessmentId, questionId, answer JSON, score float, notes
+- evidenceLinkId nullable (link to existing Evidence items if your platform has Evidence)
+- answeredBy, answeredAt
+
+6. SupplierSecurityRequirement (contractual/technical requirements checklist)
+- id, tenantId, supplierId
+- requirementKey (e.g., MFA_ADMIN, INCIDENT_NOTIFY_24H, LOG_RETENTION_180D, VULN_SLA_30D, SBOM_AVAILABLE, SECURE_SDLC)
+- title, description
+- requiredForTier enum: LOW/MED/HIGH/CRIT
+- status enum: NOT_SET, IN_CONTRACT, IMPLEMENTED, VERIFIED, EXCEPTION
+- evidenceLinkId nullable
+- reviewDueAt
+Purpose: explicit “minimum assurance baseline” per tier and evidence status.
+
+7. SupplierContractClauseLibrary (admin managed)
+- id, key, title, clauseText, category enum: INCIDENT, AUDIT, ACCESS, SUBPROCESSOR, VULN, BC_DR, DATA, SDLC
+- mapping JSON (NIS2 refs, CIR refs)
+8. SupplierContract
+- id, tenantId, supplierId, title, status, signedAt, expiresAt
+- fileEvidenceId nullable (existing evidence)
+9. SupplierContractClauseInstance
+- id, contractId, clauseLibraryId
+- isIncluded boolean
+- notes
+Purpose: prove security obligations are in contracts (audit rights, incident notification, subprocessor control, etc.).
+
+10. SupplierException
+- id, tenantId, supplierId
+- exceptionType enum: REQUIREMENT_WAIVER, RISK_ACCEPTANCE, TEMPORARY_COMPENSATING_CONTROL
+- reason, compensatingControls, expiryDate
+- requestedBy, approvedBy, approvedAt
+- evidenceLinkId nullable
+Purpose: management-approved risk acceptance trail (critical for supervision).
+
+11. SupplierIncident (supplier-originated incidents)
+- id, tenantId, supplierId
+- title, description, detectedAt, notifiedAt
+- affectsServices JSON (list of dependencies)
+- severity enum
+- status enum: OPEN, CONTAINED, RESOLVED, CLOSED
+- requiresNis2Reporting boolean
+- linkedPlatformIncidentId nullable (if you have IncidentCase)
+Purpose: connect supplier incidents to NIS2 reporting readiness.
+
+12. CoordinatedSupplyChainAssessment (Art.22 ingestion)
+- id, source (EU/ENISA/NCA), title, publishedAt
+- summary, affectedProducts JSON, affectedSupplierTypes JSON
+- fileEvidenceId nullable (PDF stored as evidence)
+13. CoordinatedAssessmentImpact
+- id, tenantId, coordinatedAssessmentId, supplierId nullable
+- impacted boolean, notes
+- createdAt
+Purpose: “import Art.22 output → find affected suppliers/technologies → create tasks”.
+
+14. SupplierRiskSnapshot (optional but recommended)
+- id, tenantId, date
+- criticalSuppliers int, assessedCriticalSuppliers int, overdueReviews int
+- highRiskSuppliers int, openSupplierIncidents int
+Used for dashboards and trend lines.
+
+Indexes:
+- All tenant-scoped tables indexed by tenantId
+- SupplierAssessment indexed by supplierId + createdAt
+- SupplierServiceDependency indexed by supplierId
+
+------------------------------------------------------------
+2) WORKFLOWS (WHAT THE MODULE MUST DO)
+------------------------------------------------------------
+A) Supplier Onboarding (risk-based)
+- Step 1: Create supplier (existing UI) + enrich mandatory fields (type, access level, data classification)
+- Step 2: Auto-assign questionnaire template based on:
+  criticality + supplierType + accessLevel + dataClassification
+- Step 3: Collect responses + evidence
+- Step 4: Calculate score and derive:
+  inherentRiskScore and assuranceLevel
+- Step 5: Generate required SupplierSecurityRequirements baseline checklist
+- Step 6: Require TENANT_ADMIN approval for High/Critical suppliers to become ACTIVE
+
+B) Periodic review & continuous compliance
+- Per criticality tier set review cadence (configurable):
+  Low: 24m, Medium: 12m, High: 6m, Critical: 3m
+- Auto-create review tasks when nextReviewDueAt approaches/overdue
+- Evidence expiry reminders (SOC reports, certificates, pen tests)
+
+C) Contract governance
+- Add “Contract” area per supplier
+- Include clause checklist using clause library
+- Provide a “Coverage” view:
+  required clauses for tier vs included clauses
+- Support exceptions with approvals and expiry
+
+D) Supplier incident coordination
+- SupplierIncident intake + timeline
+- If incident potentially “significant”, create/associate to platform IncidentCase (if exists)
+- Track supplier notification timestamps and evidence (emails, tickets)
+
+E) Art.22 coordinated assessments
+- PLATFORM_ADMIN can import a coordinated supply-chain assessment document (PDF)
+- Tenants run “impact assessment” wizard:
+  select suppliers/products affected → generate remediation tasks + re-assessments
+
+------------------------------------------------------------
+3) COMPLIANCE CONTENT (PRELOAD LIBRARIES)
+------------------------------------------------------------
+Seed the platform with:
+A) Questionnaire templates:
+- “Low tier basic”
+- “High/Critical ICT supplier”
+- “Cloud/DC/CDN”
+- “MSP/MSSP”
+- “Software supplier (secure SDLC)”
+Each question must map to:
+- NIS2 supply chain obligations: Art.21(2)(d) and Art.21(3)
+Optionally map to CIR Annex 5.1/5.2 when applicable.
+
+B) SupplierSecurityRequirement baseline set (examples)
+For High/Critical:
+- Incident notification SLA (e.g., “notify within X hours”, include “24h urgent channel”)
+- MFA for admin access / privileged access controls
+- Logging & monitoring commitments
+- Vulnerability disclosure + patch SLA
+- Secure SDLC evidence (for software suppliers)
+- Subprocessor disclosure & approval workflow
+- Right-to-audit / assurance reporting cadence (SOC/ISO)
+- BC/DR and backup obligations
+- Data handling and deletion on termination
+
+C) Contract clause library
+Provide clauses aligned to the above (INCIDENT, AUDIT, ACCESS, SUBPROCESSOR, VULN, BC/DR, DATA, SDLC).
+
+------------------------------------------------------------
+4) SCORING + REPORTING (AUDIT-GRADE)
+------------------------------------------------------------
+Implement:
+- Per supplier:
+  - inherent risk score (based on criticality, accessLevel, dataClassification, dependencyImpact)
+  - assurance score (questionnaire weighted score)
+  - residual risk score (inherent minus mitigations/verified requirements)
+- Dashboards:
+  - “Critical suppliers assessed %”
+  - “Overdue reviews”
+  - “High residual risk suppliers”
+  - “Contract clause coverage”
+  - “Open supplier incidents”
+- Reports (download/print-friendly):
+  - Supplier register + criticality + dependencies
+  - Due diligence evidence index
+  - Exceptions/risk acceptance log (with approvals)
+  - Art.22 impact assessments and actions
+
+------------------------------------------------------------
+5) UI CHANGES (MINIMAL DISRUPTION)
+------------------------------------------------------------
+Add navigation: “Suppliers” expands into:
+- Register (existing list)
+- Dependencies
+- Assessments
+- Requirements
+- Contracts
+- Exceptions
+- Supplier Incidents
+- Art.22 Assessments (if enabled)
+
+Per supplier detail page add tabs:
+1) Overview (existing + new structured fields)
+2) Dependencies (CRUD)
+3) Assessments (run questionnaire, view history)
+4) Requirements (checklist + evidence)
+5) Contracts (clauses coverage)
+6) Exceptions (request/approve)
+7) Incidents (log supplier incidents)
+
+RBAC:
+- TENANT_USER can view/edit suppliers but cannot approve exceptions/activate Critical supplier
+- TENANT_MANAGER can manage assessments/requirements
+- TENANT_ADMIN approves: Critical supplier activation, exceptions, contract finalization
+
+PLATFORM_ADMIN:
+- Manage templates/clause libraries globally
+- View aggregated statistics across tenants (aggregates only)
+
+------------------------------------------------------------
+6) SECURITY + AUDIT (MANDATORY)
+------------------------------------------------------------
+- Enforce tenant isolation server-side for all supplier endpoints (prevent IDOR).
+- AuditLog entries for:
+  - supplier creation/update
+  - assessment submission/approval
+  - requirement status changes
+  - contract clause changes
+  - exception requests/approvals
+  - supplier incident creation/closure
+  - Art.22 assessment import and tenant impact actions
+- Evidence attachments must use existing evidence vault with encryption-at-rest (keep current design).
+- Rate limit file uploads and external imports.
+- Strict input validation with Zod.
+
+------------------------------------------------------------
+7) IMPLEMENTATION DELIVERABLES
+------------------------------------------------------------
+- Prisma schema update + migration
+- Seed scripts for templates/questions/requirements/clauses
+- New UI screens and server actions/APIs with RBAC
+- Scoring functions in /lib/supplierRisk/scoring.ts
+- Report generator pages (print-friendly)
+- Minimal tests:
+  - tenant isolation (cannot access other tenant supplier)
+  - exception approval requires TENANT_ADMIN
+  - assessment scoring deterministic
+
+DO NOT:
+- Remove existing Supplier fields or rename columns that would break v1.
+- Replace existing assessments. This is a supplier-specific module.
+- Add insecure “client-only” authorization checks.

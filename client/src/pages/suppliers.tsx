@@ -25,7 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Truck, Building, Pencil, Trash2 } from "lucide-react";
+import { Plus, Truck, Building, Pencil, Trash2, ChevronRight, ShieldAlert } from "lucide-react";
+import { useLocation } from "wouter";
 import type { Supplier } from "@shared/schema";
 
 const criticalityColors: Record<string, string> = {
@@ -50,6 +51,7 @@ export default function Suppliers() {
 
   const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
 
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const { data: suppliers, isLoading } = useQuery<Supplier[]>({
@@ -178,7 +180,7 @@ export default function Suppliers() {
       ) : suppliers && suppliers.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {suppliers.map((supplier) => (
-            <Card key={supplier.id} data-testid={`card-supplier-${supplier.id}`}>
+            <Card key={supplier.id} className="hover-elevate cursor-pointer" onClick={() => setLocation(`/suppliers/${supplier.id}`)} data-testid={`card-supplier-${supplier.id}`}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -189,21 +191,34 @@ export default function Suppliers() {
                     <Badge variant={criticalityColors[supplier.criticality] as any} className="text-xs">
                       {supplier.criticality}
                     </Badge>
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(supplier)} data-testid={`button-edit-supplier-${supplier.id}`}>
+                    {(supplier.inherentRiskScore !== null && supplier.inherentRiskScore !== undefined && supplier.inherentRiskScore >= 60) && (
+                      <ShieldAlert className="w-4 h-4 text-destructive" />
+                    )}
+                    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openEdit(supplier); }} data-testid={`button-edit-supplier-${supplier.id}`}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" onClick={() => setDeletingSupplier(supplier)} data-testid={`button-delete-supplier-${supplier.id}`}>
+                    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setDeletingSupplier(supplier); }} data-testid={`button-delete-supplier-${supplier.id}`}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
                 {supplier.services && <p className="text-xs text-muted-foreground mb-1">{supplier.services}</p>}
-                {supplier.notes && <p className="text-xs text-muted-foreground italic">{supplier.notes}</p>}
-                {supplier.lastAssessmentAt && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Last assessed: {new Date(supplier.lastAssessmentAt).toLocaleDateString()}
-                  </p>
-                )}
+                {supplier.supplierType && <Badge variant="outline" className="text-[10px] mr-1">{supplier.supplierType}</Badge>}
+                {supplier.status && supplier.status !== "ACTIVE" && <Badge variant="secondary" className="text-[10px]">{supplier.status}</Badge>}
+                {supplier.notes && <p className="text-xs text-muted-foreground italic mt-1">{supplier.notes}</p>}
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center gap-2">
+                    {supplier.lastAssessmentAt && (
+                      <span className="text-xs text-muted-foreground">
+                        Last assessed: {new Date(supplier.lastAssessmentAt).toLocaleDateString()}
+                      </span>
+                    )}
+                    {supplier.assuranceLevel && supplier.assuranceLevel !== "NONE" && (
+                      <Badge variant="outline" className="text-[10px]">{supplier.assuranceLevel}</Badge>
+                    )}
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </div>
               </CardContent>
             </Card>
           ))}

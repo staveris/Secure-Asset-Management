@@ -20,6 +20,7 @@ import Tasks from "@/pages/tasks";
 import Evidence from "@/pages/evidence";
 import Incidents from "@/pages/incidents";
 import Suppliers from "@/pages/suppliers";
+import SupplierDetail from "@/pages/supplier-detail";
 import Risks from "@/pages/risks";
 import Reports from "@/pages/reports";
 import AdminDashboard from "@/pages/admin-dashboard";
@@ -119,6 +120,7 @@ function TenantRouter() {
       <Route path="/evidence">{() => <WithFullAccess component={Evidence} />}</Route>
       <Route path="/incidents">{() => <WithFullAccess component={Incidents} />}</Route>
       <Route path="/suppliers">{() => <WithFullAccess component={Suppliers} />}</Route>
+      <Route path="/suppliers/:id">{() => <WithFullAccess component={SupplierDetail} />}</Route>
       <Route path="/risks">{() => <WithFullAccess component={Risks} />}</Route>
       <Route path="/reports">{() => <WithFullAccess component={Reports} />}</Route>
       <Route path="/onboarding" component={Onboarding} />

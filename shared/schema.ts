@@ -331,6 +331,30 @@ export const incidentCases = pgTable("incident_cases", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const supplierTypeEnum = pgEnum("supplier_type", [
+  "ICT", "CLOUD", "MSP", "MSSP", "SOFTWARE", "HARDWARE", "OUTSOURCER", "TELCO", "CONSULTING", "OTHER",
+]);
+
+export const supplierContractStatusEnum = pgEnum("supplier_contract_status", [
+  "NONE", "DRAFT", "ACTIVE", "EXPIRED", "TERMINATED",
+]);
+
+export const supplierAccessLevelEnum = pgEnum("supplier_access_level", [
+  "NONE", "NETWORK", "VPN", "PRIVILEGED", "APPLICATION", "DATA",
+]);
+
+export const supplierDataClassificationEnum = pgEnum("supplier_data_classification", [
+  "PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED",
+]);
+
+export const supplierAssuranceLevelEnum = pgEnum("supplier_assurance_level", [
+  "NONE", "BASIC", "STANDARD", "ADVANCED",
+]);
+
+export const supplierStatusEnum = pgEnum("supplier_status", [
+  "ACTIVE", "INACTIVE", "ONBOARDING",
+]);
+
 export const suppliers = pgTable("suppliers", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id")
@@ -341,6 +365,205 @@ export const suppliers = pgTable("suppliers", {
   services: text("services"),
   lastAssessmentAt: timestamp("last_assessment_at"),
   notes: text("notes"),
+  supplierType: supplierTypeEnum("supplier_type"),
+  legalName: text("legal_name"),
+  taxIdOrRegNo: text("tax_id_or_reg_no"),
+  country: text("country"),
+  website: text("website"),
+  primaryContactName: text("primary_contact_name"),
+  primaryContactEmail: text("primary_contact_email"),
+  securityContactEmail: text("security_contact_email"),
+  incidentHotline: text("incident_hotline"),
+  contractStatus: supplierContractStatusEnum("contract_status").default("NONE"),
+  contractStartDate: timestamp("contract_start_date"),
+  contractEndDate: timestamp("contract_end_date"),
+  renewalDate: timestamp("renewal_date"),
+  accessLevel: supplierAccessLevelEnum("access_level").default("NONE"),
+  dataTypes: jsonb("data_types").$type<string[]>(),
+  dataClassification: supplierDataClassificationEnum("data_classification").default("PUBLIC"),
+  subprocessorsAllowed: boolean("subprocessors_allowed").default(false),
+  lastReviewAt: timestamp("last_review_at"),
+  nextReviewDueAt: timestamp("next_review_due_at"),
+  inherentRiskScore: integer("inherent_risk_score").default(0),
+  residualRiskScore: integer("residual_risk_score").default(0),
+  assuranceLevel: supplierAssuranceLevelEnum("assurance_level").default("NONE"),
+  status: supplierStatusEnum("supplier_status").default("ACTIVE"),
+});
+
+export const supplierDependencyTypeEnum = pgEnum("supplier_dependency_type", [
+  "SERVICE", "SYSTEM", "APPLICATION", "DATASET", "PROCESS", "LOCATION",
+]);
+
+export const supplierCriticalityImpactEnum = pgEnum("supplier_criticality_impact", [
+  "LOW", "MEDIUM", "HIGH", "CRITICAL",
+]);
+
+export const supplierServiceDependencies = pgTable("supplier_service_dependencies", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "cascade" }).notNull(),
+  dependencyType: supplierDependencyTypeEnum("dependency_type").notNull().default("SERVICE"),
+  name: text("name").notNull(),
+  criticalityImpact: supplierCriticalityImpactEnum("criticality_impact").notNull().default("LOW"),
+  description: text("description"),
+});
+
+export const supplierQuestionnaireTemplates = pgTable("supplier_questionnaire_templates", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  version: text("version").notNull().default("1.0"),
+  appliesTo: jsonb("applies_to").$type<{ supplierTypes?: string[]; accessLevels?: string[]; criticalities?: string[] }>(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const supplierQuestionResponseTypeEnum = pgEnum("supplier_question_response_type", [
+  "YES_NO", "SCALE", "TEXT", "MULTI",
+]);
+
+export const supplierQuestionnaireQuestions = pgTable("supplier_questionnaire_questions", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").references(() => supplierQuestionnaireTemplates.id, { onDelete: "cascade" }).notNull(),
+  section: text("section").notNull(),
+  questionText: text("question_text").notNull(),
+  responseType: supplierQuestionResponseTypeEnum("response_type").notNull().default("YES_NO"),
+  weight: integer("weight").notNull().default(1),
+  evidenceRequired: boolean("evidence_required").notNull().default(false),
+  evidenceTypes: jsonb("evidence_types").$type<string[]>(),
+  nis2Ref: jsonb("nis2_ref").$type<string[]>(),
+  cirRef: jsonb("cir_ref").$type<string[]>(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const supplierAssessmentStatusEnum = pgEnum("supplier_assessment_status", [
+  "DRAFT", "IN_PROGRESS", "SUBMITTED", "APPROVED",
+]);
+
+export const supplierRiskRatingEnum = pgEnum("supplier_risk_rating", [
+  "LOW", "MEDIUM", "HIGH", "CRITICAL",
+]);
+
+export const supplierAssessments = pgTable("supplier_assessments", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "cascade" }).notNull(),
+  templateId: integer("template_id").references(() => supplierQuestionnaireTemplates.id).notNull(),
+  status: supplierAssessmentStatusEnum("supplier_assessment_status").notNull().default("DRAFT"),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  submittedAt: timestamp("submitted_at"),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  score: real("score"),
+  riskRating: supplierRiskRatingEnum("risk_rating"),
+});
+
+export const supplierAssessmentResponses = pgTable("supplier_assessment_responses", {
+  id: serial("id").primaryKey(),
+  supplierAssessmentId: integer("supplier_assessment_id").references(() => supplierAssessments.id, { onDelete: "cascade" }).notNull(),
+  questionId: integer("question_id").references(() => supplierQuestionnaireQuestions.id).notNull(),
+  answer: jsonb("answer"),
+  score: real("score"),
+  notes: text("notes"),
+  evidenceLinkId: integer("evidence_link_id").references(() => evidenceItems.id),
+  answeredBy: integer("answered_by").references(() => users.id),
+  answeredAt: timestamp("answered_at").defaultNow(),
+});
+
+export const supplierRequirementStatusEnum = pgEnum("supplier_requirement_status", [
+  "NOT_SET", "IN_CONTRACT", "IMPLEMENTED", "VERIFIED", "EXCEPTION",
+]);
+
+export const supplierSecurityRequirements = pgTable("supplier_security_requirements", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "cascade" }).notNull(),
+  requirementKey: text("requirement_key").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  requiredForTier: text("required_for_tier").notNull().default("HIGH"),
+  status: supplierRequirementStatusEnum("supplier_requirement_status").notNull().default("NOT_SET"),
+  evidenceLinkId: integer("evidence_link_id").references(() => evidenceItems.id),
+  reviewDueAt: timestamp("review_due_at"),
+});
+
+export const supplierContractClauseCategory = pgEnum("supplier_contract_clause_category", [
+  "INCIDENT", "AUDIT", "ACCESS", "SUBPROCESSOR", "VULN", "BC_DR", "DATA", "SDLC",
+]);
+
+export const supplierContractClauseLibrary = pgTable("supplier_contract_clause_library", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  title: text("title").notNull(),
+  clauseText: text("clause_text").notNull(),
+  category: supplierContractClauseCategory("category").notNull(),
+  mapping: jsonb("mapping").$type<{ nis2Refs?: string[]; cirRefs?: string[] }>(),
+});
+
+export const supplierContractDocStatusEnum = pgEnum("supplier_contract_doc_status", [
+  "DRAFT", "ACTIVE", "EXPIRED", "TERMINATED",
+]);
+
+export const supplierContracts = pgTable("supplier_contracts", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "cascade" }).notNull(),
+  title: text("title").notNull(),
+  status: supplierContractDocStatusEnum("contract_doc_status").notNull().default("DRAFT"),
+  signedAt: timestamp("signed_at"),
+  expiresAt: timestamp("expires_at"),
+  fileEvidenceId: integer("file_evidence_id").references(() => evidenceItems.id),
+});
+
+export const supplierContractClauseInstances = pgTable("supplier_contract_clause_instances", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").references(() => supplierContracts.id, { onDelete: "cascade" }).notNull(),
+  clauseLibraryId: integer("clause_library_id").references(() => supplierContractClauseLibrary.id).notNull(),
+  isIncluded: boolean("is_included").notNull().default(false),
+  notes: text("notes"),
+});
+
+export const supplierExceptionTypeEnum = pgEnum("supplier_exception_type", [
+  "REQUIREMENT_WAIVER", "RISK_ACCEPTANCE", "TEMPORARY_COMPENSATING_CONTROL",
+]);
+
+export const supplierExceptions = pgTable("supplier_exceptions", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "cascade" }).notNull(),
+  exceptionType: supplierExceptionTypeEnum("exception_type").notNull(),
+  reason: text("reason").notNull(),
+  compensatingControls: text("compensating_controls"),
+  expiryDate: timestamp("expiry_date"),
+  requestedBy: integer("requested_by").references(() => users.id).notNull(),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  evidenceLinkId: integer("evidence_link_id").references(() => evidenceItems.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const supplierIncidentSeverityEnum = pgEnum("supplier_incident_severity", [
+  "LOW", "MEDIUM", "HIGH", "CRITICAL",
+]);
+
+export const supplierIncidentStatusEnum = pgEnum("supplier_incident_status_enum", [
+  "OPEN", "CONTAINED", "RESOLVED", "CLOSED",
+]);
+
+export const supplierIncidents = pgTable("supplier_incidents", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "cascade" }).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  detectedAt: timestamp("detected_at").defaultNow().notNull(),
+  notifiedAt: timestamp("notified_at"),
+  affectsServices: jsonb("affects_services").$type<string[]>(),
+  severity: supplierIncidentSeverityEnum("severity").notNull().default("MEDIUM"),
+  status: supplierIncidentStatusEnum("supplier_incident_status").notNull().default("OPEN"),
+  requiresNis2Reporting: boolean("requires_nis2_reporting").default(false),
+  linkedPlatformIncidentId: integer("linked_platform_incident_id").references(() => incidentCases.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const riskItems = pgTable("risk_items", {
@@ -525,6 +748,51 @@ export type IncidentCase = typeof incidentCases.$inferSelect;
 export type InsertIncidentCase = z.infer<typeof insertIncidentCaseSchema>;
 export type Supplier = typeof suppliers.$inferSelect;
 export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+
+export const insertSupplierServiceDependencySchema = createInsertSchema(supplierServiceDependencies).omit({ id: true });
+export type SupplierServiceDependency = typeof supplierServiceDependencies.$inferSelect;
+export type InsertSupplierServiceDependency = z.infer<typeof insertSupplierServiceDependencySchema>;
+
+export const insertSupplierQuestionnaireTemplateSchema = createInsertSchema(supplierQuestionnaireTemplates).omit({ id: true });
+export type SupplierQuestionnaireTemplate = typeof supplierQuestionnaireTemplates.$inferSelect;
+export type InsertSupplierQuestionnaireTemplate = z.infer<typeof insertSupplierQuestionnaireTemplateSchema>;
+
+export const insertSupplierQuestionnaireQuestionSchema = createInsertSchema(supplierQuestionnaireQuestions).omit({ id: true });
+export type SupplierQuestionnaireQuestion = typeof supplierQuestionnaireQuestions.$inferSelect;
+export type InsertSupplierQuestionnaireQuestion = z.infer<typeof insertSupplierQuestionnaireQuestionSchema>;
+
+export const insertSupplierAssessmentSchema = createInsertSchema(supplierAssessments).omit({ id: true, createdAt: true, submittedAt: true, approvedAt: true });
+export type SupplierAssessment = typeof supplierAssessments.$inferSelect;
+export type InsertSupplierAssessment = z.infer<typeof insertSupplierAssessmentSchema>;
+
+export const insertSupplierAssessmentResponseSchema = createInsertSchema(supplierAssessmentResponses).omit({ id: true, answeredAt: true });
+export type SupplierAssessmentResponse = typeof supplierAssessmentResponses.$inferSelect;
+export type InsertSupplierAssessmentResponse = z.infer<typeof insertSupplierAssessmentResponseSchema>;
+
+export const insertSupplierSecurityRequirementSchema = createInsertSchema(supplierSecurityRequirements).omit({ id: true });
+export type SupplierSecurityRequirement = typeof supplierSecurityRequirements.$inferSelect;
+export type InsertSupplierSecurityRequirement = z.infer<typeof insertSupplierSecurityRequirementSchema>;
+
+export const insertSupplierContractClauseLibrarySchema = createInsertSchema(supplierContractClauseLibrary).omit({ id: true });
+export type SupplierContractClauseLibraryItem = typeof supplierContractClauseLibrary.$inferSelect;
+export type InsertSupplierContractClauseLibraryItem = z.infer<typeof insertSupplierContractClauseLibrarySchema>;
+
+export const insertSupplierContractSchema = createInsertSchema(supplierContracts).omit({ id: true });
+export type SupplierContract = typeof supplierContracts.$inferSelect;
+export type InsertSupplierContract = z.infer<typeof insertSupplierContractSchema>;
+
+export const insertSupplierContractClauseInstanceSchema = createInsertSchema(supplierContractClauseInstances).omit({ id: true });
+export type SupplierContractClauseInstance = typeof supplierContractClauseInstances.$inferSelect;
+export type InsertSupplierContractClauseInstance = z.infer<typeof insertSupplierContractClauseInstanceSchema>;
+
+export const insertSupplierExceptionSchema = createInsertSchema(supplierExceptions).omit({ id: true, createdAt: true, approvedAt: true });
+export type SupplierException = typeof supplierExceptions.$inferSelect;
+export type InsertSupplierException = z.infer<typeof insertSupplierExceptionSchema>;
+
+export const insertSupplierIncidentSchema = createInsertSchema(supplierIncidents).omit({ id: true, createdAt: true });
+export type SupplierIncident = typeof supplierIncidents.$inferSelect;
+export type InsertSupplierIncident = z.infer<typeof insertSupplierIncidentSchema>;
+
 export type RiskItem = typeof riskItems.$inferSelect;
 export type InsertRiskItem = z.infer<typeof insertRiskItemSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;

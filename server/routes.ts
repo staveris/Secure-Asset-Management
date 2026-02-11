@@ -2113,7 +2113,9 @@ export async function registerRoutes(
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
-    const { name, criticality, services, notes } = req.body;
+    const { name, criticality, services, notes, supplierType, legalName, country, website,
+      primaryContactName, primaryContactEmail, securityContactEmail, accessLevel,
+      dataClassification, status: supplierStatus } = req.body;
     if (!name) return res.status(400).json({ message: "Name is required" });
 
     const supplier = await storage.createSupplier({
@@ -2122,6 +2124,16 @@ export async function registerRoutes(
       criticality: criticality || "medium",
       services: services || null,
       notes: notes || null,
+      ...(supplierType && { supplierType }),
+      ...(legalName && { legalName }),
+      ...(country && { country }),
+      ...(website && { website }),
+      ...(primaryContactName && { primaryContactName }),
+      ...(primaryContactEmail && { primaryContactEmail }),
+      ...(securityContactEmail && { securityContactEmail }),
+      ...(accessLevel && { accessLevel }),
+      ...(dataClassification && { dataClassification }),
+      ...(supplierStatus && { status: supplierStatus }),
     });
 
     await storage.createAuditLog({
@@ -2145,16 +2157,30 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Not found" });
     }
 
-    const { name, criticality, services, notes } = req.body;
+    const { name, criticality, services, notes, ...extendedFields } = req.body;
     if (name !== undefined && !name.trim()) return res.status(400).json({ message: "Name cannot be empty" });
     const validCriticalities = ["low", "medium", "high", "critical"];
     if (criticality !== undefined && !validCriticalities.includes(criticality)) return res.status(400).json({ message: "Invalid criticality" });
+
+    const allowedExtended = [
+      "supplierType", "legalName", "taxIdOrRegNo", "country", "website",
+      "primaryContactName", "primaryContactEmail", "securityContactEmail", "incidentHotline",
+      "contractStatus", "contractStartDate", "contractEndDate", "renewalDate",
+      "accessLevel", "dataTypes", "dataClassification", "subprocessorsAllowed",
+      "lastReviewAt", "nextReviewDueAt", "inherentRiskScore", "residualRiskScore",
+      "assuranceLevel", "status",
+    ];
+    const filteredExtended: Record<string, any> = {};
+    for (const key of allowedExtended) {
+      if (extendedFields[key] !== undefined) filteredExtended[key] = extendedFields[key];
+    }
 
     const updated = await storage.updateSupplier(id, {
       ...(name !== undefined && { name: name.trim() }),
       ...(criticality !== undefined && { criticality }),
       ...(services !== undefined && { services }),
       ...(notes !== undefined && { notes }),
+      ...filteredExtended,
     });
 
     await storage.createAuditLog({
@@ -2189,6 +2215,399 @@ export async function registerRoutes(
     });
 
     res.json({ message: "Supplier deleted" });
+  });
+
+  app.get("/api/suppliers/:id/detail", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const id = parseInt(req.params.id);
+    const supplier = await storage.getSupplier(id);
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const [dependencies, assessments, requirements, contracts, exceptions, incidents] = await Promise.all([
+      storage.getSupplierDependencies(id),
+      storage.getSupplierAssessments(id),
+      storage.getSupplierSecurityRequirements(id),
+      storage.getSupplierContracts(id),
+      storage.getSupplierExceptions(id),
+      storage.getSupplierIncidents(id),
+    ]);
+    res.json({ supplier, dependencies, assessments, requirements, contracts, exceptions, incidents });
+  });
+
+  app.get("/api/suppliers/:id/dependencies", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const list = await storage.getSupplierDependencies(supplier.id);
+    res.json(list);
+  });
+
+  app.post("/api/suppliers/:id/dependencies", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const { name, dependencyType, criticalityImpact, description } = req.body;
+    if (!name) return res.status(400).json({ message: "Name is required" });
+    const dep = await storage.createSupplierDependency({
+      tenantId: user.tenantId, supplierId: supplier.id,
+      name, dependencyType: dependencyType || "SERVICE", criticalityImpact: criticalityImpact || "LOW",
+      description: description || null,
+    });
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "CREATE", entityType: "SUPPLIER_DEPENDENCY", entityId: String(dep.id) });
+    res.json(dep);
+  });
+
+  app.delete("/api/supplier-dependencies/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const dep = await storage.getSupplierDependencyById(parseInt(req.params.id));
+    if (!dep || dep.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    await storage.deleteSupplierDependency(dep.id);
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "DELETE", entityType: "SUPPLIER_DEPENDENCY", entityId: req.params.id });
+    res.json({ message: "Deleted" });
+  });
+
+  app.get("/api/supplier-questionnaire-templates", requireAuth, async (req, res) => {
+    const templates = await storage.getSupplierQuestionnaireTemplates();
+    res.json(templates);
+  });
+
+  app.get("/api/supplier-questionnaire-templates/:id/questions", requireAuth, async (req, res) => {
+    const questions = await storage.getSupplierQuestionnaireQuestions(parseInt(req.params.id));
+    res.json(questions);
+  });
+
+  app.get("/api/suppliers/:id/assessments", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const list = await storage.getSupplierAssessments(supplier.id);
+    res.json(list);
+  });
+
+  app.post("/api/suppliers/:id/assessments", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const { templateId } = req.body;
+    if (!templateId) return res.status(400).json({ message: "templateId is required" });
+    const template = await storage.getSupplierQuestionnaireTemplate(templateId);
+    if (!template) return res.status(400).json({ message: "Template not found" });
+    const assessment = await storage.createSupplierAssessment({
+      tenantId: user.tenantId, supplierId: supplier.id, templateId, createdBy: user.id,
+    });
+    const questions = await storage.getSupplierQuestionnaireQuestions(templateId);
+    for (const q of questions) {
+      await storage.createSupplierAssessmentResponse({
+        supplierAssessmentId: assessment.id, questionId: q.id,
+      });
+    }
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "CREATE", entityType: "SUPPLIER_ASSESSMENT", entityId: String(assessment.id) });
+    res.json(assessment);
+  });
+
+  app.get("/api/supplier-assessments/:id", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const assessment = await storage.getSupplierAssessment(parseInt(req.params.id));
+    if (!assessment || assessment.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const [responses, template, questions] = await Promise.all([
+      storage.getSupplierAssessmentResponses(assessment.id),
+      storage.getSupplierQuestionnaireTemplate(assessment.templateId),
+      storage.getSupplierQuestionnaireQuestions(assessment.templateId),
+    ]);
+    res.json({ assessment, responses, template, questions });
+  });
+
+  app.patch("/api/supplier-assessment-responses/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const resp = await storage.getSupplierAssessmentResponseById(parseInt(req.params.id));
+    if (!resp) return res.status(404).json({ message: "Not found" });
+    const assessment = await storage.getSupplierAssessment(resp.supplierAssessmentId);
+    if (!assessment || assessment.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const { answer, score, notes } = req.body;
+    const updated = await storage.updateSupplierAssessmentResponse(resp.id, {
+      answer, score: score ?? null, notes: notes ?? null, answeredBy: user.id,
+    });
+    res.json(updated);
+  });
+
+  app.post("/api/supplier-assessments/:id/submit", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const assessment = await storage.getSupplierAssessment(parseInt(req.params.id));
+    if (!assessment || assessment.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const responses = await storage.getSupplierAssessmentResponses(assessment.id);
+    const questions = await storage.getSupplierQuestionnaireQuestions(assessment.templateId);
+    let totalWeight = 0, weightedScore = 0;
+    for (const q of questions) {
+      const resp = responses.find(r => r.questionId === q.id);
+      if (resp && resp.score !== null && resp.score !== undefined) {
+        totalWeight += q.weight;
+        weightedScore += (resp.score * q.weight);
+      }
+    }
+    const finalScore = totalWeight > 0 ? Math.round((weightedScore / totalWeight) * 100) / 100 : 0;
+    let riskRating: string = "LOW";
+    if (finalScore < 40) riskRating = "CRITICAL";
+    else if (finalScore < 60) riskRating = "HIGH";
+    else if (finalScore < 80) riskRating = "MEDIUM";
+    const updated = await storage.updateSupplierAssessment(assessment.id, {
+      status: "SUBMITTED", submittedAt: new Date(), score: finalScore, riskRating,
+    });
+    if (updated) {
+      await storage.updateSupplier(assessment.supplierId, { lastAssessmentAt: new Date() } as any);
+    }
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "SUBMIT", entityType: "SUPPLIER_ASSESSMENT", entityId: String(assessment.id), details: { score: finalScore, riskRating } });
+    res.json(updated);
+  });
+
+  app.post("/api/supplier-assessments/:id/approve", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Only admins can approve" });
+    const assessment = await storage.getSupplierAssessment(parseInt(req.params.id));
+    if (!assessment || assessment.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const updated = await storage.updateSupplierAssessment(assessment.id, {
+      status: "APPROVED", approvedBy: user.id, approvedAt: new Date(),
+    });
+    if (updated && updated.riskRating) {
+      const riskMap: Record<string, number> = { LOW: 20, MEDIUM: 40, HIGH: 60, CRITICAL: 80 };
+      await storage.updateSupplier(assessment.supplierId, {
+        inherentRiskScore: riskMap[updated.riskRating] || 0,
+        assuranceLevel: updated.score && updated.score >= 80 ? "ADVANCED" : updated.score && updated.score >= 60 ? "STANDARD" : updated.score && updated.score >= 40 ? "BASIC" : "NONE",
+      } as any);
+    }
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "APPROVE", entityType: "SUPPLIER_ASSESSMENT", entityId: String(assessment.id) });
+    res.json(updated);
+  });
+
+  app.get("/api/suppliers/:id/requirements", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const list = await storage.getSupplierSecurityRequirements(supplier.id);
+    res.json(list);
+  });
+
+  app.post("/api/suppliers/:id/requirements", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const { requirementKey, title, description, requiredForTier, status: reqStatus } = req.body;
+    if (!requirementKey || !title) return res.status(400).json({ message: "requirementKey and title are required" });
+    const requirement = await storage.createSupplierSecurityRequirement({
+      tenantId: user.tenantId, supplierId: supplier.id, requirementKey, title,
+      description: description || null, requiredForTier: requiredForTier || "HIGH",
+      status: reqStatus || "NOT_SET",
+    });
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "CREATE", entityType: "SUPPLIER_REQUIREMENT", entityId: String(requirement.id) });
+    res.json(requirement);
+  });
+
+  app.patch("/api/supplier-requirements/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const existing = await storage.getSupplierSecurityRequirementById(parseInt(req.params.id));
+    if (!existing || existing.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const { status: reqStatus, evidenceLinkId, reviewDueAt } = req.body;
+    const updated = await storage.updateSupplierSecurityRequirement(existing.id, {
+      ...(reqStatus !== undefined && { status: reqStatus }),
+      ...(evidenceLinkId !== undefined && { evidenceLinkId }),
+      ...(reviewDueAt !== undefined && { reviewDueAt }),
+    });
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "UPDATE", entityType: "SUPPLIER_REQUIREMENT", entityId: req.params.id });
+    res.json(updated);
+  });
+
+  app.get("/api/suppliers/:id/contracts", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const list = await storage.getSupplierContracts(supplier.id);
+    res.json(list);
+  });
+
+  app.post("/api/suppliers/:id/contracts", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const { title, status: cStatus, signedAt, expiresAt } = req.body;
+    if (!title) return res.status(400).json({ message: "Title is required" });
+    const contract = await storage.createSupplierContract({
+      tenantId: user.tenantId, supplierId: supplier.id, title,
+      status: cStatus || "DRAFT", signedAt: signedAt || null, expiresAt: expiresAt || null,
+    });
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "CREATE", entityType: "SUPPLIER_CONTRACT", entityId: String(contract.id) });
+    res.json(contract);
+  });
+
+  app.patch("/api/supplier-contracts/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const existing = await storage.getSupplierContractById(parseInt(req.params.id));
+    if (!existing || existing.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const updated = await storage.updateSupplierContract(existing.id, req.body);
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "UPDATE", entityType: "SUPPLIER_CONTRACT", entityId: req.params.id });
+    res.json(updated);
+  });
+
+  app.delete("/api/supplier-contracts/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const existing = await storage.getSupplierContractById(parseInt(req.params.id));
+    if (!existing || existing.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    await storage.deleteSupplierContract(existing.id);
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "DELETE", entityType: "SUPPLIER_CONTRACT", entityId: req.params.id });
+    res.json({ message: "Deleted" });
+  });
+
+  app.get("/api/contract-clause-library", requireAuth, async (req, res) => {
+    const clauses = await storage.getContractClauseLibrary();
+    res.json(clauses);
+  });
+
+  app.get("/api/supplier-contracts/:id/clauses", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const instances = await storage.getContractClauseInstances(parseInt(req.params.id));
+    res.json(instances);
+  });
+
+  app.post("/api/supplier-contracts/:id/clauses", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const { clauseLibraryId, isIncluded, notes } = req.body;
+    const instance = await storage.createContractClauseInstance({
+      contractId: parseInt(req.params.id), clauseLibraryId, isIncluded: isIncluded ?? false, notes: notes || null,
+    });
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "CREATE", entityType: "CONTRACT_CLAUSE_INSTANCE", entityId: String(instance.id) });
+    res.json(instance);
+  });
+
+  app.patch("/api/contract-clause-instances/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const inst = await storage.getContractClauseInstanceById(parseInt(req.params.id));
+    if (!inst) return res.status(404).json({ message: "Not found" });
+    const contract = await storage.getSupplierContractById(inst.contractId);
+    if (!contract || contract.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const { isIncluded, notes } = req.body;
+    const updated = await storage.updateContractClauseInstance(inst.id, {
+      ...(isIncluded !== undefined && { isIncluded }),
+      ...(notes !== undefined && { notes }),
+    });
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "UPDATE", entityType: "CONTRACT_CLAUSE_INSTANCE", entityId: req.params.id });
+    res.json(updated);
+  });
+
+  app.get("/api/suppliers/:id/exceptions", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const list = await storage.getSupplierExceptions(supplier.id);
+    res.json(list);
+  });
+
+  app.post("/api/suppliers/:id/exceptions", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const { exceptionType, reason, compensatingControls, expiryDate } = req.body;
+    if (!exceptionType || !reason) return res.status(400).json({ message: "exceptionType and reason are required" });
+    const exception = await storage.createSupplierException({
+      tenantId: user.tenantId, supplierId: supplier.id, exceptionType, reason,
+      compensatingControls: compensatingControls || null, expiryDate: expiryDate || null,
+      requestedBy: user.id,
+    });
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "CREATE", entityType: "SUPPLIER_EXCEPTION", entityId: String(exception.id) });
+    res.json(exception);
+  });
+
+  app.post("/api/supplier-exceptions/:id/approve", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Only admins can approve exceptions" });
+    const existing = await storage.getSupplierExceptionById(parseInt(req.params.id));
+    if (!existing || existing.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const updated = await storage.updateSupplierException(existing.id, {
+      approvedBy: user.id, approvedAt: new Date(),
+    });
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "APPROVE", entityType: "SUPPLIER_EXCEPTION", entityId: req.params.id });
+    res.json(updated);
+  });
+
+  app.get("/api/suppliers/:id/incidents", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const list = await storage.getSupplierIncidents(supplier.id);
+    res.json(list);
+  });
+
+  app.post("/api/suppliers/:id/incidents", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const { title, description, severity, detectedAt, notifiedAt, affectsServices, requiresNis2Reporting } = req.body;
+    if (!title) return res.status(400).json({ message: "Title is required" });
+    const incident = await storage.createSupplierIncident({
+      tenantId: user.tenantId, supplierId: supplier.id, title,
+      description: description || null, severity: severity || "MEDIUM",
+      detectedAt: detectedAt ? new Date(detectedAt) : new Date(),
+      notifiedAt: notifiedAt ? new Date(notifiedAt) : null,
+      affectsServices: affectsServices || null,
+      requiresNis2Reporting: requiresNis2Reporting || false,
+    });
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "CREATE", entityType: "SUPPLIER_INCIDENT", entityId: String(incident.id) });
+    res.json(incident);
+  });
+
+  app.patch("/api/supplier-incidents/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const existing = await storage.getSupplierIncidentById(parseInt(req.params.id));
+    if (!existing || existing.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const updated = await storage.updateSupplierIncident(existing.id, req.body);
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "UPDATE", entityType: "SUPPLIER_INCIDENT", entityId: req.params.id });
+    res.json(updated);
+  });
+
+  app.get("/api/supplier-risk-summary", requireAuth, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const allSuppliers = await storage.getSuppliersByTenant(user.tenantId);
+    const allAssessments = await storage.getSupplierAssessmentsByTenant(user.tenantId);
+    const allIncidents = await storage.getSupplierIncidentsByTenant(user.tenantId);
+    const allExceptions = await storage.getSupplierExceptionsByTenant(user.tenantId);
+    const criticalSuppliers = allSuppliers.filter(s => s.criticality === "critical" || s.criticality === "high");
+    const assessedCritical = criticalSuppliers.filter(s => allAssessments.some(a => a.supplierId === s.id && a.status === "APPROVED"));
+    const overdueReviews = allSuppliers.filter(s => s.nextReviewDueAt && new Date(s.nextReviewDueAt) < new Date());
+    const highRisk = allSuppliers.filter(s => (s.inherentRiskScore || 0) >= 60);
+    const openIncidents = allIncidents.filter(i => i.status === "OPEN" || i.status === "CONTAINED");
+    res.json({
+      totalSuppliers: allSuppliers.length,
+      criticalSuppliers: criticalSuppliers.length,
+      assessedCriticalPct: criticalSuppliers.length > 0 ? Math.round((assessedCritical.length / criticalSuppliers.length) * 100) : 100,
+      overdueReviews: overdueReviews.length,
+      highRiskSuppliers: highRisk.length,
+      openSupplierIncidents: openIncidents.length,
+      totalAssessments: allAssessments.length,
+      pendingExceptions: allExceptions.filter(e => !e.approvedBy).length,
+    });
   });
 
   app.get("/api/risks", requireAuth, requireFullAccess, async (req, res) => {

@@ -29,7 +29,7 @@ The platform is built with a modern web stack, featuring React, TypeScript, Vite
 - **Tasks:** Task management with filtering.
 - **Evidence Vault:** Centralized evidence storage and upload.
 - **Incidents:** Incident tracking and notification drafting.
-- **Suppliers & Risks:** Registers for managing third-party suppliers and risks.
+- **Suppliers & Risks:** Comprehensive Supplier Risk Management module with questionnaire-based assessments (5 templates, 60+ NIS2/CIR-mapped questions), service dependency tracking, security requirement status, NIS2 contract clause checklist, risk exceptions/waivers with approval workflow, supplier incident tracking, and automated risk scoring. Supplier detail page with 7 tabs (Overview, Dependencies, Assessments, Requirements, Contracts, Exceptions, Incidents). Dashboard includes supply chain risk KPIs.
 - **Reports:** Generation of compliance reports.
 - **Onboarding Wizard:** Guided setup for new tenants.
 - **Admin Pages:** Platform analytics, tenant management, requirement library, audit logs, and atomic controls management.

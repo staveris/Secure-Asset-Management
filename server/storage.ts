@@ -96,6 +96,39 @@ import {
   taskComments,
   type TaskComment,
   type InsertTaskComment,
+  supplierServiceDependencies,
+  supplierQuestionnaireTemplates,
+  supplierQuestionnaireQuestions,
+  supplierAssessments,
+  supplierAssessmentResponses,
+  supplierSecurityRequirements,
+  supplierContractClauseLibrary,
+  supplierContracts,
+  supplierContractClauseInstances,
+  supplierExceptions,
+  supplierIncidents,
+  type SupplierServiceDependency,
+  type InsertSupplierServiceDependency,
+  type SupplierQuestionnaireTemplate,
+  type InsertSupplierQuestionnaireTemplate,
+  type SupplierQuestionnaireQuestion,
+  type InsertSupplierQuestionnaireQuestion,
+  type SupplierAssessment,
+  type InsertSupplierAssessment,
+  type SupplierAssessmentResponse,
+  type InsertSupplierAssessmentResponse,
+  type SupplierSecurityRequirement,
+  type InsertSupplierSecurityRequirement,
+  type SupplierContractClauseLibraryItem,
+  type InsertSupplierContractClauseLibraryItem,
+  type SupplierContract,
+  type InsertSupplierContract,
+  type SupplierContractClauseInstance,
+  type InsertSupplierContractClauseInstance,
+  type SupplierException,
+  type InsertSupplierException,
+  type SupplierIncident,
+  type InsertSupplierIncident,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -176,6 +209,62 @@ export interface IStorage {
   getSupplier(id: number): Promise<Supplier | undefined>;
   updateSupplier(id: number, data: Partial<InsertSupplier>): Promise<Supplier | undefined>;
   deleteSupplier(id: number): Promise<void>;
+
+  getSupplierDependencies(supplierId: number): Promise<SupplierServiceDependency[]>;
+  getSupplierDependencyById(id: number): Promise<SupplierServiceDependency | undefined>;
+  createSupplierDependency(data: InsertSupplierServiceDependency): Promise<SupplierServiceDependency>;
+  updateSupplierDependency(id: number, data: Partial<InsertSupplierServiceDependency>): Promise<SupplierServiceDependency | undefined>;
+  deleteSupplierDependency(id: number): Promise<void>;
+
+  getSupplierQuestionnaireTemplates(): Promise<SupplierQuestionnaireTemplate[]>;
+  getSupplierQuestionnaireTemplate(id: number): Promise<SupplierQuestionnaireTemplate | undefined>;
+  createSupplierQuestionnaireTemplate(data: InsertSupplierQuestionnaireTemplate): Promise<SupplierQuestionnaireTemplate>;
+  getSupplierQuestionnaireQuestions(templateId: number): Promise<SupplierQuestionnaireQuestion[]>;
+  createSupplierQuestionnaireQuestion(data: InsertSupplierQuestionnaireQuestion): Promise<SupplierQuestionnaireQuestion>;
+
+  getSupplierAssessments(supplierId: number): Promise<SupplierAssessment[]>;
+  getSupplierAssessmentsByTenant(tenantId: number): Promise<SupplierAssessment[]>;
+  getSupplierAssessment(id: number): Promise<SupplierAssessment | undefined>;
+  createSupplierAssessment(data: InsertSupplierAssessment): Promise<SupplierAssessment>;
+  updateSupplierAssessment(id: number, data: Partial<InsertSupplierAssessment & { submittedAt?: Date; approvedAt?: Date; score?: number; riskRating?: string }>): Promise<SupplierAssessment | undefined>;
+
+  getSupplierAssessmentResponses(assessmentId: number): Promise<SupplierAssessmentResponse[]>;
+  getSupplierAssessmentResponseById(id: number): Promise<SupplierAssessmentResponse | undefined>;
+  createSupplierAssessmentResponse(data: InsertSupplierAssessmentResponse): Promise<SupplierAssessmentResponse>;
+  updateSupplierAssessmentResponse(id: number, data: Partial<InsertSupplierAssessmentResponse>): Promise<SupplierAssessmentResponse | undefined>;
+
+  getSupplierSecurityRequirements(supplierId: number): Promise<SupplierSecurityRequirement[]>;
+  getSupplierSecurityRequirementById(id: number): Promise<SupplierSecurityRequirement | undefined>;
+  createSupplierSecurityRequirement(data: InsertSupplierSecurityRequirement): Promise<SupplierSecurityRequirement>;
+  updateSupplierSecurityRequirement(id: number, data: Partial<InsertSupplierSecurityRequirement>): Promise<SupplierSecurityRequirement | undefined>;
+  deleteSupplierSecurityRequirement(id: number): Promise<void>;
+
+  getContractClauseLibrary(): Promise<SupplierContractClauseLibraryItem[]>;
+  createContractClauseLibrary(data: InsertSupplierContractClauseLibraryItem): Promise<SupplierContractClauseLibraryItem>;
+
+  getSupplierContracts(supplierId: number): Promise<SupplierContract[]>;
+  getSupplierContract(id: number): Promise<SupplierContract | undefined>;
+  getSupplierContractById(id: number): Promise<SupplierContract | undefined>;
+  createSupplierContract(data: InsertSupplierContract): Promise<SupplierContract>;
+  updateSupplierContract(id: number, data: Partial<InsertSupplierContract>): Promise<SupplierContract | undefined>;
+  deleteSupplierContract(id: number): Promise<void>;
+
+  getContractClauseInstances(contractId: number): Promise<SupplierContractClauseInstance[]>;
+  getContractClauseInstanceById(id: number): Promise<SupplierContractClauseInstance | undefined>;
+  createContractClauseInstance(data: InsertSupplierContractClauseInstance): Promise<SupplierContractClauseInstance>;
+  updateContractClauseInstance(id: number, data: Partial<InsertSupplierContractClauseInstance>): Promise<SupplierContractClauseInstance | undefined>;
+
+  getSupplierExceptions(supplierId: number): Promise<SupplierException[]>;
+  getSupplierExceptionsByTenant(tenantId: number): Promise<SupplierException[]>;
+  getSupplierExceptionById(id: number): Promise<SupplierException | undefined>;
+  createSupplierException(data: InsertSupplierException): Promise<SupplierException>;
+  updateSupplierException(id: number, data: Partial<InsertSupplierException & { approvedAt?: Date }>): Promise<SupplierException | undefined>;
+
+  getSupplierIncidents(supplierId: number): Promise<SupplierIncident[]>;
+  getSupplierIncidentsByTenant(tenantId: number): Promise<SupplierIncident[]>;
+  getSupplierIncidentById(id: number): Promise<SupplierIncident | undefined>;
+  createSupplierIncident(data: InsertSupplierIncident): Promise<SupplierIncident>;
+  updateSupplierIncident(id: number, data: Partial<InsertSupplierIncident>): Promise<SupplierIncident | undefined>;
 
   createRiskItem(data: InsertRiskItem): Promise<RiskItem>;
   getRisksByTenant(tenantId: number): Promise<RiskItem[]>;
@@ -667,6 +756,226 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSupplier(id: number): Promise<void> {
     await db.delete(suppliers).where(eq(suppliers.id, id));
+  }
+
+  async getSupplierDependencies(supplierId: number): Promise<SupplierServiceDependency[]> {
+    return db.select().from(supplierServiceDependencies).where(eq(supplierServiceDependencies.supplierId, supplierId));
+  }
+
+  async getSupplierDependencyById(id: number): Promise<SupplierServiceDependency | undefined> {
+    const [d] = await db.select().from(supplierServiceDependencies).where(eq(supplierServiceDependencies.id, id));
+    return d;
+  }
+
+  async createSupplierDependency(data: InsertSupplierServiceDependency): Promise<SupplierServiceDependency> {
+    const [dep] = await db.insert(supplierServiceDependencies).values(data).returning();
+    return dep;
+  }
+
+  async updateSupplierDependency(id: number, data: Partial<InsertSupplierServiceDependency>): Promise<SupplierServiceDependency | undefined> {
+    const [dep] = await db.update(supplierServiceDependencies).set(data).where(eq(supplierServiceDependencies.id, id)).returning();
+    return dep;
+  }
+
+  async deleteSupplierDependency(id: number): Promise<void> {
+    await db.delete(supplierServiceDependencies).where(eq(supplierServiceDependencies.id, id));
+  }
+
+  async getSupplierQuestionnaireTemplates(): Promise<SupplierQuestionnaireTemplate[]> {
+    return db.select().from(supplierQuestionnaireTemplates).where(eq(supplierQuestionnaireTemplates.isActive, true));
+  }
+
+  async getSupplierQuestionnaireTemplate(id: number): Promise<SupplierQuestionnaireTemplate | undefined> {
+    const [t] = await db.select().from(supplierQuestionnaireTemplates).where(eq(supplierQuestionnaireTemplates.id, id));
+    return t;
+  }
+
+  async createSupplierQuestionnaireTemplate(data: InsertSupplierQuestionnaireTemplate): Promise<SupplierQuestionnaireTemplate> {
+    const [t] = await db.insert(supplierQuestionnaireTemplates).values(data).returning();
+    return t;
+  }
+
+  async getSupplierQuestionnaireQuestions(templateId: number): Promise<SupplierQuestionnaireQuestion[]> {
+    return db.select().from(supplierQuestionnaireQuestions)
+      .where(eq(supplierQuestionnaireQuestions.templateId, templateId))
+      .orderBy(asc(supplierQuestionnaireQuestions.sortOrder));
+  }
+
+  async createSupplierQuestionnaireQuestion(data: InsertSupplierQuestionnaireQuestion): Promise<SupplierQuestionnaireQuestion> {
+    const [q] = await db.insert(supplierQuestionnaireQuestions).values(data).returning();
+    return q;
+  }
+
+  async getSupplierAssessments(supplierId: number): Promise<SupplierAssessment[]> {
+    return db.select().from(supplierAssessments)
+      .where(eq(supplierAssessments.supplierId, supplierId))
+      .orderBy(desc(supplierAssessments.createdAt));
+  }
+
+  async getSupplierAssessmentsByTenant(tenantId: number): Promise<SupplierAssessment[]> {
+    return db.select().from(supplierAssessments)
+      .where(eq(supplierAssessments.tenantId, tenantId))
+      .orderBy(desc(supplierAssessments.createdAt));
+  }
+
+  async getSupplierAssessment(id: number): Promise<SupplierAssessment | undefined> {
+    const [a] = await db.select().from(supplierAssessments).where(eq(supplierAssessments.id, id));
+    return a;
+  }
+
+  async createSupplierAssessment(data: InsertSupplierAssessment): Promise<SupplierAssessment> {
+    const [a] = await db.insert(supplierAssessments).values(data).returning();
+    return a;
+  }
+
+  async updateSupplierAssessment(id: number, data: any): Promise<SupplierAssessment | undefined> {
+    const [a] = await db.update(supplierAssessments).set(data).where(eq(supplierAssessments.id, id)).returning();
+    return a;
+  }
+
+  async getSupplierAssessmentResponses(assessmentId: number): Promise<SupplierAssessmentResponse[]> {
+    return db.select().from(supplierAssessmentResponses)
+      .where(eq(supplierAssessmentResponses.supplierAssessmentId, assessmentId));
+  }
+
+  async getSupplierAssessmentResponseById(id: number): Promise<SupplierAssessmentResponse | undefined> {
+    const [r] = await db.select().from(supplierAssessmentResponses).where(eq(supplierAssessmentResponses.id, id));
+    return r;
+  }
+
+  async createSupplierAssessmentResponse(data: InsertSupplierAssessmentResponse): Promise<SupplierAssessmentResponse> {
+    const [r] = await db.insert(supplierAssessmentResponses).values(data).returning();
+    return r;
+  }
+
+  async updateSupplierAssessmentResponse(id: number, data: Partial<InsertSupplierAssessmentResponse>): Promise<SupplierAssessmentResponse | undefined> {
+    const [r] = await db.update(supplierAssessmentResponses).set(data).where(eq(supplierAssessmentResponses.id, id)).returning();
+    return r;
+  }
+
+  async getSupplierSecurityRequirements(supplierId: number): Promise<SupplierSecurityRequirement[]> {
+    return db.select().from(supplierSecurityRequirements).where(eq(supplierSecurityRequirements.supplierId, supplierId));
+  }
+
+  async getSupplierSecurityRequirementById(id: number): Promise<SupplierSecurityRequirement | undefined> {
+    const [r] = await db.select().from(supplierSecurityRequirements).where(eq(supplierSecurityRequirements.id, id));
+    return r;
+  }
+
+  async createSupplierSecurityRequirement(data: InsertSupplierSecurityRequirement): Promise<SupplierSecurityRequirement> {
+    const [r] = await db.insert(supplierSecurityRequirements).values(data).returning();
+    return r;
+  }
+
+  async updateSupplierSecurityRequirement(id: number, data: Partial<InsertSupplierSecurityRequirement>): Promise<SupplierSecurityRequirement | undefined> {
+    const [r] = await db.update(supplierSecurityRequirements).set(data).where(eq(supplierSecurityRequirements.id, id)).returning();
+    return r;
+  }
+
+  async deleteSupplierSecurityRequirement(id: number): Promise<void> {
+    await db.delete(supplierSecurityRequirements).where(eq(supplierSecurityRequirements.id, id));
+  }
+
+  async getContractClauseLibrary(): Promise<SupplierContractClauseLibraryItem[]> {
+    return db.select().from(supplierContractClauseLibrary);
+  }
+
+  async createContractClauseLibrary(data: InsertSupplierContractClauseLibraryItem): Promise<SupplierContractClauseLibraryItem> {
+    const [c] = await db.insert(supplierContractClauseLibrary).values(data).returning();
+    return c;
+  }
+
+  async getSupplierContracts(supplierId: number): Promise<SupplierContract[]> {
+    return db.select().from(supplierContracts).where(eq(supplierContracts.supplierId, supplierId));
+  }
+
+  async getSupplierContract(id: number): Promise<SupplierContract | undefined> {
+    const [c] = await db.select().from(supplierContracts).where(eq(supplierContracts.id, id));
+    return c;
+  }
+
+  async getSupplierContractById(id: number): Promise<SupplierContract | undefined> {
+    const [c] = await db.select().from(supplierContracts).where(eq(supplierContracts.id, id));
+    return c;
+  }
+
+  async createSupplierContract(data: InsertSupplierContract): Promise<SupplierContract> {
+    const [c] = await db.insert(supplierContracts).values(data).returning();
+    return c;
+  }
+
+  async updateSupplierContract(id: number, data: Partial<InsertSupplierContract>): Promise<SupplierContract | undefined> {
+    const [c] = await db.update(supplierContracts).set(data).where(eq(supplierContracts.id, id)).returning();
+    return c;
+  }
+
+  async deleteSupplierContract(id: number): Promise<void> {
+    await db.delete(supplierContracts).where(eq(supplierContracts.id, id));
+  }
+
+  async getContractClauseInstances(contractId: number): Promise<SupplierContractClauseInstance[]> {
+    return db.select().from(supplierContractClauseInstances).where(eq(supplierContractClauseInstances.contractId, contractId));
+  }
+
+  async getContractClauseInstanceById(id: number): Promise<SupplierContractClauseInstance | undefined> {
+    const [c] = await db.select().from(supplierContractClauseInstances).where(eq(supplierContractClauseInstances.id, id));
+    return c;
+  }
+
+  async createContractClauseInstance(data: InsertSupplierContractClauseInstance): Promise<SupplierContractClauseInstance> {
+    const [c] = await db.insert(supplierContractClauseInstances).values(data).returning();
+    return c;
+  }
+
+  async updateContractClauseInstance(id: number, data: Partial<InsertSupplierContractClauseInstance>): Promise<SupplierContractClauseInstance | undefined> {
+    const [c] = await db.update(supplierContractClauseInstances).set(data).where(eq(supplierContractClauseInstances.id, id)).returning();
+    return c;
+  }
+
+  async getSupplierExceptions(supplierId: number): Promise<SupplierException[]> {
+    return db.select().from(supplierExceptions).where(eq(supplierExceptions.supplierId, supplierId)).orderBy(desc(supplierExceptions.createdAt));
+  }
+
+  async getSupplierExceptionsByTenant(tenantId: number): Promise<SupplierException[]> {
+    return db.select().from(supplierExceptions).where(eq(supplierExceptions.tenantId, tenantId)).orderBy(desc(supplierExceptions.createdAt));
+  }
+
+  async getSupplierExceptionById(id: number): Promise<SupplierException | undefined> {
+    const [e] = await db.select().from(supplierExceptions).where(eq(supplierExceptions.id, id));
+    return e;
+  }
+
+  async createSupplierException(data: InsertSupplierException): Promise<SupplierException> {
+    const [e] = await db.insert(supplierExceptions).values(data).returning();
+    return e;
+  }
+
+  async updateSupplierException(id: number, data: any): Promise<SupplierException | undefined> {
+    const [e] = await db.update(supplierExceptions).set(data).where(eq(supplierExceptions.id, id)).returning();
+    return e;
+  }
+
+  async getSupplierIncidents(supplierId: number): Promise<SupplierIncident[]> {
+    return db.select().from(supplierIncidents).where(eq(supplierIncidents.supplierId, supplierId)).orderBy(desc(supplierIncidents.detectedAt));
+  }
+
+  async getSupplierIncidentsByTenant(tenantId: number): Promise<SupplierIncident[]> {
+    return db.select().from(supplierIncidents).where(eq(supplierIncidents.tenantId, tenantId)).orderBy(desc(supplierIncidents.detectedAt));
+  }
+
+  async getSupplierIncidentById(id: number): Promise<SupplierIncident | undefined> {
+    const [i] = await db.select().from(supplierIncidents).where(eq(supplierIncidents.id, id));
+    return i;
+  }
+
+  async createSupplierIncident(data: InsertSupplierIncident): Promise<SupplierIncident> {
+    const [i] = await db.insert(supplierIncidents).values(data).returning();
+    return i;
+  }
+
+  async updateSupplierIncident(id: number, data: Partial<InsertSupplierIncident>): Promise<SupplierIncident | undefined> {
+    const [i] = await db.update(supplierIncidents).set(data).where(eq(supplierIncidents.id, id)).returning();
+    return i;
   }
 
   async createRiskItem(data: InsertRiskItem): Promise<RiskItem> {
