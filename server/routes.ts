@@ -2259,6 +2259,24 @@ export async function registerRoutes(
     res.json(dep);
   });
 
+  app.patch("/api/supplier-dependencies/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const dep = await storage.getSupplierDependencyById(parseInt(req.params.id));
+    if (!dep || dep.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const patchSchema = z.object({
+      name: z.string().min(1).optional(),
+      dependencyType: z.string().optional(),
+      criticalityImpact: z.string().optional(),
+      description: z.string().nullable().optional(),
+    });
+    const parsed = patchSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
+    const updated = await storage.updateSupplierDependency(dep.id, parsed.data);
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "UPDATE", entityType: "SUPPLIER_DEPENDENCY", entityId: req.params.id });
+    res.json(updated);
+  });
+
   app.delete("/api/supplier-dependencies/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -2267,6 +2285,38 @@ export async function registerRoutes(
     await storage.deleteSupplierDependency(dep.id);
     await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "DELETE", entityType: "SUPPLIER_DEPENDENCY", entityId: req.params.id });
     res.json({ message: "Deleted" });
+  });
+
+  app.delete("/api/supplier-requirements/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const req2 = await storage.getSupplierSecurityRequirementById(parseInt(req.params.id));
+    if (!req2 || req2.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    await storage.deleteSupplierSecurityRequirement(req2.id);
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "DELETE", entityType: "SUPPLIER_REQUIREMENT", entityId: req.params.id });
+    res.json({ message: "Deleted" });
+  });
+
+  app.post("/api/suppliers/:id/contracts/:contractId/add-all-clauses", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const supplier = await storage.getSupplier(parseInt(req.params.id));
+    if (!supplier || supplier.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const contractId = parseInt(req.params.contractId);
+    const contract = await storage.getSupplierContractById(contractId);
+    if (!contract || contract.tenantId !== user.tenantId) return res.status(404).json({ message: "Contract not found" });
+    const library = await storage.getContractClauseLibrary();
+    const existing = await storage.getContractClauseInstances(contractId);
+    const existingClauseIds = existing.map((c: any) => c.clauseLibraryId);
+    let added = 0;
+    for (const clause of library) {
+      if (!existingClauseIds.includes(clause.id)) {
+        await storage.createContractClauseInstance({ contractId, clauseLibraryId: clause.id, isIncluded: false });
+        added++;
+      }
+    }
+    await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "CREATE", entityType: "SUPPLIER_CONTRACT_CLAUSES_BULK", entityId: String(contractId) });
+    res.json({ added });
   });
 
   app.get("/api/supplier-questionnaire-templates", requireAuth, async (req, res) => {
