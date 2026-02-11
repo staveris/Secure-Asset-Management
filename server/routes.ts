@@ -1506,6 +1506,62 @@ export async function registerRoutes(
     res.json(task);
   });
 
+  app.post("/api/assessments/:id/generate-tasks", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      const assessmentId = parseInt(req.params.id);
+      const assessment = await storage.getAssessment(assessmentId);
+      if (!assessment) return res.status(404).json({ message: "Assessment not found" });
+      if (assessment.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const responses = await storage.getAssessmentResponses(assessmentId);
+      const gaps = responses.filter(r => r.implementationStatus === "NOT_STARTED" || r.implementationStatus === "IN_PROGRESS");
+      const allControls = await storage.getAllControlObjectives();
+      const controlMap = new Map(allControls.map(c => [c.id, c]));
+      const allRequirements = await storage.getAllRequirements();
+      const reqMap = new Map(allRequirements.map(r => [r.id, r]));
+      const existingTasks = await storage.getTasksByTenant(user.tenantId);
+      const existingTaskKeys = new Set(
+        existingTasks
+          .filter(t => t.assessmentId === assessmentId && t.controlObjectiveId && t.status !== "DONE")
+          .map(t => `${t.assessmentId}-${t.controlObjectiveId}`)
+      );
+      let created = 0;
+      let skipped = 0;
+      for (const gap of gaps) {
+        const ctrl = controlMap.get(gap.controlObjectiveId);
+        if (!ctrl) continue;
+        const taskKey = `${assessmentId}-${ctrl.id}`;
+        if (existingTaskKeys.has(taskKey)) { skipped++; continue; }
+        const req2 = reqMap.get(ctrl.requirementId);
+        await storage.createTask({
+          tenantId: user.tenantId,
+          assessmentId,
+          controlObjectiveId: ctrl.id,
+          title: `[NIS2] ${ctrl.title}`,
+          description: `Address gap: ${ctrl.description}\n\nRequirement: ${req2?.code || ""} - ${req2?.title || ""}\nCurrent status: ${gap.implementationStatus}`,
+          priority: ctrl.weight >= 3 ? "HIGH" : ctrl.weight >= 2 ? "MEDIUM" : "LOW",
+          status: "TODO",
+          ownerUserId: user.id,
+        });
+        created++;
+      }
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "NIS2_TASKS_GENERATED",
+        entityType: "Assessment",
+        entityId: String(assessmentId),
+        details: { tasksCreated: created, skipped, gapsFound: gaps.length },
+      });
+      res.json({ created, skipped, gaps: gaps.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.patch("/api/tasks/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
@@ -3199,11 +3255,21 @@ export async function registerRoutes(
     const gaps = responses.filter(r => r.implementationStatus === "NOT_STARTED" || r.implementationStatus === "IN_PROGRESS");
     const allControls = await storage.getAllAtomicControls();
     const controlMap = new Map(allControls.map(c => [c.id, c]));
-    let created = 0;
     const parentAssessmentId = assessment.parentAssessmentId || undefined;
+    const existingTasks = await storage.getTasksByTenant(user.tenantId);
+    const existingAtomicLinks = new Set<number>();
+    for (const t of existingTasks) {
+      if (t.assessmentId === parentAssessmentId && t.status !== "DONE") {
+        const links = await storage.getTaskAtomicLinks(t.id);
+        for (const link of links) existingAtomicLinks.add(link.atomicControlId);
+      }
+    }
+    let created = 0;
+    let skipped = 0;
     for (const gap of gaps) {
       const ctrl = controlMap.get(gap.atomicControlId);
       if (!ctrl) continue;
+      if (existingAtomicLinks.has(ctrl.id)) { skipped++; continue; }
       const isCir = ctrl.sourceKey === "CIR_2024_2690";
       const task = await storage.createTask({
         tenantId: user.tenantId,
@@ -3212,6 +3278,7 @@ export async function registerRoutes(
         description: `Address gap: ${ctrl.obligationText}\n\nControl: ${ctrl.controlId}\nCurrent status: ${gap.implementationStatus}`,
         priority: ctrl.weight >= 3 ? "HIGH" : ctrl.weight >= 2 ? "MEDIUM" : "LOW",
         status: "TODO",
+        ownerUserId: user.id,
       });
       await storage.createTaskAtomicLink({
         taskId: task.id,
@@ -3225,9 +3292,9 @@ export async function registerRoutes(
       action: "ATOMIC_TASKS_GENERATED",
       entityType: "AtomicAssessment",
       entityId: String(assessmentId),
-      details: { tasksCreated: created, gapsFound: gaps.length },
+      details: { tasksCreated: created, skipped, gapsFound: gaps.length },
     });
-    res.json({ created, gaps: gaps.length });
+    res.json({ created, skipped, gaps: gaps.length });
   });
 
   app.delete("/api/atomic-assessments/:id", requireAuth, async (req, res) => {

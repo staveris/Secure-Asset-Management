@@ -992,6 +992,25 @@ export default function AssessmentDetail({ id }: { id: string }) {
     },
   });
 
+  const generateNis2TasksMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error("No assessment ID");
+      const res = await apiRequest("POST", `/api/assessments/${id}/generate-tasks`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      const desc = data.skipped > 0
+        ? `Created ${data.created} tasks (${data.skipped} already existed).`
+        : `Created ${data.created} tasks for ${data.gaps} identified gaps.`;
+      toast({ title: "NIS2 Tasks generated", description: desc });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-4">
@@ -1025,18 +1044,30 @@ export default function AssessmentDetail({ id }: { id: string }) {
             {data.scope || "Full NIS2 compliance assessment"}
           </p>
         </div>
-        {hasAtomicControls && data.cirInfo && (
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => generateAtomicTasksMutation.mutate()}
-            disabled={generateAtomicTasksMutation.isPending}
-            data-testid="button-generate-atomic-tasks"
+            onClick={() => generateNis2TasksMutation.mutate()}
+            disabled={generateNis2TasksMutation.isPending}
+            data-testid="button-generate-nis2-tasks"
           >
             <ListTodo className="w-4 h-4 mr-2" />
-            {generateAtomicTasksMutation.isPending ? "Generating..." : "Generate Tasks for Gaps"}
+            {generateNis2TasksMutation.isPending ? "Generating..." : "Generate NIS2 Tasks"}
           </Button>
-        )}
+          {hasAtomicControls && data.cirInfo && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => generateAtomicTasksMutation.mutate()}
+              disabled={generateAtomicTasksMutation.isPending}
+              data-testid="button-generate-atomic-tasks"
+            >
+              <ListTodo className="w-4 h-4 mr-2" />
+              {generateAtomicTasksMutation.isPending ? "Generating..." : "Generate Atomic/CIR Tasks"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b -mx-6 px-6 py-3 space-y-2" data-testid="sticky-progress-bar">

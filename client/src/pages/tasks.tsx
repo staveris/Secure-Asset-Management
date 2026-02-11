@@ -218,7 +218,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: "#ef4444",
   HIGH: "#f59e0b",
   MEDIUM: "#3b82f6",
-  LOW: "#94a3b8",
+  LOW: "#64748b",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -364,7 +364,7 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
 
   const groupColorMap: Record<string, string> = {
     "To Do": "#94a3b8", "In Progress": "#3b82f6", "In Review": "#f59e0b", "Done": "#22c55e",
-    "Critical": "#ef4444", "High": "#f59e0b", "Medium": "#3b82f6", "Low": "#94a3b8",
+    "Critical": "#ef4444", "High": "#f59e0b", "Medium": "#3b82f6", "Low": "#64748b",
   };
 
   const totalTaskCount = tasks.length;
@@ -541,22 +541,22 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
                                   <div
                                     className={`h-7 rounded-md flex items-center px-2 overflow-hidden relative ${bar.isOverdue ? "ring-1 ring-red-500/70 ring-offset-1 ring-offset-background" : ""} ${!bar.hasDueDate ? "opacity-60 border border-dashed" : ""}`}
                                     style={{
-                                      backgroundColor: bar.color + "20",
-                                      borderColor: !bar.hasDueDate ? bar.color + "40" : undefined,
+                                      backgroundColor: bar.color + "cc",
+                                      borderColor: !bar.hasDueDate ? bar.color + "60" : undefined,
                                     }}
                                   >
                                     <div
                                       className="absolute left-0 top-0 bottom-0 rounded-md"
                                       style={{
                                         width: `${bar.progressPct}%`,
-                                        backgroundColor: bar.color + "35",
+                                        backgroundColor: "rgba(255,255,255,0.15)",
                                       }}
                                     />
                                     <div
                                       className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md"
                                       style={{ backgroundColor: bar.color }}
                                     />
-                                    <span className="text-[10px] font-medium truncate whitespace-nowrap relative z-10 pl-1" style={{ color: bar.color }}>
+                                    <span className="text-[10px] font-semibold truncate whitespace-nowrap relative z-10 pl-1 text-white drop-shadow-sm">
                                       {task.title}
                                     </span>
                                   </div>
