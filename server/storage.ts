@@ -547,6 +547,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTask(id: number): Promise<void> {
+    await db.delete(taskAtomicLinks).where(eq(taskAtomicLinks.taskId, id));
     await db.delete(tasks).where(eq(tasks.id, id));
   }
 
