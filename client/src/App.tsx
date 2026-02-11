@@ -80,6 +80,12 @@ function WithFullAccess({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
+function WithFullAccessId({ component: Component, id }: { component: React.ComponentType<{ id: string }>; id: string }) {
+  const { hasFullAccess } = useAuth();
+  if (!hasFullAccess) return <RestrictedPage />;
+  return <Component id={id} />;
+}
+
 function AdminRouter() {
   return (
     <Switch>
@@ -119,7 +125,9 @@ function TenantRouter() {
       <Route path="/tasks">{() => <WithFullAccess component={Tasks} />}</Route>
       <Route path="/evidence">{() => <WithFullAccess component={Evidence} />}</Route>
       <Route path="/incidents">{() => <WithFullAccess component={Incidents} />}</Route>
-      <Route path="/suppliers/:id">{() => <WithFullAccess component={SupplierDetail} />}</Route>
+      <Route path="/suppliers/:id">
+        {(params) => <WithFullAccessId component={SupplierDetail} id={params.id} />}
+      </Route>
       <Route path="/suppliers">{() => <WithFullAccess component={Suppliers} />}</Route>
       <Route path="/risks">{() => <WithFullAccess component={Risks} />}</Route>
       <Route path="/reports">{() => <WithFullAccess component={Reports} />}</Route>

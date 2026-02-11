@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useRoute, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,11 +49,10 @@ const riskBadge = (score: number | null | undefined) => {
   return <Badge variant="outline">{score}</Badge>;
 };
 
-export default function SupplierDetail() {
-  const [, params] = useRoute("/suppliers/:id");
+export default function SupplierDetail({ id }: { id: string }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const supplierId = params?.id ? parseInt(params.id) : 0;
+  const supplierId = id ? parseInt(id) : 0;
 
   const { data, isLoading } = useQuery<{
     supplier: Supplier;
