@@ -73,6 +73,62 @@ const supplierStatuses = [
   { value: "ONBOARDING", label: "Onboarding" },
 ];
 
+const EU_COUNTRIES = [
+  "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czech Republic",
+  "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary",
+  "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta",
+  "Netherlands", "Poland", "Portugal", "Romania", "Slovakia", "Slovenia",
+  "Spain", "Sweden",
+];
+
+const EEA_COUNTRIES = ["Iceland", "Liechtenstein", "Norway"];
+
+const NON_EU_COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda",
+  "Argentina", "Armenia", "Australia", "Azerbaijan", "Bahamas", "Bahrain",
+  "Bangladesh", "Barbados", "Belarus", "Belize", "Benin", "Bhutan", "Bolivia",
+  "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Burkina Faso",
+  "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic",
+  "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica",
+  "Cote d'Ivoire", "Cuba", "Djibouti", "Dominica", "Dominican Republic",
+  "DR Congo", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea",
+  "Eswatini", "Ethiopia", "Fiji", "Gabon", "Gambia", "Georgia", "Ghana",
+  "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti",
+  "Honduras", "India", "Indonesia", "Iran", "Iraq", "Israel", "Jamaica",
+  "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait",
+  "Kyrgyzstan", "Laos", "Lebanon", "Lesotho", "Liberia", "Libya",
+  "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Marshall Islands",
+  "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco",
+  "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia",
+  "Nauru", "Nepal", "New Zealand", "Nicaragua", "Niger", "Nigeria",
+  "North Korea", "North Macedonia", "Oman", "Pakistan", "Palau", "Palestine",
+  "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Qatar",
+  "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia",
+  "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe",
+  "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore",
+  "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan",
+  "Sri Lanka", "Sudan", "Suriname", "Switzerland", "Syria", "Taiwan",
+  "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga",
+  "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu",
+  "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom",
+  "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City",
+  "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe",
+];
+
+function isEuCountry(country: string): boolean {
+  return EU_COUNTRIES.includes(country);
+}
+
+function isEeaCountry(country: string): boolean {
+  return EEA_COUNTRIES.includes(country);
+}
+
+function getCountryLabel(country: string): string {
+  if (isEuCountry(country)) return `${country} (EU)`;
+  if (isEeaCountry(country)) return `${country} (EEA)`;
+  return country;
+}
+
 interface SupplierFormData {
   name: string;
   criticality: string;
@@ -211,7 +267,29 @@ function SupplierFormFields({ form, setForm, prefix }: { form: SupplierFormData;
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Country</Label>
-            <Input value={form.country} onChange={(e) => update("country", e.target.value)} placeholder="e.g., Germany" data-testid={`${prefix}-input-country`} />
+            <Select value={form.country} onValueChange={(v) => update("country", v)}>
+              <SelectTrigger data-testid={`${prefix}-select-country`}>
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[280px]">
+                <div className="px-2 py-1.5 text-xs font-semibold text-primary">EU Member States</div>
+                {EU_COUNTRIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    <span className="flex items-center gap-2">{c} <Badge variant="outline" className="text-[9px] px-1 py-0 no-default-hover-elevate no-default-active-elevate">EU</Badge></span>
+                  </SelectItem>
+                ))}
+                <div className="px-2 py-1.5 text-xs font-semibold text-blue-500 dark:text-blue-400 border-t mt-1 pt-1.5">EEA Countries</div>
+                {EEA_COUNTRIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    <span className="flex items-center gap-2">{c} <Badge variant="secondary" className="text-[9px] px-1 py-0 no-default-hover-elevate no-default-active-elevate">EEA</Badge></span>
+                  </SelectItem>
+                ))}
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-1.5">Non-EU Countries</div>
+                {NON_EU_COUNTRIES.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Website</Label>
@@ -444,6 +522,8 @@ export default function Suppliers() {
                   <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                     <Globe className="w-3 h-3" />
                     <span>{supplier.country}</span>
+                    {isEuCountry(supplier.country) && <Badge variant="outline" className="text-[9px] px-1 py-0 no-default-hover-elevate no-default-active-elevate">EU</Badge>}
+                    {isEeaCountry(supplier.country) && <Badge variant="secondary" className="text-[9px] px-1 py-0 no-default-hover-elevate no-default-active-elevate">EEA</Badge>}
                   </div>
                 )}
                 {supplier.primaryContactName && (
