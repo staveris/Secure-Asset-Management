@@ -18,7 +18,7 @@ import sanitizeHtml from "sanitize-html";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
 import { getAppBaseUrl } from "./email";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
-import { platformSettings, users, passwordHistory, controlObjectives, assessments as assessmentsTable, assessmentResponses, evidenceItems as evidenceItemsTable } from "@shared/schema";
+import { platformSettings, users, passwordHistory, controlObjectives, assessments as assessmentsTable, assessmentResponses, evidenceItems as evidenceItemsTable, atomicControls, atomicAssessments, atomicAssessmentResponses } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -1542,7 +1542,11 @@ export async function registerRoutes(
       .filter(e => e.relatedType === "Control")
       .map(e => e.relatedId);
 
-    let controlAssessmentMap: Record<number, { controlTitle: string; assessmentId: number; assessmentName: string }> = {};
+    const atomicControlIds = list
+      .filter(e => e.relatedType === "AtomicControl")
+      .map(e => e.relatedId);
+
+    let controlAssessmentMap: Record<number, { controlTitle: string; assessmentId: number; assessmentName: string; responseId: number }> = {};
 
     if (controlObjectiveIds.length > 0) {
       const enrichmentRows = await db
@@ -1551,6 +1555,7 @@ export async function registerRoutes(
           controlTitle: controlObjectives.title,
           assessmentId: assessmentsTable.id,
           assessmentName: assessmentsTable.name,
+          responseId: assessmentResponses.id,
         })
         .from(assessmentResponses)
         .innerJoin(controlObjectives, eq(assessmentResponses.controlObjectiveId, controlObjectives.id))
@@ -1563,7 +1568,70 @@ export async function registerRoutes(
             controlTitle: row.controlTitle,
             assessmentId: row.assessmentId,
             assessmentName: row.assessmentName,
+            responseId: row.responseId,
           };
+        }
+      }
+    }
+
+    let atomicControlMap: Record<number, { controlTitle: string; controlId: string; sourceKey: string; assessmentId: number | null; assessmentName: string | null; atomicAssessmentId: number | null }> = {};
+
+    if (atomicControlIds.length > 0) {
+      const atomicRows = await db
+        .select({
+          id: atomicControls.id,
+          shortTitle: atomicControls.shortTitle,
+          controlId: atomicControls.controlId,
+          sourceKey: atomicControls.sourceKey,
+        })
+        .from(atomicControls)
+        .where(eq(atomicControls.isActive, true));
+
+      for (const row of atomicRows) {
+        if (atomicControlIds.includes(row.id)) {
+          atomicControlMap[row.id] = {
+            controlTitle: row.shortTitle,
+            controlId: row.controlId,
+            sourceKey: row.sourceKey,
+            assessmentId: null,
+            assessmentName: null,
+            atomicAssessmentId: null,
+          };
+        }
+      }
+
+      const atomicAssessmentRows = await db
+        .select({
+          responseId: atomicAssessmentResponses.id,
+          atomicControlId: atomicAssessmentResponses.atomicControlId,
+          atomicAssessmentId: atomicAssessments.id,
+          parentAssessmentId: atomicAssessments.parentAssessmentId,
+        })
+        .from(atomicAssessmentResponses)
+        .innerJoin(atomicAssessments, eq(atomicAssessmentResponses.atomicAssessmentId, atomicAssessments.id))
+        .where(eq(atomicAssessments.tenantId, user.tenantId));
+
+      for (const row of atomicAssessmentRows) {
+        if (atomicControlMap[row.atomicControlId]) {
+          atomicControlMap[row.atomicControlId].atomicAssessmentId = row.atomicAssessmentId;
+          (atomicControlMap[row.atomicControlId] as any).responseId = row.responseId;
+          if (row.parentAssessmentId) {
+            atomicControlMap[row.atomicControlId].assessmentId = row.parentAssessmentId;
+          }
+        }
+      }
+
+      if (Object.values(atomicControlMap).some(v => v.assessmentId)) {
+        const parentIds = [...new Set(Object.values(atomicControlMap).filter(v => v.assessmentId).map(v => v.assessmentId!))];
+        for (const pid of parentIds) {
+          const aRows = await db.select({ id: assessmentsTable.id, name: assessmentsTable.name }).from(assessmentsTable).where(eq(assessmentsTable.id, pid));
+          if (aRows.length > 0) {
+            for (const entry of Object.values(atomicControlMap)) {
+              if (entry.assessmentId === pid) {
+                entry.assessmentName = aRows[0].name;
+              }
+            }
+          }
         }
       }
     }
@@ -1576,6 +1644,20 @@ export async function registerRoutes(
           controlTitle: info.controlTitle,
           assessmentId: info.assessmentId,
           assessmentName: info.assessmentName,
+          responseId: info.responseId,
+        };
+      }
+      if (item.relatedType === "AtomicControl" && atomicControlMap[item.relatedId]) {
+        const info = atomicControlMap[item.relatedId] as any;
+        return {
+          ...item,
+          controlTitle: `${info.controlId} - ${info.controlTitle}`,
+          assessmentId: info.assessmentId,
+          assessmentName: info.assessmentName,
+          atomicAssessmentId: info.atomicAssessmentId,
+          atomicControlId: item.relatedId,
+          responseId: info.responseId,
+          sourceKey: info.sourceKey,
         };
       }
       return item;

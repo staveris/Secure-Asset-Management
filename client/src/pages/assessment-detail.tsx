@@ -53,7 +53,7 @@ import {
   StickyNote,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -796,6 +796,7 @@ function ControlCard({
 
 export default function AssessmentDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
+  const searchString = useSearch();
   const { toast } = useToast();
   const [groupMode, setGroupMode] = useState<GroupMode>("domain");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
@@ -804,6 +805,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
   const controlRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const scrolledToControl = useRef(false);
 
   const { data, isLoading } = useQuery<AssessmentDetail>({
     queryKey: ["/api/assessments", id],
@@ -827,6 +829,25 @@ export default function AssessmentDetail({ id }: { id: string }) {
   const hasAtomicControls = !!data?.cirInfo;
   const hasCir = allResponses.some(r => r.sourceKey === "CIR_2024_2690");
   const hasNis2Atomic = allResponses.some(r => r.sourceKey === "NIS2_2022_2555");
+
+  useEffect(() => {
+    if (scrolledToControl.current || !data || allResponses.length === 0) return;
+    const params = new URLSearchParams(searchString);
+    const controlParam = params.get("control");
+    if (!controlParam) return;
+
+    scrolledToControl.current = true;
+    setExpandedCards(prev => new Set(prev).add(controlParam));
+
+    setTimeout(() => {
+      const el = controlRefs.current.get(controlParam);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-primary/50");
+        setTimeout(() => el.classList.remove("ring-2", "ring-primary/50"), 3000);
+      }
+    }, 300);
+  }, [data, allResponses, searchString]);
 
   const getControlTasks = (controlObjectiveId: number | undefined): Task[] => {
     if (!data?.tasks || !controlObjectiveId) return [];

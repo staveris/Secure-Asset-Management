@@ -503,6 +503,7 @@ export default function Evidence() {
             <SelectItem value="Assessment">Assessment</SelectItem>
             <SelectItem value="Task">Task</SelectItem>
             <SelectItem value="Control">Control</SelectItem>
+            <SelectItem value="AtomicControl">Atomic Control</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -573,7 +574,16 @@ export default function Evidence() {
                             <ClipboardList className="w-3 h-3 text-muted-foreground shrink-0" />
                             <span className="text-muted-foreground">Assessment:</span>
                             <Link
-                              href={`/assessments/${enriched.assessmentId}`}
+                              href={(() => {
+                                const base = `/assessments/${enriched.assessmentId}`;
+                                if (enriched.responseId) {
+                                  const src = item.relatedType === "AtomicControl"
+                                    ? (enriched.sourceKey === "CIR_2024_2690" ? "CIR" : "NIS2")
+                                    : "NIS2";
+                                  return `${base}?control=${src}-${enriched.responseId}`;
+                                }
+                                return base;
+                              })()}
                               className="text-primary hover:underline font-medium inline-flex items-center gap-0.5"
                               data-testid={`link-assessment-${item.id}`}
                             >
@@ -584,7 +594,23 @@ export default function Evidence() {
                           <span className="flex items-center gap-1.5 text-xs" data-testid={`text-control-${item.id}`}>
                             <Link2 className="w-3 h-3 text-muted-foreground shrink-0" />
                             <span className="text-muted-foreground">Control:</span>
-                            <span className="font-medium">{enriched.controlTitle}</span>
+                            <Link
+                              href={(() => {
+                                const base = `/assessments/${enriched.assessmentId}`;
+                                if (enriched.responseId) {
+                                  const src = item.relatedType === "AtomicControl"
+                                    ? (enriched.sourceKey === "CIR_2024_2690" ? "CIR" : "NIS2")
+                                    : "NIS2";
+                                  return `${base}?control=${src}-${enriched.responseId}`;
+                                }
+                                return base;
+                              })()}
+                              className="text-primary hover:underline font-medium inline-flex items-center gap-0.5"
+                              data-testid={`link-control-${item.id}`}
+                            >
+                              {enriched.controlTitle}
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
                           </span>
                         </div>
                       ) : (
