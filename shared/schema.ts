@@ -558,9 +558,9 @@ export const atomicImplementationStatusEnum = pgEnum("atomic_implementation_stat
 
 export const atomicConfidenceEnum = pgEnum("atomic_confidence", [
   "NONE",
-  "WEAK",
-  "STRONG",
-  "INDEPENDENT",
+  "LOW",
+  "MEDIUM",
+  "HIGH",
 ]);
 
 export const featureFlags = pgTable("feature_flags", {

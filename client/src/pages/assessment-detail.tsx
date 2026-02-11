@@ -541,21 +541,30 @@ function ControlCard({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {isAtomicControl ? (
-                            <>
-                              <SelectItem value="NONE">None</SelectItem>
-                              <SelectItem value="WEAK">Weak</SelectItem>
-                              <SelectItem value="STRONG">Strong</SelectItem>
-                              <SelectItem value="INDEPENDENT">Independent</SelectItem>
-                            </>
-                          ) : (
-                            <>
-                              <SelectItem value="NONE">None</SelectItem>
-                              <SelectItem value="LOW">Low</SelectItem>
-                              <SelectItem value="MEDIUM">Medium</SelectItem>
-                              <SelectItem value="HIGH">High</SelectItem>
-                            </>
-                          )}
+                          <SelectItem value="NONE">
+                            <div className="flex flex-col">
+                              <span>None</span>
+                              <span className="text-xs text-muted-foreground">No evidence collected yet</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="LOW">
+                            <div className="flex flex-col">
+                              <span>Low</span>
+                              <span className="text-xs text-muted-foreground">Self-assessed or anecdotal evidence only</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="MEDIUM">
+                            <div className="flex flex-col">
+                              <span>Medium</span>
+                              <span className="text-xs text-muted-foreground">Documented evidence reviewed internally</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="HIGH">
+                            <div className="flex flex-col">
+                              <span>High</span>
+                              <span className="text-xs text-muted-foreground">Independently verified or audited evidence</span>
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
