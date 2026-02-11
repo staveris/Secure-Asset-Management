@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Printer, Shield, ClipboardCheck, Target, FileText, AlertTriangle, CheckCircle2, TrendingUp, Building2, Calendar, Hash } from "lucide-react";
+import { Printer, Shield, ClipboardCheck, Target, FileText, AlertTriangle, CheckCircle2, TrendingUp, Building2, Calendar, Hash, BarChart3, Users, Lightbulb, Activity } from "lucide-react";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
 
 interface StatusItem {
@@ -405,6 +405,10 @@ export default function Reports() {
                     "Implementation Status",
                     "Maturity Assessment",
                     "Operational Summary",
+                    ...(risks && risks.length > 0 ? ["Risk Exposure Analysis"] : []),
+                    ...(tasks && tasks.length > 0 ? ["Task Completion Metrics"] : []),
+                    ...(suppliers && suppliers.length > 0 ? ["Supplier Risk Profile"] : []),
+                    "Compliance Insights & Trend Analysis",
                     "Recommendations & Next Steps",
                   ];
                   return tocItems.map((item) => (
@@ -828,6 +832,460 @@ export default function Reports() {
                   </div>
                 </div>
               </div>
+            </section>
+
+            {/* ── RISK EXPOSURE ANALYSIS ── */}
+            {risks && risks.length > 0 && (
+              <section className="print-section print-page-break" data-testid="section-risk-exposure">
+                <SectionHeader number={nextSection()} title="Risk Exposure Analysis" testId="heading-risk-exposure" />
+                <p className="text-sm text-muted-foreground mb-4 print:text-gray-600">
+                  Aggregated risk landscape analysis based on {risks.length} identified risk{risks.length !== 1 ? "s" : ""} across the organization.
+                </p>
+
+                {(() => {
+                  const likelihoodLevels = ["Very Low", "Low", "Medium", "High", "Very High"];
+                  const impactLevels = ["Negligible", "Minor", "Moderate", "Major", "Critical"];
+                  const heatMap: number[][] = Array(5).fill(null).map(() => Array(5).fill(0));
+                  const risksByLevel: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+                  const risksByStatus: Record<string, number> = {};
+
+                  for (const r of risks) {
+                    const lIdx = Math.min(Math.max(Math.round((r.likelihood ?? 3) - 1), 0), 4);
+                    const iIdx = Math.min(Math.max(Math.round((r.impact ?? 3) - 1), 0), 4);
+                    heatMap[4 - iIdx][lIdx]++;
+                    const level = r.riskLevel || r.risk_level || "MEDIUM";
+                    risksByLevel[level] = (risksByLevel[level] || 0) + 1;
+                    const status = r.mitigationStatus || r.mitigation_status || r.status || "Open";
+                    risksByStatus[status] = (risksByStatus[status] || 0) + 1;
+                  }
+
+                  const heatColors = (val: number) => {
+                    if (val === 0) return { bg: "#f3f4f6", text: "#9ca3af" };
+                    if (val === 1) return { bg: "#fef3c7", text: "#92400e" };
+                    if (val <= 3) return { bg: "#fed7aa", text: "#9a3412" };
+                    return { bg: "#fecaca", text: "#991b1b" };
+                  };
+
+                  const topRisks = [...risks]
+                    .sort((a, b) => ((b.likelihood ?? 3) * (b.impact ?? 3)) - ((a.likelihood ?? 3) * (a.impact ?? 3)))
+                    .slice(0, 5);
+
+                  return (
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="border rounded-md p-4 print:border-gray-300">
+                          <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
+                            <BarChart3 className="w-3 h-3" /> Risk Heat Map
+                          </h4>
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-0.5">
+                              <div className="w-14 shrink-0" />
+                              {likelihoodLevels.map((l, i) => (
+                                <div key={i} className="flex-1 text-center text-[8px] text-muted-foreground truncate print:text-gray-500">{l}</div>
+                              ))}
+                            </div>
+                            {heatMap.map((row, rowIdx) => (
+                              <div key={rowIdx} className="flex items-center gap-0.5">
+                                <div className="w-14 shrink-0 text-[8px] text-muted-foreground text-right pr-1 print:text-gray-500">{impactLevels[4 - rowIdx]}</div>
+                                {row.map((val, colIdx) => {
+                                  const c = heatColors(val);
+                                  return (
+                                    <div
+                                      key={colIdx}
+                                      className="flex-1 aspect-square flex items-center justify-center text-[10px] font-bold rounded-sm"
+                                      style={{ backgroundColor: c.bg, color: c.text }}
+                                      data-testid={`heatmap-cell-${4 - rowIdx}-${colIdx}`}
+                                    >
+                                      {val > 0 ? val : ""}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                            <div className="flex items-center gap-0.5 mt-1">
+                              <div className="w-14 shrink-0" />
+                              <div className="flex-1 text-center text-[8px] text-muted-foreground print:text-gray-500" style={{ gridColumn: "span 5" }}>
+                                Likelihood →
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border rounded-md p-4 print:border-gray-300">
+                          <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3 h-3" /> Risk Distribution
+                          </h4>
+                          <div className="space-y-2 mb-4">
+                            {[
+                              { label: "Critical", count: risksByLevel.CRITICAL || 0, color: "#dc2626" },
+                              { label: "High", count: risksByLevel.HIGH || 0, color: "#f59e0b" },
+                              { label: "Medium", count: risksByLevel.MEDIUM || 0, color: "#3b82f6" },
+                              { label: "Low", count: risksByLevel.LOW || 0, color: "#22c55e" },
+                            ].map((item) => (
+                              <div key={item.label} className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: item.color }} />
+                                <span className="text-xs flex-1">{item.label}</span>
+                                <span className="text-xs font-bold w-6 text-right">{item.count}</span>
+                                <div className="w-20">
+                                  <MiniBar value={item.count} max={risks.length} color={item.color} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {Object.keys(risksByStatus).length > 0 && (
+                            <>
+                              <div className="border-t border-gray-100 dark:border-neutral-800 print:border-gray-200 pt-2 mt-2">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Mitigation Status</span>
+                              </div>
+                              <div className="space-y-1.5 mt-2">
+                                {Object.entries(risksByStatus).map(([status, count]) => (
+                                  <div key={status} className="flex items-center justify-between text-xs">
+                                    <span>{status.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                                    <span className="font-semibold">{count as number}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {topRisks.length > 0 && (
+                        <div>
+                          <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider text-muted-foreground print:text-gray-500">Top Risks by Severity</h4>
+                          <table className="w-full text-sm border-collapse" data-testid="table-top-risks">
+                            <thead>
+                              <tr className="border-b-2 border-gray-200 dark:border-neutral-700 print:border-gray-300">
+                                <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-8">#</th>
+                                <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Risk</th>
+                                <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-20">Score</th>
+                                <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-20">Level</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {topRisks.map((r: any, idx: number) => {
+                                const score = (r.likelihood ?? 3) * (r.impact ?? 3);
+                                const level = r.riskLevel || r.risk_level || "MEDIUM";
+                                const levelColor = level === "CRITICAL" ? "#dc2626" : level === "HIGH" ? "#f59e0b" : level === "MEDIUM" ? "#3b82f6" : "#22c55e";
+                                return (
+                                  <tr key={idx} className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid={`risk-row-${idx}`}>
+                                    <td className="py-2 px-3 text-center text-xs text-muted-foreground print:text-gray-500">{idx + 1}</td>
+                                    <td className="py-2 px-3">
+                                      <p className="text-xs font-medium">{r.title || r.name || `Risk ${idx + 1}`}</p>
+                                      {r.category && <p className="text-[10px] text-muted-foreground print:text-gray-500">{r.category}</p>}
+                                    </td>
+                                    <td className="py-2 px-3 text-center text-xs font-bold">{score}</td>
+                                    <td className="py-2 px-3 text-center">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm inline-block" style={{ backgroundColor: levelColor + "18", color: levelColor }}>
+                                        {level}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </section>
+            )}
+
+            {/* ── TASK COMPLETION METRICS ── */}
+            {tasks && tasks.length > 0 && (
+              <section className="print-section" data-testid="section-task-metrics">
+                <SectionHeader number={nextSection()} title="Task Completion Metrics" testId="heading-task-metrics" />
+                <p className="text-sm text-muted-foreground mb-4 print:text-gray-600">
+                  Analysis of remediation task progress and resource allocation effectiveness.
+                </p>
+
+                {(() => {
+                  const totalTasks = tasks.length;
+                  const doneTasks = tasks.filter((t: any) => t.status === "COMPLETED" || t.status === "DONE").length;
+                  const inProgressTasks = tasks.filter((t: any) => t.status === "IN_PROGRESS").length;
+                  const todoTasks = tasks.filter((t: any) => t.status === "TODO").length;
+                  const inReviewTasks = tasks.filter((t: any) => t.status === "IN_REVIEW").length;
+                  const completionRate = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+                  const now = new Date();
+                  const overdueCount = tasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < now && t.status !== "DONE" && t.status !== "COMPLETED").length;
+                  const overdueRate = totalTasks > 0 ? Math.round((overdueCount / totalTasks) * 100) : 0;
+
+                  const byPriority: Record<string, { total: number; done: number }> = {};
+                  for (const t of tasks as any[]) {
+                    const p = t.priority || "MEDIUM";
+                    if (!byPriority[p]) byPriority[p] = { total: 0, done: 0 };
+                    byPriority[p].total++;
+                    if (t.status === "DONE" || t.status === "COMPLETED") byPriority[p].done++;
+                  }
+
+                  const completionColor = completionRate >= 70 ? "#16a34a" : completionRate >= 40 ? "#ca8a04" : "#dc2626";
+                  const overdueColor = overdueRate > 20 ? "#dc2626" : overdueRate > 10 ? "#ca8a04" : "#16a34a";
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-completion-rate">
+                          <div className="text-2xl font-bold" style={{ color: completionColor }}>{completionRate}%</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Completion Rate</div>
+                          <div className="mt-1.5 h-1.5 rounded-sm bg-gray-100 dark:bg-neutral-800 overflow-hidden print:bg-gray-100">
+                            <div className="h-full rounded-sm" style={{ width: `${completionRate}%`, backgroundColor: completionColor }} />
+                          </div>
+                        </div>
+                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-overdue-rate">
+                          <div className="text-2xl font-bold" style={{ color: overdueColor }}>{overdueCount}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Overdue ({overdueRate}%)</div>
+                        </div>
+                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-in-progress">
+                          <div className="text-2xl font-bold text-blue-500">{inProgressTasks}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">In Progress</div>
+                        </div>
+                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-backlog">
+                          <div className="text-2xl font-bold">{todoTasks + inReviewTasks}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Backlog</div>
+                        </div>
+                      </div>
+
+                      <div className="border rounded-md p-4 print:border-gray-300">
+                        <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500">Status Distribution</h4>
+                        <div className="flex h-6 rounded-sm overflow-hidden mb-2">
+                          {[
+                            { label: "Done", count: doneTasks, color: "#22c55e" },
+                            { label: "In Review", count: inReviewTasks, color: "#f59e0b" },
+                            { label: "In Progress", count: inProgressTasks, color: "#3b82f6" },
+                            { label: "To Do", count: todoTasks, color: "#94a3b8" },
+                          ].filter(s => s.count > 0).map((s) => (
+                            <div
+                              key={s.label}
+                              className="flex items-center justify-center text-[10px] font-bold text-white"
+                              style={{ width: `${(s.count / totalTasks) * 100}%`, backgroundColor: s.color, minWidth: s.count > 0 ? "16px" : "0" }}
+                            >
+                              {(s.count / totalTasks) * 100 >= 8 ? s.count : ""}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-3 flex-wrap text-[10px] text-muted-foreground print:text-gray-500">
+                          {[
+                            { label: "Done", count: doneTasks, color: "#22c55e" },
+                            { label: "In Review", count: inReviewTasks, color: "#f59e0b" },
+                            { label: "In Progress", count: inProgressTasks, color: "#3b82f6" },
+                            { label: "To Do", count: todoTasks, color: "#94a3b8" },
+                          ].map((s) => (
+                            <span key={s.label} className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
+                              {s.label}: {s.count}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="border rounded-md p-4 print:border-gray-300">
+                        <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500">Completion by Priority</h4>
+                        <div className="space-y-2">
+                          {["CRITICAL", "HIGH", "MEDIUM", "LOW"].filter(p => byPriority[p]).map((p) => {
+                            const data = byPriority[p];
+                            const pct = data.total > 0 ? Math.round((data.done / data.total) * 100) : 0;
+                            const pColor = p === "CRITICAL" ? "#dc2626" : p === "HIGH" ? "#f59e0b" : p === "MEDIUM" ? "#3b82f6" : "#22c55e";
+                            return (
+                              <div key={p} className="flex items-center gap-3">
+                                <span className="text-xs w-14 shrink-0 font-medium">{p.charAt(0) + p.slice(1).toLowerCase()}</span>
+                                <div className="flex-1 h-2 rounded-sm bg-gray-100 dark:bg-neutral-800 overflow-hidden print:bg-gray-100">
+                                  <div className="h-full rounded-sm" style={{ width: `${pct}%`, backgroundColor: pColor }} />
+                                </div>
+                                <span className="text-xs font-semibold w-16 text-right shrink-0" style={{ color: pColor }}>
+                                  {data.done}/{data.total} ({pct}%)
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </section>
+            )}
+
+            {/* ── SUPPLIER RISK PROFILE ── */}
+            {suppliers && suppliers.length > 0 && (
+              <section className="print-section" data-testid="section-supplier-profile">
+                <SectionHeader number={nextSection()} title="Supplier Risk Profile" testId="heading-supplier-profile" />
+                <p className="text-sm text-muted-foreground mb-4 print:text-gray-600">
+                  Third-party supply chain risk assessment for {suppliers.length} registered supplier{suppliers.length !== 1 ? "s" : ""}.
+                </p>
+
+                {(() => {
+                  const byRisk: Record<string, number> = {};
+                  const byCategory: Record<string, number> = {};
+                  for (const s of suppliers as any[]) {
+                    const risk = s.riskLevel || s.risk_level || s.riskRating || "MEDIUM";
+                    byRisk[risk] = (byRisk[risk] || 0) + 1;
+                    const cat = s.category || s.type || "Uncategorized";
+                    byCategory[cat] = (byCategory[cat] || 0) + 1;
+                  }
+
+                  const highRiskCount = (byRisk["CRITICAL"] || 0) + (byRisk["HIGH"] || 0);
+                  const highRiskPct = suppliers.length > 0 ? Math.round((highRiskCount / suppliers.length) * 100) : 0;
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-total-suppliers">
+                          <Users className="w-4 h-4 mx-auto mb-1 text-muted-foreground print:text-gray-400" />
+                          <div className="text-2xl font-bold">{suppliers.length}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Total Suppliers</div>
+                        </div>
+                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-high-risk-suppliers">
+                          <AlertTriangle className="w-4 h-4 mx-auto mb-1 text-muted-foreground print:text-gray-400" />
+                          <div className="text-2xl font-bold" style={highRiskCount > 0 ? { color: "#dc2626" } : {}}>{highRiskCount}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">High/Critical Risk</div>
+                        </div>
+                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-supplier-risk-pct">
+                          <div className="text-2xl font-bold" style={highRiskPct > 30 ? { color: "#dc2626" } : highRiskPct > 15 ? { color: "#ca8a04" } : { color: "#16a34a" }}>
+                            {highRiskPct}%
+                          </div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Elevated Risk Rate</div>
+                        </div>
+                      </div>
+
+                      <table className="w-full text-sm border-collapse" data-testid="table-supplier-risk">
+                        <thead>
+                          <tr className="border-b-2 border-gray-200 dark:border-neutral-700 print:border-gray-300">
+                            <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Supplier</th>
+                            <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-24">Risk Level</th>
+                            <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-24">Category</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(suppliers as any[]).slice(0, 10).map((s: any, idx: number) => {
+                            const risk = s.riskLevel || s.risk_level || s.riskRating || "MEDIUM";
+                            const riskColor = risk === "CRITICAL" ? "#dc2626" : risk === "HIGH" ? "#f59e0b" : risk === "MEDIUM" ? "#3b82f6" : "#22c55e";
+                            return (
+                              <tr key={idx} className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid={`supplier-row-${idx}`}>
+                                <td className="py-2 px-3 text-xs font-medium">{s.name || s.companyName || `Supplier ${idx + 1}`}</td>
+                                <td className="py-2 px-3 text-center">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm inline-block" style={{ backgroundColor: riskColor + "18", color: riskColor }}>
+                                    {risk}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-center text-xs text-muted-foreground print:text-gray-500">
+                                  {s.category || s.type || "—"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {suppliers.length > 10 && (
+                        <p className="text-[10px] text-muted-foreground text-center print:text-gray-500">
+                          Showing top 10 of {suppliers.length} suppliers. Full supplier register available in the platform.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </section>
+            )}
+
+            {/* ── COMPLIANCE TREND & INSIGHTS ── */}
+            <section className="print-section" data-testid="section-compliance-insights">
+              <SectionHeader number={nextSection()} title="Compliance Insights & Trend Analysis" testId="heading-compliance-insights" />
+              <p className="text-sm text-muted-foreground mb-4 print:text-gray-600">
+                Key findings, actionable insights, and compliance trajectory based on current assessment data.
+              </p>
+
+              {(() => {
+                const compScore = dashboard.complianceScore;
+                const totalT = tasks?.length ?? 0;
+                const doneT = tasks?.filter((t: any) => t.status === "COMPLETED" || t.status === "DONE").length ?? 0;
+                const openT = totalT - doneT;
+                const overdueT = dashboard.overdueTasks ?? 0;
+                const riskCount = risks?.length ?? 0;
+                const supplierCount = suppliers?.length ?? 0;
+
+                const weakDomains = categories
+                  .filter((c: any) => (c.pct ?? c.score ?? 0) < 50)
+                  .sort((a: any, b: any) => (a.pct ?? a.score ?? 0) - (b.pct ?? b.score ?? 0));
+                const strongDomains = categories
+                  .filter((c: any) => (c.pct ?? c.score ?? 0) >= 80)
+                  .sort((a: any, b: any) => (b.pct ?? b.score ?? 0) - (a.pct ?? a.score ?? 0));
+
+                const insights: { icon: any; title: string; detail: string; severity: "success" | "warning" | "critical" | "info" }[] = [];
+
+                if (compScore >= 80) {
+                  insights.push({ icon: CheckCircle2, title: "Strong Compliance Posture", detail: `Overall compliance at ${compScore}% indicates the organization is meeting the majority of NIS2 requirements. Continue monitoring and addressing remaining gaps.`, severity: "success" });
+                } else if (compScore >= 50) {
+                  insights.push({ icon: AlertTriangle, title: "Partial Compliance — Accelerate Implementation", detail: `At ${compScore}% compliance, several domains require immediate attention. Prioritize remediation of ${weakDomains.length} underperforming domain${weakDomains.length !== 1 ? "s" : ""} to reduce regulatory risk.`, severity: "warning" });
+                } else {
+                  insights.push({ icon: AlertTriangle, title: "Critical Compliance Gap", detail: `With ${compScore}% compliance, the organization faces significant regulatory exposure. Immediate executive attention and resource allocation required to establish foundational controls.`, severity: "critical" });
+                }
+
+                if (maturity < 2) {
+                  insights.push({ icon: Activity, title: "Maturity Level: Initial", detail: `A maturity score of ${maturity.toFixed(1)}/5.0 indicates processes are ad-hoc and reactive. Establishing documented policies and repeatable procedures should be the immediate priority.`, severity: "critical" });
+                } else if (maturity < 3) {
+                  insights.push({ icon: Activity, title: "Maturity Level: Developing", detail: `At ${maturity.toFixed(1)}/5.0 maturity, some processes are documented but not yet standardized. Focus on formalizing policies, defining responsibilities, and establishing consistent procedures across all domains.`, severity: "warning" });
+                } else if (maturity >= 4) {
+                  insights.push({ icon: Activity, title: "Mature Cybersecurity Posture", detail: `A maturity score of ${maturity.toFixed(1)}/5.0 reflects well-established and measured processes. Continue optimizing through regular reviews and continuous improvement initiatives.`, severity: "success" });
+                }
+
+                if (overdueT > 0) {
+                  insights.push({ icon: FileText, title: `${overdueT} Overdue Task${overdueT !== 1 ? "s" : ""} Requiring Attention`, detail: `Overdue tasks represent ${totalT > 0 ? Math.round((overdueT / totalT) * 100) : 0}% of the total workload. Review task priorities and resource allocation to clear the backlog and prevent compliance drift.`, severity: overdueT > 5 ? "critical" : "warning" });
+                }
+
+                if (totalT > 0 && doneT > 0) {
+                  const doneRate = Math.round((doneT / totalT) * 100);
+                  insights.push({ icon: TrendingUp, title: `Task Completion Progress: ${doneRate}%`, detail: `${doneT} of ${totalT} remediation tasks have been completed. ${openT > 0 ? `${openT} tasks remain open — maintain momentum to close gaps before the compliance deadline.` : "All tasks are complete."}`, severity: doneRate >= 70 ? "success" : doneRate >= 40 ? "info" : "warning" });
+                }
+
+                if (weakDomains.length > 0) {
+                  const domainList = weakDomains.slice(0, 3).map((d: any) => `${d.category} (${d.pct ?? d.score ?? 0}%)`).join(", ");
+                  insights.push({ icon: Lightbulb, title: "Priority Domains for Improvement", detail: `Focus remediation efforts on: ${domainList}. These domains are below 50% implementation and represent the highest risk of non-compliance findings.`, severity: "warning" });
+                }
+
+                if (strongDomains.length > 0) {
+                  const domainList = strongDomains.slice(0, 3).map((d: any) => d.category).join(", ");
+                  insights.push({ icon: CheckCircle2, title: "Compliance Strengths", detail: `${strongDomains.length} domain${strongDomains.length !== 1 ? "s" : ""} at or above 80% compliance: ${domainList}. These areas demonstrate mature control implementation.`, severity: "success" });
+                }
+
+                if (riskCount > 0 && supplierCount > 0) {
+                  insights.push({ icon: Users, title: "Supply Chain Risk Awareness", detail: `${supplierCount} supplier${supplierCount !== 1 ? "s" : ""} and ${riskCount} risk${riskCount !== 1 ? "s" : ""} are tracked. Ensure supplier contractual obligations reflect NIS2 Article 21(2)(d) requirements for supply chain security.`, severity: "info" });
+                }
+
+                const severityColors = {
+                  success: { bg: "#16a34a18", border: "#16a34a", text: "#16a34a" },
+                  warning: { bg: "#ca8a0418", border: "#ca8a04", text: "#ca8a04" },
+                  critical: { bg: "#dc262618", border: "#dc2626", text: "#dc2626" },
+                  info: { bg: "#3b82f618", border: "#3b82f6", text: "#3b82f6" },
+                };
+
+                return (
+                  <div className="space-y-3">
+                    {insights.map((insight, idx) => {
+                      const colors = severityColors[insight.severity];
+                      const Icon = insight.icon;
+                      return (
+                        <div
+                          key={idx}
+                          className="border rounded-md p-4 print:border-gray-300"
+                          style={{ borderLeftWidth: "3px", borderLeftColor: colors.border }}
+                          data-testid={`insight-${idx}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-sm flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: colors.bg }}>
+                              <Icon className="w-3.5 h-3.5" style={{ color: colors.text }} />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-semibold">{insight.title}</h4>
+                              <p className="text-xs text-muted-foreground mt-1 leading-relaxed print:text-gray-600">{insight.detail}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </section>
 
             {/* ── RECOMMENDATIONS ── */}

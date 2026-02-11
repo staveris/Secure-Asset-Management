@@ -46,6 +46,7 @@ import {
   Shield, ClipboardList, Pencil, Trash2, MessageSquare, Send,
   ExternalLink, Search, MoreHorizontal, AlertTriangle, ArrowUpDown,
   User, ChevronDown, ChevronUp, Flame, ArrowUp, ArrowDown, Minus,
+  LayoutList, GanttChart,
 } from "lucide-react";
 import type { Task } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
@@ -213,6 +214,278 @@ function TaskComments({ taskId }: { taskId: number }) {
   );
 }
 
+const PRIORITY_COLORS: Record<string, string> = {
+  CRITICAL: "#ef4444",
+  HIGH: "#f59e0b",
+  MEDIUM: "#3b82f6",
+  LOW: "#94a3b8",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  TODO: "#94a3b8",
+  IN_PROGRESS: "#3b82f6",
+  IN_REVIEW: "#f59e0b",
+  DONE: "#22c55e",
+};
+
+function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskClick: (id: number) => void }) {
+  const [groupBy, setGroupBy] = useState<"status" | "priority" | "category">("status");
+
+  const { timelineStart, timelineEnd, totalDays, groups, hasAnyDates } = useMemo(() => {
+    const now = new Date();
+    let minDate = new Date(now);
+    let maxDate = new Date(now);
+    let anyDates = false;
+
+    for (const t of tasks) {
+      const created = t.createdAt ? new Date(t.createdAt) : null;
+      const due = t.dueDate ? new Date(t.dueDate) : null;
+      if (created) { if (created < minDate) minDate = new Date(created); anyDates = true; }
+      if (due) { if (due > maxDate) maxDate = new Date(due); if (due < minDate) minDate = new Date(due); anyDates = true; }
+    }
+
+    minDate.setDate(minDate.getDate() - 3);
+    maxDate.setDate(maxDate.getDate() + 7);
+    const days = Math.max(Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)), 14);
+
+    const grouped: Record<string, EnrichedTask[]> = {};
+    for (const t of tasks) {
+      let key: string;
+      if (groupBy === "status") key = statusConfig[t.status]?.label || t.status;
+      else if (groupBy === "priority") key = priorityConfig[t.priority]?.label || t.priority;
+      else key = getTaskCategory(t);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(t);
+    }
+
+    return { timelineStart: minDate, timelineEnd: maxDate, totalDays: days, groups: grouped, hasAnyDates: anyDates };
+  }, [tasks, groupBy]);
+
+  const months = useMemo(() => {
+    const result: { label: string; startPct: number; widthPct: number }[] = [];
+    const start = new Date(timelineStart);
+    let current = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (current < timelineEnd) {
+      const monthStart = Math.max(0, (current.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24));
+      const nextMonth = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+      const monthEnd = Math.min(totalDays, (nextMonth.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24));
+      if (monthEnd > monthStart) {
+        result.push({
+          label: current.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+          startPct: (monthStart / totalDays) * 100,
+          widthPct: ((monthEnd - monthStart) / totalDays) * 100,
+        });
+      }
+      current = nextMonth;
+    }
+    return result;
+  }, [timelineStart, timelineEnd, totalDays]);
+
+  const weeks = useMemo(() => {
+    const result: { label: string; pct: number }[] = [];
+    const start = new Date(timelineStart);
+    const dayOfWeek = start.getDay();
+    const firstMonday = new Date(start);
+    firstMonday.setDate(firstMonday.getDate() + ((8 - dayOfWeek) % 7));
+    let cursor = new Date(firstMonday);
+    while (cursor < timelineEnd) {
+      const dayOffset = (cursor.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
+      if (dayOffset >= 0 && dayOffset <= totalDays) {
+        result.push({
+          label: cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          pct: (dayOffset / totalDays) * 100,
+        });
+      }
+      cursor.setDate(cursor.getDate() + 7);
+    }
+    return result;
+  }, [timelineStart, timelineEnd, totalDays]);
+
+  const todayPct = useMemo(() => {
+    const now = new Date();
+    const offset = (now.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
+    return (offset / totalDays) * 100;
+  }, [timelineStart, totalDays]);
+
+  const getBarStyle = (task: EnrichedTask) => {
+    const created = task.createdAt ? new Date(task.createdAt) : new Date();
+    const due = task.dueDate ? new Date(task.dueDate) : null;
+    const now = new Date();
+
+    let startDay = (created.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
+    let endDay: number;
+
+    if (due) {
+      endDay = (due.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
+    } else {
+      endDay = startDay + 7;
+    }
+
+    if (endDay <= startDay) endDay = startDay + 1;
+
+    const leftPct = Math.max(0, (startDay / totalDays) * 100);
+    const widthPct = Math.max(1, ((endDay - startDay) / totalDays) * 100);
+
+    let color = PRIORITY_COLORS[task.priority] || "#3b82f6";
+    if (task.status === "DONE") color = STATUS_COLORS.DONE;
+    const isOverdue = due && due < now && task.status !== "DONE";
+
+    return { leftPct, widthPct, color, isOverdue, hasDueDate: !!due };
+  };
+
+  if (tasks.length === 0) return null;
+
+  const groupOrder = groupBy === "status"
+    ? ["To Do", "In Progress", "In Review", "Done"]
+    : groupBy === "priority"
+    ? ["Critical", "High", "Medium", "Low"]
+    : Object.keys(groups).sort();
+
+  const sortedGroupKeys = groupOrder.filter(k => groups[k]?.length > 0);
+  const remainingKeys = Object.keys(groups).filter(k => !sortedGroupKeys.includes(k) && groups[k].length > 0);
+  const allGroupKeys = [...sortedGroupKeys, ...remainingKeys];
+
+  return (
+    <div className="space-y-3" data-testid="gantt-timeline">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Group by:</span>
+        <Select value={groupBy} onValueChange={(v: any) => setGroupBy(v)}>
+          <SelectTrigger className="w-32" data-testid="select-gantt-group">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="status">Status</SelectItem>
+            <SelectItem value="priority">Priority</SelectItem>
+            <SelectItem value="category">Category</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Card>
+        <CardContent className="p-0 overflow-x-auto">
+          <div className="min-w-[800px]">
+            <div className="flex border-b border-border">
+              <div className="w-56 shrink-0 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-r border-border">
+                Task
+              </div>
+              <div className="flex-1 relative">
+                <div className="flex">
+                  {months.map((m, i) => (
+                    <div
+                      key={i}
+                      className="text-[10px] font-semibold text-muted-foreground py-2 border-r border-border text-center"
+                      style={{ position: "absolute", left: `${m.startPct}%`, width: `${m.widthPct}%` }}
+                    >
+                      {m.label}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex mt-5 pb-1">
+                  {weeks.map((w, i) => (
+                    <div
+                      key={i}
+                      className="text-[9px] text-muted-foreground absolute"
+                      style={{ left: `${w.pct}%`, transform: "translateX(-50%)" }}
+                    >
+                      {w.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {allGroupKeys.map((groupKey) => (
+              <div key={groupKey}>
+                <div className="flex items-center px-3 py-1.5 bg-muted/40 border-b border-border">
+                  <span className="text-xs font-semibold">{groupKey}</span>
+                  <Badge variant="secondary" className="ml-2 text-[10px]">{groups[groupKey].length}</Badge>
+                </div>
+
+                {groups[groupKey].map((task) => {
+                  const bar = getBarStyle(task);
+                  const sc = statusConfig[task.status] || statusConfig.TODO;
+                  const StatusIcon = sc.icon;
+
+                  return (
+                    <div
+                      key={task.id}
+                      className="flex items-center border-b border-border/50 hover-elevate cursor-pointer"
+                      onClick={() => onTaskClick(task.id)}
+                      data-testid={`gantt-row-${task.id}`}
+                    >
+                      <div className="w-56 shrink-0 px-3 py-2 border-r border-border flex items-center gap-2 min-w-0">
+                        <StatusIcon className={`w-3.5 h-3.5 shrink-0 ${sc.color}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-xs font-medium truncate ${task.status === "DONE" ? "line-through text-muted-foreground" : ""}`}>
+                            {task.title}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "No due date"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 relative h-10">
+                        {weeks.map((w, i) => (
+                          <div
+                            key={i}
+                            className="absolute top-0 bottom-0 border-l border-border/30"
+                            style={{ left: `${w.pct}%` }}
+                          />
+                        ))}
+                        {todayPct >= 0 && todayPct <= 100 && (
+                          <div
+                            className="absolute top-0 bottom-0 w-0.5 bg-red-400 z-10"
+                            style={{ left: `${todayPct}%` }}
+                          />
+                        )}
+                        <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, minWidth: "8px" }}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div
+                                className={`h-6 rounded-sm flex items-center px-1.5 overflow-hidden ${bar.isOverdue ? "ring-1 ring-red-500" : ""} ${!bar.hasDueDate ? "opacity-50" : ""}`}
+                                style={{ backgroundColor: bar.color + "30", borderLeft: `3px solid ${bar.color}` }}
+                              >
+                                <span className="text-[10px] font-medium truncate whitespace-nowrap" style={{ color: bar.color }}>
+                                  {task.title}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <div className="space-y-1">
+                                <p className="font-semibold text-xs">{task.title}</p>
+                                <p className="text-[10px]">Status: {sc.label}</p>
+                                <p className="text-[10px]">Priority: {priorityConfig[task.priority]?.label || task.priority}</p>
+                                {task.dueDate && <p className="text-[10px]">Due: {new Date(task.dueDate).toLocaleDateString()}</p>}
+                                {bar.isOverdue && <p className="text-[10px] text-red-500 font-medium">Overdue</p>}
+                                {!bar.hasDueDate && <p className="text-[10px] text-muted-foreground">No due date set</p>}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center gap-4 flex-wrap text-[10px] text-muted-foreground">
+        <span className="font-medium">Legend:</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: PRIORITY_COLORS.CRITICAL }} />Critical</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: PRIORITY_COLORS.HIGH }} />High</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: PRIORITY_COLORS.MEDIUM }} />Medium</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: PRIORITY_COLORS.LOW }} />Low</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: STATUS_COLORS.DONE }} />Done</span>
+        <span className="flex items-center gap-1"><span className="w-0.5 h-3 bg-red-400" />Today</span>
+      </div>
+    </div>
+  );
+}
+
 export default function Tasks() {
   const { user } = useAuth();
   const isAdmin = user?.role === "TENANT_ADMIN" || user?.role === "TENANT_MANAGER" || user?.role === "PLATFORM_ADMIN";
@@ -241,6 +514,7 @@ export default function Tasks() {
 
   const [deletingTask, setDeletingTask] = useState<EnrichedTask | null>(null);
   const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
 
   const searchString = useSearch();
   const highlightedTaskId = useMemo(() => {
@@ -685,6 +959,27 @@ export default function Tasks() {
               </SelectContent>
             </Select>
           )}
+
+          <div className="flex items-center border rounded-md">
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => setViewMode("list")}
+              className="rounded-r-none"
+              data-testid="button-view-list"
+            >
+              <LayoutList className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === "timeline" ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => setViewMode("timeline")}
+              className="rounded-l-none"
+              data-testid="button-view-timeline"
+            >
+              <GanttChart className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -704,6 +999,28 @@ export default function Tasks() {
             <Card key={i}><CardContent className="p-4"><Skeleton className="h-20" /></CardContent></Card>
           ))}
         </div>
+      ) : viewMode === "timeline" ? (
+        filteredTasks.length > 0 ? (
+          <GanttTimeline
+            tasks={filteredTasks}
+            onTaskClick={(id) => {
+              setViewMode("list");
+              setExpandedTaskId(id);
+              setTimeout(() => {
+                const el = taskRefs.current[id];
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }, 100);
+            }}
+          />
+        ) : (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <GanttChart className="w-12 h-12 text-muted-foreground/40 mb-4" />
+              <h3 className="font-semibold mb-1">No tasks to display</h3>
+              <p className="text-sm text-muted-foreground">Create tasks with due dates for the timeline view</p>
+            </CardContent>
+          </Card>
+        )
       ) : filteredTasks.length > 0 ? (
         <div className="space-y-2">
           {filteredTasks.map((task) => {
