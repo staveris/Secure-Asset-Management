@@ -541,10 +541,21 @@ function ControlCard({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="NONE">None</SelectItem>
-                          <SelectItem value="LOW">Low</SelectItem>
-                          <SelectItem value="MEDIUM">Medium</SelectItem>
-                          <SelectItem value="HIGH">High</SelectItem>
+                          {isAtomicControl ? (
+                            <>
+                              <SelectItem value="NONE">None</SelectItem>
+                              <SelectItem value="WEAK">Weak</SelectItem>
+                              <SelectItem value="STRONG">Strong</SelectItem>
+                              <SelectItem value="INDEPENDENT">Independent</SelectItem>
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value="NONE">None</SelectItem>
+                              <SelectItem value="LOW">Low</SelectItem>
+                              <SelectItem value="MEDIUM">Medium</SelectItem>
+                              <SelectItem value="HIGH">High</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
