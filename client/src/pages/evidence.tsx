@@ -65,8 +65,17 @@ interface LinkableEntity {
   label: string;
 }
 
+interface AtomicAssessmentEntity {
+  id: number;
+  parentAssessmentId: number | null;
+  parentAssessmentName: string;
+  sourceKey: string;
+  label: string;
+}
+
 interface LinkableEntities {
   assessments: LinkableEntity[];
+  atomicAssessments: AtomicAssessmentEntity[];
   tasks: LinkableEntity[];
   controls: LinkableEntity[];
 }
@@ -85,6 +94,7 @@ export default function Evidence() {
   const [relatedId, setRelatedId] = useState(linkId);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState("");
   const [selectedControlId, setSelectedControlId] = useState("");
+  const [selectedAtomicAssessmentId, setSelectedAtomicAssessmentId] = useState("");
 
   useEffect(() => {
     if (linkType && linkId) {
@@ -118,6 +128,11 @@ export default function Evidence() {
   const { data: assessmentControls, isLoading: controlsLoading } = useQuery<{ id: number; title: string }[]>({
     queryKey: ["/api/assessments", selectedAssessmentId, "controls"],
     enabled: !!selectedAssessmentId && relatedType === "Assessment",
+  });
+
+  const { data: atomicControls, isLoading: atomicControlsLoading } = useQuery<{ id: number; title: string; sourceKey: string }[]>({
+    queryKey: ["/api/atomic-assessments", selectedAtomicAssessmentId, "controls"],
+    enabled: !!selectedAtomicAssessmentId && relatedType === "AtomicAssessment",
   });
 
   interface StorageInfo {
@@ -159,6 +174,7 @@ export default function Evidence() {
       setRelatedId("");
       setSelectedAssessmentId("");
       setSelectedControlId("");
+      setSelectedAtomicAssessmentId("");
     },
     onError: (error: Error) => {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
@@ -232,9 +248,18 @@ export default function Evidence() {
     const formData = new FormData();
     formData.append("file", selectedFile);
     if (relatedType === "Assessment") {
-      if (!selectedControlId) return;
+      if (!selectedControlId || !selectedAssessmentId) return;
       formData.append("relatedType", "Control");
       formData.append("relatedId", selectedControlId);
+      formData.append("assessmentId", selectedAssessmentId);
+    } else if (relatedType === "AtomicAssessment") {
+      if (!selectedControlId || !selectedAtomicAssessmentId) return;
+      formData.append("relatedType", "AtomicControl");
+      formData.append("relatedId", selectedControlId);
+      const atomicAssessment = linkableEntities?.atomicAssessments?.find(a => String(a.id) === selectedAtomicAssessmentId);
+      if (atomicAssessment?.parentAssessmentId) {
+        formData.append("assessmentId", String(atomicAssessment.parentAssessmentId));
+      }
     } else {
       if (!relatedId) return;
       formData.append("relatedType", relatedType);
@@ -274,7 +299,7 @@ export default function Evidence() {
           <h1 className="text-2xl font-bold tracking-tight">Evidence Vault</h1>
           <p className="text-muted-foreground mt-1">Manage compliance evidence and documentation</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setRelatedType(""); setRelatedId(""); setSelectedFile(null); setSelectedAssessmentId(""); setSelectedControlId(""); } }}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setRelatedType(""); setRelatedId(""); setSelectedFile(null); setSelectedAssessmentId(""); setSelectedControlId(""); setSelectedAtomicAssessmentId(""); } }}>
           <DialogTrigger asChild>
             <Button data-testid="button-upload-evidence">
               <Plus className="w-4 h-4 mr-2" />
@@ -301,12 +326,13 @@ export default function Evidence() {
               </div>
               <div className="space-y-2">
                 <Label>Link To</Label>
-                <Select value={relatedType} onValueChange={(v) => { setRelatedType(v); setRelatedId(""); setSelectedAssessmentId(""); setSelectedControlId(""); }}>
+                <Select value={relatedType} onValueChange={(v) => { setRelatedType(v); setRelatedId(""); setSelectedAssessmentId(""); setSelectedControlId(""); setSelectedAtomicAssessmentId(""); }}>
                   <SelectTrigger data-testid="select-related-type">
                     <SelectValue placeholder="Select entity type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Assessment">Assessment</SelectItem>
+                    <SelectItem value="Assessment">NIS2 Objective Assessment</SelectItem>
+                    <SelectItem value="AtomicAssessment">Atomic / CIR Control Assessment</SelectItem>
                     <SelectItem value="Task">Task</SelectItem>
                   </SelectContent>
                 </Select>
@@ -361,6 +387,56 @@ export default function Evidence() {
                   )}
                 </>
               )}
+              {relatedType === "AtomicAssessment" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Select Atomic/CIR Assessment</Label>
+                    {linkableEntities?.atomicAssessments && linkableEntities.atomicAssessments.length === 0 ? (
+                      <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">
+                        No atomic or CIR assessments found. Create one first before uploading evidence.
+                      </p>
+                    ) : (
+                      <Select value={selectedAtomicAssessmentId} onValueChange={(v) => { setSelectedAtomicAssessmentId(v); setSelectedControlId(""); }}>
+                        <SelectTrigger data-testid="select-evidence-atomic-assessment">
+                          <SelectValue placeholder="Select an assessment..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {linkableEntities?.atomicAssessments?.map(a => (
+                            <SelectItem key={a.id} value={String(a.id)}>
+                              {a.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  {selectedAtomicAssessmentId && (
+                    <div className="space-y-2">
+                      <Label>Select Control</Label>
+                      {atomicControlsLoading ? (
+                        <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">Loading controls...</p>
+                      ) : atomicControls && atomicControls.length === 0 ? (
+                        <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">
+                          No controls found for this assessment.
+                        </p>
+                      ) : (
+                        <Select value={selectedControlId} onValueChange={setSelectedControlId}>
+                          <SelectTrigger data-testid="select-evidence-atomic-control">
+                            <SelectValue placeholder="Select a control..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-64">
+                            {atomicControls?.map(c => (
+                              <SelectItem key={c.id} value={String(c.id)}>
+                                {c.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
               {relatedType === "Task" && (
                 <div className="space-y-2">
                   <Label>Select Task</Label>
@@ -388,7 +464,8 @@ export default function Evidence() {
                 onClick={handleUpload}
                 disabled={
                   !selectedFile || !relatedType || uploadMutation.isPending ||
-                  (relatedType === "Assessment" && !selectedControlId) ||
+                  (relatedType === "Assessment" && (!selectedControlId || !selectedAssessmentId)) ||
+                  (relatedType === "AtomicAssessment" && (!selectedControlId || !selectedAtomicAssessmentId)) ||
                   (relatedType === "Task" && !relatedId)
                 }
                 className="w-full"
@@ -623,7 +700,11 @@ export default function Evidence() {
                         </div>
                       )}
                     </div>
-                    <Badge variant="outline" className="text-xs shrink-0" data-testid={`badge-type-${item.id}`}>{item.relatedType}</Badge>
+                    <Badge variant="outline" className="text-xs shrink-0" data-testid={`badge-type-${item.id}`}>
+                      {item.relatedType === "AtomicControl" && enriched.sourceKey
+                        ? (enriched.sourceKey === "CIR_2024_2690" ? "CIR Control" : "NIS2 Atomic")
+                        : item.relatedType}
+                    </Badge>
                     <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0" data-testid={`text-date-${item.id}`}>
                       <Calendar className="w-3 h-3" />
                       {new Date(item.uploadedAt).toLocaleDateString()}

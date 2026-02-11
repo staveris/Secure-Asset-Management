@@ -1783,24 +1783,46 @@ export async function registerRoutes(
       }
     }
 
+    const allAssessmentIds = new Set<number>();
+    for (const item of list) {
+      const storedId = (item as any).assessmentId;
+      if (storedId) allAssessmentIds.add(storedId);
+    }
+    for (const info of Object.values(controlAssessmentMap)) {
+      allAssessmentIds.add(info.assessmentId);
+    }
+    for (const info of Object.values(atomicControlMap)) {
+      if (info.assessmentId) allAssessmentIds.add(info.assessmentId);
+    }
+
+    const assessmentNameMap: Record<number, string> = {};
+    for (const aid of allAssessmentIds) {
+      const a = await storage.getAssessment(aid);
+      if (a) assessmentNameMap[aid] = a.name;
+    }
+
     const enrichedList = list.map(item => {
       if (item.relatedType === "Control" && controlAssessmentMap[item.relatedId]) {
         const info = controlAssessmentMap[item.relatedId];
+        const storedAssessmentId = (item as any).assessmentId;
+        const effectiveAssessmentId = storedAssessmentId || info.assessmentId;
         return {
           ...item,
           controlTitle: info.controlTitle,
-          assessmentId: info.assessmentId,
-          assessmentName: info.assessmentName,
+          assessmentId: effectiveAssessmentId,
+          assessmentName: assessmentNameMap[effectiveAssessmentId] || info.assessmentName,
           responseId: info.responseId,
         };
       }
       if (item.relatedType === "AtomicControl" && atomicControlMap[item.relatedId]) {
         const info = atomicControlMap[item.relatedId] as any;
+        const storedAssessmentId = (item as any).assessmentId;
+        const effectiveAssessmentId = storedAssessmentId || info.assessmentId;
         return {
           ...item,
           controlTitle: `${info.controlId} - ${info.controlTitle}`,
-          assessmentId: info.assessmentId,
-          assessmentName: info.assessmentName,
+          assessmentId: effectiveAssessmentId,
+          assessmentName: assessmentNameMap[effectiveAssessmentId] || info.assessmentName,
           atomicAssessmentId: info.atomicAssessmentId,
           atomicControlId: item.relatedId,
           responseId: info.responseId,
@@ -1845,10 +1867,21 @@ export async function registerRoutes(
         return res.status(413).json({ message: `Upload would exceed your storage quota of ${quotaGB} GB. Free up space or contact your administrator.` });
       }
 
-      const { relatedType, relatedId } = req.body;
+      const { relatedType, relatedId, assessmentId } = req.body;
       if (!relatedType || !relatedId) {
         fs.unlinkSync(file.path);
         return res.status(400).json({ message: "relatedType and relatedId are required" });
+      }
+
+      let validatedAssessmentId: number | null = null;
+      if (assessmentId) {
+        const parsedAssessmentId = parseInt(assessmentId);
+        const assessment = await storage.getAssessment(parsedAssessmentId);
+        if (!assessment || assessment.tenantId !== user.tenantId) {
+          fs.unlinkSync(file.path);
+          return res.status(400).json({ message: "Invalid or unauthorized assessment ID" });
+        }
+        validatedAssessmentId = parsedAssessmentId;
       }
 
       const fileBuffer = fs.readFileSync(file.path);
@@ -1858,6 +1891,7 @@ export async function registerRoutes(
         tenantId: user.tenantId,
         relatedType,
         relatedId: parseInt(relatedId),
+        assessmentId: validatedAssessmentId,
         filename: file.originalname,
         mimeType: file.mimetype,
         size: file.size,
@@ -1922,12 +1956,28 @@ export async function registerRoutes(
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
-      const [assessmentList, tasks] = await Promise.all([
+      const [assessmentList, tasks, atomicAssessmentList] = await Promise.all([
         storage.getAssessmentsByTenant(user.tenantId),
         storage.getTasksByTenant(user.tenantId),
+        storage.getAtomicAssessmentsByTenant(user.tenantId),
       ]);
+
+      const atomicAssessmentsWithParent = await Promise.all(
+        atomicAssessmentList.map(async (aa) => {
+          const parent = aa.parentAssessmentId ? await storage.getAssessment(aa.parentAssessmentId) : null;
+          return {
+            id: aa.id,
+            parentAssessmentId: aa.parentAssessmentId,
+            parentAssessmentName: parent?.name || "Unknown",
+            sourceKey: aa.sourceKey,
+            label: `${parent?.name || "Unknown"} - ${aa.sourceKey === "nis2_atomic" ? "NIS2 Atomic" : "CIR"} Controls`,
+          };
+        })
+      );
+
       res.json({
         assessments: assessmentList.map(a => ({ id: a.id, label: a.name })),
+        atomicAssessments: atomicAssessmentsWithParent,
         tasks: tasks.map(t => ({ id: t.id, label: t.title })),
       });
     } catch (err: any) {
@@ -1950,6 +2000,27 @@ export async function registerRoutes(
       const controls = allControls
         .filter(c => controlIds.includes(c.id))
         .map(c => ({ id: c.id, title: c.title }));
+      res.json(controls);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/atomic-assessments/:id/controls", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+      const atomicAssessmentId = parseInt(req.params.id);
+      const atomicAssessment = await storage.getAtomicAssessment(atomicAssessmentId);
+      if (!atomicAssessment || atomicAssessment.tenantId !== user.tenantId) {
+        return res.status(404).json({ message: "Atomic assessment not found" });
+      }
+      const responses = await storage.getAtomicAssessmentResponses(atomicAssessmentId);
+      const controlIds = responses.map(r => r.atomicControlId);
+      const allAtomicControls = await db.select().from(atomicControls).where(eq(atomicControls.isActive, true));
+      const controls = allAtomicControls
+        .filter(c => controlIds.includes(c.id))
+        .map(c => ({ id: c.id, title: `${c.controlId} - ${c.shortTitle}`, sourceKey: c.sourceKey }));
       res.json(controls);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
