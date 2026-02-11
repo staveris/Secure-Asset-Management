@@ -835,30 +835,95 @@ export default function Dashboard() {
   );
 }
 
+interface SupplierRiskData {
+  totalSuppliers: number;
+  criticalSuppliers: number;
+  assessedCriticalPct: number;
+  overdueReviews: number;
+  highRiskSuppliers: number;
+  openSupplierIncidents: number;
+  totalAssessments: number;
+  pendingExceptions: number;
+  nis2ReportableIncidents: number;
+  avgInherentRisk: number;
+  avgResidualRisk: number;
+  criticalityBreakdown: Record<string, number>;
+  typeBreakdown: Record<string, number>;
+  accessBreakdown: Record<string, number>;
+  contractBreakdown: Record<string, number>;
+  assuranceBreakdown: Record<string, number>;
+  approvedAssessments: number;
+  draftAssessments: number;
+  submittedAssessments: number;
+  supplierDetails: {
+    id: number;
+    name: string;
+    criticality: string;
+    supplierType: string | null;
+    inherentRiskScore: number | null;
+    residualRiskScore: number | null;
+    assuranceLevel: string | null;
+    accessLevel: string | null;
+    contractStatus: string | null;
+    country: string | null;
+    status: string | null;
+    assessmentCount: number;
+    latestAssessmentScore: number | null;
+    latestAssessmentRating: string | null;
+    latestAssessmentStatus: string | null;
+    openIncidents: number;
+    nextReviewDueAt: string | null;
+    isOverdue: boolean;
+  }[];
+}
+
+const CRITICALITY_COLORS: Record<string, string> = {
+  critical: "#dc2626",
+  high: "#f59e0b",
+  medium: "#3b82f6",
+  low: "#22c55e",
+};
+
+function RiskScoreBar({ score, label }: { score: number; label: string }) {
+  const color = score >= 60 ? "#dc2626" : score >= 40 ? "#f59e0b" : score >= 20 ? "#3b82f6" : "#22c55e";
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="text-xs font-semibold" style={{ color }}>{score}/100</span>
+      </div>
+      <div className="h-1.5 rounded-sm bg-muted overflow-hidden">
+        <div className="h-full rounded-sm transition-all" style={{ width: `${score}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
 function SupplierRiskSummary() {
-  const { data, isLoading } = useQuery<{
-    totalSuppliers: number;
-    criticalSuppliers: number;
-    assessedCriticalPct: number;
-    overdueReviews: number;
-    highRiskSuppliers: number;
-    openSupplierIncidents: number;
-    totalAssessments: number;
-    pendingExceptions: number;
-  }>({
+  const { data, isLoading } = useQuery<SupplierRiskData>({
     queryKey: ["/api/supplier-risk-summary"],
   });
 
   if (isLoading) return <Skeleton className="h-32" />;
   if (!data || data.totalSuppliers === 0) return null;
 
+  const critEntries = Object.entries(data.criticalityBreakdown).sort((a, b) => {
+    const order = ["critical", "high", "medium", "low"];
+    return order.indexOf(a[0]) - order.indexOf(b[0]);
+  });
+
+  const topRiskSuppliers = [...data.supplierDetails]
+    .sort((a, b) => (b.inherentRiskScore || 0) - (a.inherentRiskScore || 0))
+    .slice(0, 5);
+
   return (
     <div className="space-y-4" data-testid="supplier-risk-summary">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Truck className="w-5 h-5 text-muted-foreground" />
         <h2 className="text-lg font-semibold">Supply Chain Risk Overview</h2>
         <Badge variant="outline" className="text-xs">Art. 21(2)(d)</Badge>
       </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -895,6 +960,102 @@ function SupplierRiskSummary() {
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-avg-risk-heading">Average Risk Scores</p>
+            <RiskScoreBar score={data.avgInherentRisk} label="Inherent Risk" />
+            <RiskScoreBar score={data.avgResidualRisk} label="Residual Risk" />
+            {data.avgInherentRisk > data.avgResidualRisk && (
+              <p className="text-[11px] text-muted-foreground">
+                Controls reducing risk by {data.avgInherentRisk - data.avgResidualRisk} points
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-criticality-heading">Criticality Distribution</p>
+            <div className="space-y-2">
+              {critEntries.map(([level, count]) => (
+                <div key={level} className="flex items-center gap-2" data-testid={`criticality-row-${level}`}>
+                  <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: CRITICALITY_COLORS[level] || "#6b7280" }} />
+                  <span className="text-xs capitalize flex-1">{level}</span>
+                  <span className="text-xs font-semibold" data-testid={`text-criticality-count-${level}`}>{count}</span>
+                  <span className="text-[10px] text-muted-foreground w-8 text-right">
+                    {Math.round((count / data.totalSuppliers) * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" data-testid="text-assessment-status-heading">Assessment Status</p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-lg font-bold" style={{ color: "#16a34a" }} data-testid="text-approved-assessments">{data.approvedAssessments}</p>
+                <p className="text-[10px] text-muted-foreground">Approved</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold" style={{ color: "#3b82f6" }} data-testid="text-submitted-assessments">{data.submittedAssessments}</p>
+                <p className="text-[10px] text-muted-foreground">Submitted</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold" style={{ color: "#6b7280" }} data-testid="text-draft-assessments">{data.draftAssessments}</p>
+                <p className="text-[10px] text-muted-foreground">Draft</p>
+              </div>
+            </div>
+            {data.nis2ReportableIncidents > 0 && (
+              <div className="flex items-center gap-1.5 text-xs p-2 rounded-sm" style={{ backgroundColor: "#dc262610" }} data-testid="alert-nis2-reportable">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" style={{ color: "#dc2626" }} />
+                <span style={{ color: "#dc2626" }} className="font-medium" data-testid="text-nis2-reportable">{data.nis2ReportableIncidents} NIS2 reportable incident{data.nis2ReportableIncidents !== 1 ? "s" : ""}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {topRiskSuppliers.length > 0 && topRiskSuppliers.some(s => (s.inherentRiskScore || 0) > 0) && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3" data-testid="text-highest-risk-heading">Highest Risk Suppliers</p>
+            <div className="space-y-2">
+              {topRiskSuppliers.filter(s => (s.inherentRiskScore || 0) > 0).map(s => {
+                const score = s.inherentRiskScore || 0;
+                const color = score >= 60 ? "#dc2626" : score >= 40 ? "#f59e0b" : "#3b82f6";
+                return (
+                  <div key={s.id} className="flex items-center gap-3" data-testid={`supplier-risk-row-${s.id}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-medium truncate">{s.name}</span>
+                        <Badge variant="outline" className="text-[10px] capitalize">{s.criticality}</Badge>
+                        {s.isOverdue && <Badge variant="destructive" className="text-[10px]">Overdue</Badge>}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {s.supplierType && <span className="text-[10px] text-muted-foreground capitalize">{s.supplierType.replace(/_/g, " ")}</span>}
+                        {s.openIncidents > 0 && (
+                          <span className="text-[10px] font-medium" style={{ color: "#dc2626" }}>{s.openIncidents} open incident{s.openIncidents !== 1 ? "s" : ""}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-16 h-1.5 rounded-sm bg-muted overflow-hidden">
+                        <div className="h-full rounded-sm" style={{ width: `${score}%`, backgroundColor: color }} />
+                      </div>
+                      <span className="text-xs font-bold w-6 text-right" style={{ color }}>{score}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Printer, Shield, ClipboardCheck, Target, FileText, AlertTriangle, CheckCircle2, TrendingUp, Building2, Calendar, Hash, BarChart3, Users, Lightbulb, Activity } from "lucide-react";
+import { Printer, Shield, ClipboardCheck, Target, FileText, AlertTriangle, CheckCircle2, TrendingUp, Building2, Calendar, Hash, BarChart3, Users, Lightbulb, Activity, Truck, ShieldAlert, FileCheck } from "lucide-react";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
 
 interface StatusItem {
@@ -206,6 +206,47 @@ export default function Reports() {
   const { data: tasks } = useQuery<any[]>({ queryKey: ["/api/tasks"] });
   const { data: suppliers } = useQuery<any[]>({ queryKey: ["/api/suppliers"] });
   const { data: risks } = useQuery<any[]>({ queryKey: ["/api/risks"] });
+  const { data: supplierRisk } = useQuery<{
+    totalSuppliers: number;
+    criticalSuppliers: number;
+    assessedCriticalPct: number;
+    overdueReviews: number;
+    highRiskSuppliers: number;
+    openSupplierIncidents: number;
+    totalAssessments: number;
+    pendingExceptions: number;
+    nis2ReportableIncidents: number;
+    avgInherentRisk: number;
+    avgResidualRisk: number;
+    criticalityBreakdown: Record<string, number>;
+    typeBreakdown: Record<string, number>;
+    accessBreakdown: Record<string, number>;
+    contractBreakdown: Record<string, number>;
+    assuranceBreakdown: Record<string, number>;
+    approvedAssessments: number;
+    draftAssessments: number;
+    submittedAssessments: number;
+    supplierDetails: {
+      id: number;
+      name: string;
+      criticality: string;
+      supplierType: string | null;
+      inherentRiskScore: number | null;
+      residualRiskScore: number | null;
+      assuranceLevel: string | null;
+      accessLevel: string | null;
+      contractStatus: string | null;
+      country: string | null;
+      status: string | null;
+      assessmentCount: number;
+      latestAssessmentScore: number | null;
+      latestAssessmentRating: string | null;
+      latestAssessmentStatus: string | null;
+      openIncidents: number;
+      nextReviewDueAt: string | null;
+      isOverdue: boolean;
+    }[];
+  }>({ queryKey: ["/api/supplier-risk-summary"] });
 
   const isLoading = dashLoading || assessLoading;
 
@@ -407,7 +448,7 @@ export default function Reports() {
                     "Operational Summary",
                     ...(risks && risks.length > 0 ? ["Risk Exposure Analysis"] : []),
                     ...(tasks && tasks.length > 0 ? ["Task Completion Metrics"] : []),
-                    ...(suppliers && suppliers.length > 0 ? ["Supplier Risk Profile"] : []),
+                    ...(supplierRisk && supplierRisk.totalSuppliers > 0 ? ["Supply Chain Risk Profile"] : []),
                     "Compliance Insights & Trend Analysis",
                     "Recommendations & Next Steps",
                   ];
@@ -823,7 +864,15 @@ export default function Reports() {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs">Registered Suppliers</span>
-                      <span className="text-xs font-bold">{suppliers?.length ?? 0}</span>
+                      <span className="text-xs font-bold">{supplierRisk?.totalSuppliers ?? suppliers?.length ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs">High/Critical Suppliers</span>
+                      <span className="text-xs font-bold">{supplierRisk?.criticalSuppliers ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs">Avg. Inherent Risk</span>
+                      <span className="text-xs font-bold">{supplierRisk?.avgInherentRisk ?? 0}/100</span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs">Risk Items</span>
@@ -1108,78 +1157,218 @@ export default function Reports() {
             )}
 
             {/* ── SUPPLIER RISK PROFILE ── */}
-            {suppliers && suppliers.length > 0 && (
-              <section className="print-section" data-testid="section-supplier-profile">
-                <SectionHeader number={nextSection()} title="Supplier Risk Profile" testId="heading-supplier-profile" />
+            {supplierRisk && supplierRisk.totalSuppliers > 0 && (
+              <section className="print-section print-page-break" data-testid="section-supplier-profile">
+                <SectionHeader number={nextSection()} title="Supply Chain Risk Profile" testId="heading-supplier-profile" />
                 <p className="text-sm text-muted-foreground mb-4 print:text-gray-600">
-                  Third-party supply chain risk assessment for {suppliers.length} registered supplier{suppliers.length !== 1 ? "s" : ""}.
+                  Third-party supply chain risk assessment per NIS2 Article 21(2)(d) for {supplierRisk.totalSuppliers} registered supplier{supplierRisk.totalSuppliers !== 1 ? "s" : ""}.
                 </p>
 
                 {(() => {
-                  const byRisk: Record<string, number> = {};
-                  const byCategory: Record<string, number> = {};
-                  for (const s of suppliers as any[]) {
-                    const risk = s.riskLevel || s.risk_level || s.riskRating || "MEDIUM";
-                    byRisk[risk] = (byRisk[risk] || 0) + 1;
-                    const cat = s.category || s.type || "Uncategorized";
-                    byCategory[cat] = (byCategory[cat] || 0) + 1;
-                  }
-
-                  const highRiskCount = (byRisk["CRITICAL"] || 0) + (byRisk["HIGH"] || 0);
-                  const highRiskPct = suppliers.length > 0 ? Math.round((highRiskCount / suppliers.length) * 100) : 0;
+                  const sr = supplierRisk;
+                  const highRiskPct = sr.totalSuppliers > 0 ? Math.round((sr.highRiskSuppliers / sr.totalSuppliers) * 100) : 0;
+                  const criticalityColors: Record<string, string> = { critical: "#dc2626", high: "#f59e0b", medium: "#3b82f6", low: "#22c55e" };
+                  const critEntries = Object.entries(sr.criticalityBreakdown).sort((a, b) => {
+                    const order = ["critical", "high", "medium", "low"];
+                    return order.indexOf(a[0]) - order.indexOf(b[0]);
+                  });
+                  const contractEntries = Object.entries(sr.contractBreakdown);
+                  const assuranceEntries = Object.entries(sr.assuranceBreakdown);
+                  const sortedSuppliers = [...sr.supplierDetails].sort((a, b) => (b.inherentRiskScore || 0) - (a.inherentRiskScore || 0));
 
                   return (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-total-suppliers">
-                          <Users className="w-4 h-4 mx-auto mb-1 text-muted-foreground print:text-gray-400" />
-                          <div className="text-2xl font-bold">{suppliers.length}</div>
+                          <Truck className="w-4 h-4 mx-auto mb-1 text-muted-foreground print:text-gray-400" />
+                          <div className="text-2xl font-bold">{sr.totalSuppliers}</div>
                           <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Total Suppliers</div>
+                        </div>
+                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-critical-suppliers">
+                          <ShieldAlert className="w-4 h-4 mx-auto mb-1 text-muted-foreground print:text-gray-400" />
+                          <div className="text-2xl font-bold" style={sr.criticalSuppliers > 0 ? { color: "#f59e0b" } : {}}>{sr.criticalSuppliers}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">High/Critical</div>
                         </div>
                         <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-high-risk-suppliers">
                           <AlertTriangle className="w-4 h-4 mx-auto mb-1 text-muted-foreground print:text-gray-400" />
-                          <div className="text-2xl font-bold" style={highRiskCount > 0 ? { color: "#dc2626" } : {}}>{highRiskCount}</div>
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">High/Critical Risk</div>
+                          <div className="text-2xl font-bold" style={sr.highRiskSuppliers > 0 ? { color: "#dc2626" } : {}}>{sr.highRiskSuppliers}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">High Risk (60+)</div>
                         </div>
-                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-supplier-risk-pct">
-                          <div className="text-2xl font-bold" style={highRiskPct > 30 ? { color: "#dc2626" } : highRiskPct > 15 ? { color: "#ca8a04" } : { color: "#16a34a" }}>
-                            {highRiskPct}%
-                          </div>
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Elevated Risk Rate</div>
+                        <div className="border rounded-md p-3 text-center print:border-gray-300" data-testid="metric-assessed-critical">
+                          <FileCheck className="w-4 h-4 mx-auto mb-1 text-muted-foreground print:text-gray-400" />
+                          <div className="text-2xl font-bold" style={{ color: sr.assessedCriticalPct >= 80 ? "#16a34a" : sr.assessedCriticalPct >= 50 ? "#ca8a04" : "#dc2626" }}>{sr.assessedCriticalPct}%</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Critical Assessed</div>
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="border rounded-md p-3 print:border-gray-300" data-testid="report-avg-risk-scores">
+                          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground print:text-gray-500 mb-2">Average Risk Scores</h4>
+                          <div className="space-y-2">
+                            <div>
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <span className="text-[11px] text-muted-foreground print:text-gray-600">Inherent</span>
+                                <span className="text-xs font-bold" style={{ color: sr.avgInherentRisk >= 60 ? "#dc2626" : sr.avgInherentRisk >= 40 ? "#f59e0b" : "#16a34a" }}>{sr.avgInherentRisk}/100</span>
+                              </div>
+                              <div className="h-1.5 rounded-sm bg-gray-100 dark:bg-neutral-800 overflow-hidden print:bg-gray-100">
+                                <div className="h-full rounded-sm" style={{ width: `${sr.avgInherentRisk}%`, backgroundColor: sr.avgInherentRisk >= 60 ? "#dc2626" : sr.avgInherentRisk >= 40 ? "#f59e0b" : "#16a34a" }} />
+                              </div>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <span className="text-[11px] text-muted-foreground print:text-gray-600">Residual</span>
+                                <span className="text-xs font-bold" style={{ color: sr.avgResidualRisk >= 60 ? "#dc2626" : sr.avgResidualRisk >= 40 ? "#f59e0b" : "#16a34a" }}>{sr.avgResidualRisk}/100</span>
+                              </div>
+                              <div className="h-1.5 rounded-sm bg-gray-100 dark:bg-neutral-800 overflow-hidden print:bg-gray-100">
+                                <div className="h-full rounded-sm" style={{ width: `${sr.avgResidualRisk}%`, backgroundColor: sr.avgResidualRisk >= 60 ? "#dc2626" : sr.avgResidualRisk >= 40 ? "#f59e0b" : "#16a34a" }} />
+                              </div>
+                            </div>
+                            {sr.avgInherentRisk > sr.avgResidualRisk && (
+                              <p className="text-[10px] text-muted-foreground print:text-gray-500">Risk reduction: {sr.avgInherentRisk - sr.avgResidualRisk} pts via controls</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="border rounded-md p-3 print:border-gray-300" data-testid="report-criticality-dist">
+                          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground print:text-gray-500 mb-2">Criticality Distribution</h4>
+                          <div className="space-y-1.5">
+                            {critEntries.map(([level, count]) => (
+                              <div key={level} className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: criticalityColors[level] || "#6b7280" }} />
+                                <span className="text-[11px] capitalize flex-1">{level}</span>
+                                <span className="text-[11px] font-semibold">{count}</span>
+                                <span className="text-[10px] text-muted-foreground print:text-gray-500 w-8 text-right">{Math.round((count / sr.totalSuppliers) * 100)}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="border rounded-md p-3 print:border-gray-300" data-testid="report-assessments-incidents">
+                          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground print:text-gray-500 mb-2">Assessments & Incidents</h4>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px]">Approved Assessments</span>
+                              <span className="text-[11px] font-bold" style={{ color: "#16a34a" }}>{sr.approvedAssessments}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px]">Submitted / Draft</span>
+                              <span className="text-[11px] font-bold">{sr.submittedAssessments} / {sr.draftAssessments}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px]">Open Incidents</span>
+                              <span className="text-[11px] font-bold" style={sr.openSupplierIncidents > 0 ? { color: "#dc2626" } : {}}>{sr.openSupplierIncidents}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px]">Overdue Reviews</span>
+                              <span className="text-[11px] font-bold" style={sr.overdueReviews > 0 ? { color: "#f59e0b" } : {}}>{sr.overdueReviews}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px]">Pending Exceptions</span>
+                              <span className="text-[11px] font-bold">{sr.pendingExceptions}</span>
+                            </div>
+                            {sr.nis2ReportableIncidents > 0 && (
+                              <div className="flex items-center justify-between gap-2 mt-1 p-1.5 rounded-sm" style={{ backgroundColor: "#dc262610" }}>
+                                <span className="text-[11px] font-medium" style={{ color: "#dc2626" }}>NIS2 Reportable</span>
+                                <span className="text-[11px] font-bold" style={{ color: "#dc2626" }}>{sr.nis2ReportableIncidents}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {contractEntries.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="border rounded-md p-3 print:border-gray-300">
+                            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground print:text-gray-500 mb-2">Contract Status</h4>
+                            <div className="space-y-1.5">
+                              {contractEntries.map(([status, count]) => {
+                                const statusColor = status === "ACTIVE" ? "#16a34a" : status === "EXPIRED" ? "#dc2626" : status === "PENDING_RENEWAL" ? "#f59e0b" : "#6b7280";
+                                return (
+                                  <div key={status} className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: statusColor }} />
+                                    <span className="text-[11px] flex-1 capitalize">{status.replace(/_/g, " ").toLowerCase()}</span>
+                                    <span className="text-[11px] font-semibold">{count}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {assuranceEntries.length > 0 && (
+                            <div className="border rounded-md p-3 print:border-gray-300">
+                              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground print:text-gray-500 mb-2">Assurance Levels</h4>
+                              <div className="space-y-1.5">
+                                {assuranceEntries.map(([level, count]) => {
+                                  const levelColor = level === "CERTIFIED" ? "#16a34a" : level === "AUDITED" ? "#3b82f6" : level === "SELF_ASSESSED" ? "#f59e0b" : "#6b7280";
+                                  return (
+                                    <div key={level} className="flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: levelColor }} />
+                                      <span className="text-[11px] flex-1 capitalize">{level.replace(/_/g, " ").toLowerCase()}</span>
+                                      <span className="text-[11px] font-semibold">{count}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <table className="w-full text-sm border-collapse" data-testid="table-supplier-risk">
                         <thead>
                           <tr className="border-b-2 border-gray-200 dark:border-neutral-700 print:border-gray-300">
-                            <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Supplier</th>
-                            <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-24">Risk Level</th>
-                            <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-24">Category</th>
+                            <th className="text-left py-2 px-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Supplier</th>
+                            <th className="text-center py-2 px-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Criticality</th>
+                            <th className="text-center py-2 px-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Type</th>
+                            <th className="text-center py-2 px-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Inherent</th>
+                            <th className="text-center py-2 px-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Residual</th>
+                            <th className="text-center py-2 px-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Contract</th>
+                            <th className="text-center py-2 px-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Assessment</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {(suppliers as any[]).slice(0, 10).map((s: any, idx: number) => {
-                            const risk = s.riskLevel || s.risk_level || s.riskRating || "MEDIUM";
-                            const riskColor = risk === "CRITICAL" ? "#dc2626" : risk === "HIGH" ? "#f59e0b" : risk === "MEDIUM" ? "#3b82f6" : "#22c55e";
+                          {sortedSuppliers.slice(0, 15).map((s, idx) => {
+                            const riskScore = s.inherentRiskScore || 0;
+                            const riskColor = riskScore >= 60 ? "#dc2626" : riskScore >= 40 ? "#f59e0b" : riskScore >= 20 ? "#3b82f6" : "#22c55e";
+                            const resScore = s.residualRiskScore || 0;
+                            const resColor = resScore >= 60 ? "#dc2626" : resScore >= 40 ? "#f59e0b" : resScore >= 20 ? "#3b82f6" : "#22c55e";
+                            const critColor = criticalityColors[s.criticality] || "#6b7280";
+                            const contractColor = s.contractStatus === "ACTIVE" ? "#16a34a" : s.contractStatus === "EXPIRED" ? "#dc2626" : "#6b7280";
+                            const assessColor = s.latestAssessmentStatus === "APPROVED" ? "#16a34a" : s.latestAssessmentStatus === "SUBMITTED" ? "#3b82f6" : "#6b7280";
                             return (
-                              <tr key={idx} className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid={`supplier-row-${idx}`}>
-                                <td className="py-2 px-3 text-xs font-medium">{s.name || s.companyName || `Supplier ${idx + 1}`}</td>
-                                <td className="py-2 px-3 text-center">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm inline-block" style={{ backgroundColor: riskColor + "18", color: riskColor }}>
-                                    {risk}
+                              <tr key={s.id} className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid={`supplier-row-${idx}`}>
+                                <td className="py-1.5 px-2">
+                                  <div className="text-xs font-medium truncate max-w-[150px]">{s.name}</div>
+                                  {s.openIncidents > 0 && <span className="text-[9px] font-medium" style={{ color: "#dc2626" }}>{s.openIncidents} incident{s.openIncidents !== 1 ? "s" : ""}</span>}
+                                  {s.isOverdue && <span className="text-[9px] font-medium ml-1" style={{ color: "#f59e0b" }}>overdue</span>}
+                                </td>
+                                <td className="py-1.5 px-2 text-center">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm inline-block" style={{ backgroundColor: critColor + "18", color: critColor }}>
+                                    {s.criticality}
                                   </span>
                                 </td>
-                                <td className="py-2 px-3 text-center text-xs text-muted-foreground print:text-gray-500">
-                                  {s.category || s.type || "—"}
+                                <td className="py-1.5 px-2 text-center text-[10px] text-muted-foreground print:text-gray-500 capitalize">
+                                  {s.supplierType?.replace(/_/g, " ") || "—"}
+                                </td>
+                                <td className="py-1.5 px-2 text-center">
+                                  <span className="text-[11px] font-bold" style={{ color: riskColor }}>{riskScore}</span>
+                                </td>
+                                <td className="py-1.5 px-2 text-center">
+                                  <span className="text-[11px] font-bold" style={{ color: resColor }}>{resScore}</span>
+                                </td>
+                                <td className="py-1.5 px-2 text-center">
+                                  <span className="text-[10px] capitalize" style={{ color: contractColor }}>{(s.contractStatus || "none").replace(/_/g, " ").toLowerCase()}</span>
+                                </td>
+                                <td className="py-1.5 px-2 text-center">
+                                  <span className="text-[10px] capitalize" style={{ color: assessColor }}>{(s.latestAssessmentStatus || "none").toLowerCase()}</span>
                                 </td>
                               </tr>
                             );
                           })}
                         </tbody>
                       </table>
-                      {suppliers.length > 10 && (
+                      {sr.totalSuppliers > 15 && (
                         <p className="text-[10px] text-muted-foreground text-center print:text-gray-500">
-                          Showing top 10 of {suppliers.length} suppliers. Full supplier register available in the platform.
+                          Showing top 15 of {sr.totalSuppliers} suppliers by inherent risk. Full register available in the platform.
                         </p>
                       )}
                     </div>
@@ -1248,7 +1437,16 @@ export default function Reports() {
                   insights.push({ icon: CheckCircle2, title: "Compliance Strengths", detail: `${strongDomains.length} domain${strongDomains.length !== 1 ? "s" : ""} at or above 80% compliance: ${domainList}. These areas demonstrate mature control implementation.`, severity: "success" });
                 }
 
-                if (riskCount > 0 && supplierCount > 0) {
+                if (supplierRisk && supplierRisk.totalSuppliers > 0) {
+                  if (supplierRisk.highRiskSuppliers > 0) {
+                    insights.push({ icon: AlertTriangle, title: "High-Risk Suppliers Require Attention", detail: `${supplierRisk.highRiskSuppliers} supplier${supplierRisk.highRiskSuppliers !== 1 ? "s have" : " has"} inherent risk scores of 60 or above. Average inherent risk is ${supplierRisk.avgInherentRisk}/100 (residual: ${supplierRisk.avgResidualRisk}/100). Prioritize supplier assessments and contractual security requirements per Article 21(2)(d).`, severity: supplierRisk.highRiskSuppliers > 2 ? "critical" : "warning" });
+                  } else {
+                    insights.push({ icon: Users, title: "Supply Chain Risk Managed", detail: `${supplierRisk.totalSuppliers} supplier${supplierRisk.totalSuppliers !== 1 ? "s" : ""} registered with average inherent risk ${supplierRisk.avgInherentRisk}/100. ${supplierRisk.assessedCriticalPct}% of critical suppliers assessed. Continue monitoring per NIS2 Article 21(2)(d).`, severity: "info" });
+                  }
+                  if (supplierRisk.overdueReviews > 0) {
+                    insights.push({ icon: Activity, title: "Overdue Supplier Reviews", detail: `${supplierRisk.overdueReviews} supplier review${supplierRisk.overdueReviews !== 1 ? "s are" : " is"} past due. Schedule reviews promptly to maintain compliance with supply chain security requirements.`, severity: "warning" });
+                  }
+                } else if (riskCount > 0 && supplierCount > 0) {
                   insights.push({ icon: Users, title: "Supply Chain Risk Awareness", detail: `${supplierCount} supplier${supplierCount !== 1 ? "s" : ""} and ${riskCount} risk${riskCount !== 1 ? "s" : ""} are tracked. Ensure supplier contractual obligations reflect NIS2 Article 21(2)(d) requirements for supply chain security.`, severity: "info" });
                 }
 

@@ -2648,6 +2648,58 @@ export async function registerRoutes(
     const overdueReviews = allSuppliers.filter(s => s.nextReviewDueAt && new Date(s.nextReviewDueAt) < new Date());
     const highRisk = allSuppliers.filter(s => (s.inherentRiskScore || 0) >= 60);
     const openIncidents = allIncidents.filter(i => i.status === "OPEN" || i.status === "CONTAINED");
+    const nis2Reportable = allIncidents.filter(i => i.requiresNis2Reporting);
+
+    const criticalityBreakdown: Record<string, number> = {};
+    const typeBreakdown: Record<string, number> = {};
+    const accessBreakdown: Record<string, number> = {};
+    const contractBreakdown: Record<string, number> = {};
+    const assuranceBreakdown: Record<string, number> = {};
+    for (const s of allSuppliers) {
+      criticalityBreakdown[s.criticality] = (criticalityBreakdown[s.criticality] || 0) + 1;
+      if (s.supplierType) typeBreakdown[s.supplierType] = (typeBreakdown[s.supplierType] || 0) + 1;
+      if (s.accessLevel) accessBreakdown[s.accessLevel] = (accessBreakdown[s.accessLevel] || 0) + 1;
+      if (s.contractStatus) contractBreakdown[s.contractStatus] = (contractBreakdown[s.contractStatus] || 0) + 1;
+      if (s.assuranceLevel) assuranceBreakdown[s.assuranceLevel] = (assuranceBreakdown[s.assuranceLevel] || 0) + 1;
+    }
+
+    const avgInherentRisk = allSuppliers.length > 0
+      ? Math.round(allSuppliers.reduce((sum, s) => sum + (s.inherentRiskScore || 0), 0) / allSuppliers.length)
+      : 0;
+    const avgResidualRisk = allSuppliers.length > 0
+      ? Math.round(allSuppliers.reduce((sum, s) => sum + (s.residualRiskScore || 0), 0) / allSuppliers.length)
+      : 0;
+
+    const approvedAssessments = allAssessments.filter(a => a.status === "APPROVED").length;
+    const draftAssessments = allAssessments.filter(a => a.status === "DRAFT").length;
+    const submittedAssessments = allAssessments.filter(a => a.status === "SUBMITTED").length;
+
+    const supplierDetails = allSuppliers.map(s => {
+      const sAssessments = allAssessments.filter(a => a.supplierId === s.id);
+      const sIncidents = allIncidents.filter(i => i.supplierId === s.id);
+      const latestAssessment = sAssessments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      return {
+        id: s.id,
+        name: s.name,
+        criticality: s.criticality,
+        supplierType: s.supplierType,
+        inherentRiskScore: s.inherentRiskScore,
+        residualRiskScore: s.residualRiskScore,
+        assuranceLevel: s.assuranceLevel,
+        accessLevel: s.accessLevel,
+        contractStatus: s.contractStatus,
+        country: s.country,
+        status: s.status,
+        assessmentCount: sAssessments.length,
+        latestAssessmentScore: latestAssessment?.score ?? null,
+        latestAssessmentRating: latestAssessment?.riskRating ?? null,
+        latestAssessmentStatus: latestAssessment?.status ?? null,
+        openIncidents: sIncidents.filter(i => i.status === "OPEN" || i.status === "CONTAINED").length,
+        nextReviewDueAt: s.nextReviewDueAt,
+        isOverdue: s.nextReviewDueAt ? new Date(s.nextReviewDueAt) < new Date() : false,
+      };
+    });
+
     res.json({
       totalSuppliers: allSuppliers.length,
       criticalSuppliers: criticalSuppliers.length,
@@ -2657,6 +2709,18 @@ export async function registerRoutes(
       openSupplierIncidents: openIncidents.length,
       totalAssessments: allAssessments.length,
       pendingExceptions: allExceptions.filter(e => !e.approvedBy).length,
+      nis2ReportableIncidents: nis2Reportable.length,
+      avgInherentRisk,
+      avgResidualRisk,
+      criticalityBreakdown,
+      typeBreakdown,
+      accessBreakdown,
+      contractBreakdown,
+      assuranceBreakdown,
+      approvedAssessments,
+      draftAssessments,
+      submittedAssessments,
+      supplierDetails,
     });
   });
 
