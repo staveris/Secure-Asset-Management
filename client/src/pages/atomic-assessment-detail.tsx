@@ -69,6 +69,7 @@ interface AtomicAssessmentDetail {
   status: string;
   createdAt: string;
   submittedAt: string | null;
+  parentAssessmentId: number | null;
   responses: AtomicAssessmentResponse[];
 }
 
@@ -157,6 +158,7 @@ const maturityLabels = ["None", "Initial", "Repeatable", "Defined", "Managed", "
 function ControlResponseCard({
   control,
   assessmentId,
+  parentAssessmentId,
   existingResponse,
   controlEvidence,
   isExpanded,
@@ -164,6 +166,7 @@ function ControlResponseCard({
 }: {
   control: AtomicControl;
   assessmentId: string;
+  parentAssessmentId?: number | null;
   existingResponse?: AtomicAssessmentResponse;
   controlEvidence: EvidenceItem[];
   isExpanded: boolean;
@@ -213,6 +216,9 @@ function ControlResponseCard({
       formData.append("file", file);
       formData.append("relatedType", "AtomicControl");
       formData.append("relatedId", String(control.id));
+      if (parentAssessmentId) {
+        formData.append("assessmentId", String(parentAssessmentId));
+      }
       const { getCsrfToken } = await import("@/lib/queryClient");
       const csrfToken = await getCsrfToken();
       const res = await fetch("/api/evidence/upload", {
@@ -991,6 +997,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
                     <ControlResponseCard
                       control={control}
                       assessmentId={id}
+                      parentAssessmentId={assessment?.parentAssessmentId}
                       existingResponse={responseMap.get(control.id)}
                       controlEvidence={getControlEvidence(control.id)}
                       isExpanded={expandedCards.has(control.id)}

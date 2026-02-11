@@ -69,7 +69,6 @@ interface AtomicAssessmentEntity {
   id: number;
   parentAssessmentId: number | null;
   parentAssessmentName: string;
-  sourceKey: string;
   label: string;
 }
 

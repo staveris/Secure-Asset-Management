@@ -1796,7 +1796,7 @@ export async function registerRoutes(
     }
 
     const assessmentNameMap: Record<number, string> = {};
-    for (const aid of allAssessmentIds) {
+    for (const aid of Array.from(allAssessmentIds)) {
       const a = await storage.getAssessment(aid);
       if (a) assessmentNameMap[aid] = a.name;
     }
@@ -1969,8 +1969,7 @@ export async function registerRoutes(
             id: aa.id,
             parentAssessmentId: aa.parentAssessmentId,
             parentAssessmentName: parent?.name || "Unknown",
-            sourceKey: aa.sourceKey,
-            label: `${parent?.name || "Unknown"} - ${aa.sourceKey === "nis2_atomic" ? "NIS2 Atomic" : "CIR"} Controls`,
+            label: `${parent?.name || "Unknown"} - Atomic/CIR Controls`,
           };
         })
       );

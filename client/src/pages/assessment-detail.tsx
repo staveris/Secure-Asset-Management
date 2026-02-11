@@ -317,6 +317,8 @@ function ControlCard({
     },
   });
 
+  const parsedAssessmentIdNum = parseInt(assessmentId);
+
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -327,6 +329,9 @@ function ControlCard({
       } else {
         formData.append("relatedType", "Control");
         formData.append("relatedId", String(response.controlObjectiveId));
+      }
+      if (!isNaN(parsedAssessmentIdNum)) {
+        formData.append("assessmentId", String(parsedAssessmentIdNum));
       }
       const { getCsrfToken } = await import("@/lib/queryClient");
       const csrfToken = await getCsrfToken();
