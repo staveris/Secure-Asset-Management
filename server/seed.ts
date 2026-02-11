@@ -306,161 +306,163 @@ export async function seedDatabase() {
     console.log(`Created platform admin: ${adminEmail}`);
   }
 
-  const existingDemo = await storage.getUserByEmail("demo@acmecorp.com");
-  if (!existingDemo) {
-    const tenant = await storage.createTenant({
-      name: "ACME Corporation",
-      sector: "technology",
-      entityType: "essential",
-    });
-
-    const passwordHash = await bcrypt.hash("demo1234", 12);
-    const demoUser = await storage.createUser({
-      email: "demo@acmecorp.com",
-      passwordHash,
-      fullName: "Maria Schmidt",
-      role: "TENANT_ADMIN",
-      isActive: true,
-      tenantId: tenant.id,
-    });
-
-    const assessment = await storage.createAssessment({
-      tenantId: tenant.id,
-      name: "Initial NIS2 Readiness Assessment",
-      scope: "Full organizational scope covering all NIS2 obligations",
-      createdBy: demoUser.id,
-      status: "IN_PROGRESS",
-    });
-
-    const allControls = await storage.getAllControlObjectives();
-    const statuses = ["NOT_STARTED", "IN_PROGRESS", "IMPLEMENTED", "VERIFIED"] as const;
-    const confidences = ["NONE", "LOW", "MEDIUM", "HIGH"] as const;
-
-    for (let i = 0; i < allControls.length; i++) {
-      const statusIdx = i < 8 ? 2 : i < 15 ? 1 : i < 25 ? 3 : 0;
-      const maturity = i < 8 ? 3 : i < 15 ? 2 : i < 25 ? 4 : 0;
-      const confIdx = i < 8 ? 2 : i < 15 ? 1 : i < 25 ? 3 : 0;
-      await storage.createAssessmentResponse({
-        assessmentId: assessment.id,
-        controlObjectiveId: allControls[i].id,
-        implementationStatus: statuses[statusIdx],
-        maturityLevel: maturity,
-        evidenceConfidence: confidences[confIdx],
-        notes: null,
-        updatedBy: demoUser.id,
+  if (process.env.NODE_ENV !== "production") {
+    const existingDemo = await storage.getUserByEmail("demo@acmecorp.com");
+    if (!existingDemo) {
+      const tenant = await storage.createTenant({
+        name: "ACME Corporation",
+        sector: "technology",
+        entityType: "essential",
       });
+
+      const passwordHash = await bcrypt.hash("demo1234", 12);
+      const demoUser = await storage.createUser({
+        email: "demo@acmecorp.com",
+        passwordHash,
+        fullName: "Maria Schmidt",
+        role: "TENANT_ADMIN",
+        isActive: true,
+        tenantId: tenant.id,
+      });
+
+      const assessment = await storage.createAssessment({
+        tenantId: tenant.id,
+        name: "Initial NIS2 Readiness Assessment",
+        scope: "Full organizational scope covering all NIS2 obligations",
+        createdBy: demoUser.id,
+        status: "IN_PROGRESS",
+      });
+
+      const allControls = await storage.getAllControlObjectives();
+      const statuses = ["NOT_STARTED", "IN_PROGRESS", "IMPLEMENTED", "VERIFIED"] as const;
+      const confidences = ["NONE", "LOW", "MEDIUM", "HIGH"] as const;
+
+      for (let i = 0; i < allControls.length; i++) {
+        const statusIdx = i < 8 ? 2 : i < 15 ? 1 : i < 25 ? 3 : 0;
+        const maturity = i < 8 ? 3 : i < 15 ? 2 : i < 25 ? 4 : 0;
+        const confIdx = i < 8 ? 2 : i < 15 ? 1 : i < 25 ? 3 : 0;
+        await storage.createAssessmentResponse({
+          assessmentId: assessment.id,
+          controlObjectiveId: allControls[i].id,
+          implementationStatus: statuses[statusIdx],
+          maturityLevel: maturity,
+          evidenceConfidence: confidences[confIdx],
+          notes: null,
+          updatedBy: demoUser.id,
+        });
+      }
+
+      await storage.createTask({
+        tenantId: tenant.id,
+        title: "Complete incident response plan documentation",
+        description: "Draft and approve the incident response plan covering NIS2 Art. 21(2)(b) requirements",
+        priority: "HIGH",
+        status: "IN_PROGRESS",
+        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        ownerUserId: demoUser.id,
+        controlObjectiveId: null,
+      });
+
+      await storage.createTask({
+        tenantId: tenant.id,
+        title: "Deploy multi-factor authentication",
+        description: "Roll out MFA for all privileged accounts and remote access per Art. 21(2)(j)",
+        priority: "CRITICAL",
+        status: "TODO",
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        ownerUserId: demoUser.id,
+        controlObjectiveId: null,
+      });
+
+      await storage.createTask({
+        tenantId: tenant.id,
+        title: "Conduct supplier security assessments",
+        description: "Complete cybersecurity due diligence for all critical suppliers",
+        priority: "MEDIUM",
+        status: "TODO",
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        ownerUserId: demoUser.id,
+        controlObjectiveId: null,
+      });
+
+      await storage.createTask({
+        tenantId: tenant.id,
+        title: "Update business continuity plan",
+        description: "Review and update BCP with current RTO/RPO targets",
+        priority: "MEDIUM",
+        status: "DONE",
+        dueDate: null,
+        ownerUserId: demoUser.id,
+        controlObjectiveId: null,
+      });
+
+      await storage.createSupplier({
+        tenantId: tenant.id,
+        name: "CloudSecure GmbH",
+        criticality: "critical",
+        services: "Cloud hosting, managed SOC, DDoS protection",
+        notes: "Primary cloud provider, ISO 27001 certified",
+      });
+
+      await storage.createSupplier({
+        tenantId: tenant.id,
+        name: "NetGuard Solutions",
+        criticality: "high",
+        services: "Network monitoring, firewall management",
+        notes: "Annual security assessment completed Q4 2024",
+      });
+
+      await storage.createSupplier({
+        tenantId: tenant.id,
+        name: "DataVault Storage",
+        criticality: "medium",
+        services: "Backup storage, archival services",
+        notes: null,
+      });
+
+      await storage.createRiskItem({
+        tenantId: tenant.id,
+        title: "Ransomware attack on critical infrastructure",
+        likelihood: 4,
+        impact: 5,
+        treatment: "MITIGATE",
+        ownerUserId: demoUser.id,
+        status: "TREATING",
+      });
+
+      await storage.createRiskItem({
+        tenantId: tenant.id,
+        title: "Supply chain compromise via third-party software",
+        likelihood: 3,
+        impact: 4,
+        treatment: "MITIGATE",
+        ownerUserId: demoUser.id,
+        status: "MONITORING",
+      });
+
+      await storage.createRiskItem({
+        tenantId: tenant.id,
+        title: "Insider threat - privileged access misuse",
+        likelihood: 2,
+        impact: 4,
+        treatment: "MITIGATE",
+        ownerUserId: demoUser.id,
+        status: "IDENTIFIED",
+      });
+
+      const detectedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+      await storage.createIncidentCase({
+        tenantId: tenant.id,
+        title: "Phishing campaign targeting finance team",
+        description: "Multiple phishing emails detected targeting finance department with credential harvesting links",
+        severity: "HIGH",
+        isSignificant: false,
+        detectedAt,
+        status: "CONTAINED",
+        createdBy: demoUser.id,
+      });
+
+      console.log("Created demo tenant: ACME Corporation (demo@acmecorp.com / demo1234)");
     }
-
-    await storage.createTask({
-      tenantId: tenant.id,
-      title: "Complete incident response plan documentation",
-      description: "Draft and approve the incident response plan covering NIS2 Art. 21(2)(b) requirements",
-      priority: "HIGH",
-      status: "IN_PROGRESS",
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-      ownerUserId: demoUser.id,
-      controlObjectiveId: null,
-    });
-
-    await storage.createTask({
-      tenantId: tenant.id,
-      title: "Deploy multi-factor authentication",
-      description: "Roll out MFA for all privileged accounts and remote access per Art. 21(2)(j)",
-      priority: "CRITICAL",
-      status: "TODO",
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      ownerUserId: demoUser.id,
-      controlObjectiveId: null,
-    });
-
-    await storage.createTask({
-      tenantId: tenant.id,
-      title: "Conduct supplier security assessments",
-      description: "Complete cybersecurity due diligence for all critical suppliers",
-      priority: "MEDIUM",
-      status: "TODO",
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      ownerUserId: demoUser.id,
-      controlObjectiveId: null,
-    });
-
-    await storage.createTask({
-      tenantId: tenant.id,
-      title: "Update business continuity plan",
-      description: "Review and update BCP with current RTO/RPO targets",
-      priority: "MEDIUM",
-      status: "DONE",
-      dueDate: null,
-      ownerUserId: demoUser.id,
-      controlObjectiveId: null,
-    });
-
-    await storage.createSupplier({
-      tenantId: tenant.id,
-      name: "CloudSecure GmbH",
-      criticality: "critical",
-      services: "Cloud hosting, managed SOC, DDoS protection",
-      notes: "Primary cloud provider, ISO 27001 certified",
-    });
-
-    await storage.createSupplier({
-      tenantId: tenant.id,
-      name: "NetGuard Solutions",
-      criticality: "high",
-      services: "Network monitoring, firewall management",
-      notes: "Annual security assessment completed Q4 2024",
-    });
-
-    await storage.createSupplier({
-      tenantId: tenant.id,
-      name: "DataVault Storage",
-      criticality: "medium",
-      services: "Backup storage, archival services",
-      notes: null,
-    });
-
-    await storage.createRiskItem({
-      tenantId: tenant.id,
-      title: "Ransomware attack on critical infrastructure",
-      likelihood: 4,
-      impact: 5,
-      treatment: "MITIGATE",
-      ownerUserId: demoUser.id,
-      status: "TREATING",
-    });
-
-    await storage.createRiskItem({
-      tenantId: tenant.id,
-      title: "Supply chain compromise via third-party software",
-      likelihood: 3,
-      impact: 4,
-      treatment: "MITIGATE",
-      ownerUserId: demoUser.id,
-      status: "MONITORING",
-    });
-
-    await storage.createRiskItem({
-      tenantId: tenant.id,
-      title: "Insider threat - privileged access misuse",
-      likelihood: 2,
-      impact: 4,
-      treatment: "MITIGATE",
-      ownerUserId: demoUser.id,
-      status: "IDENTIFIED",
-    });
-
-    const detectedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-    await storage.createIncidentCase({
-      tenantId: tenant.id,
-      title: "Phishing campaign targeting finance team",
-      description: "Multiple phishing emails detected targeting finance department with credential harvesting links",
-      severity: "HIGH",
-      isSignificant: false,
-      detectedAt,
-      status: "CONTAINED",
-      createdBy: demoUser.id,
-    });
-
-    console.log("Created demo tenant: ACME Corporation (demo@acmecorp.com / demo1234)");
   }
 }
