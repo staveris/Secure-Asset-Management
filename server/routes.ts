@@ -58,8 +58,22 @@ const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/gif",
   "image/webp",
-  "image/svg+xml",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "text/csv",
+  "application/zip",
+  "application/x-7z-compressed",
 ];
+
+const TEXT_BASED_MIME_TYPES = new Set([
+  "text/plain",
+  "text/csv",
+]);
 const MAX_FILE_SIZE = 150 * 1024 * 1024;
 
 const uploadStorage = multer.diskStorage({
@@ -175,11 +189,32 @@ const FILE_MAGIC_BYTES: Record<string, Buffer[]> = {
   "image/jpeg": [Buffer.from([0xFF, 0xD8, 0xFF])],
   "image/gif": [Buffer.from([0x47, 0x49, 0x46, 0x38, 0x37, 0x61]), Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])],
   "image/webp": [Buffer.from([0x52, 0x49, 0x46, 0x46])],
+  "application/zip": [Buffer.from([0x50, 0x4B, 0x03, 0x04]), Buffer.from([0x50, 0x4B, 0x05, 0x06]), Buffer.from([0x50, 0x4B, 0x07, 0x08])],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [Buffer.from([0x50, 0x4B, 0x03, 0x04])],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [Buffer.from([0x50, 0x4B, 0x03, 0x04])],
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": [Buffer.from([0x50, 0x4B, 0x03, 0x04])],
+  "application/msword": [Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])],
+  "application/vnd.ms-excel": [Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])],
+  "application/vnd.ms-powerpoint": [Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])],
+  "application/x-7z-compressed": [Buffer.from([0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C])],
 };
 
 function validateFileMagicBytes(filePath: string, declaredMimeType: string): boolean {
+  if (TEXT_BASED_MIME_TYPES.has(declaredMimeType)) {
+    try {
+      const sample = fs.readFileSync(filePath, { encoding: null }).subarray(0, 512);
+      for (let i = 0; i < sample.length; i++) {
+        const b = sample[i];
+        if (b === 0) return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   const signatures = FILE_MAGIC_BYTES[declaredMimeType];
-  if (!signatures) return true;
+  if (!signatures) return false;
   try {
     const fd = fs.openSync(filePath, "r");
     const buf = Buffer.alloc(8);
@@ -1628,7 +1663,17 @@ export async function registerRoutes(
       if ((item as any).lockedAt) {
         return res.status(403).json({ message: "Cannot delete locked evidence. Request an unlock first." });
       }
-      await storage.deleteEvidenceItem(id);
+      const deletedItem = await storage.deleteEvidenceItem(id);
+      if (deletedItem?.storagePath) {
+        try {
+          const fullPath = path.join(process.cwd(), deletedItem.storagePath);
+          if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+          }
+        } catch (fileErr) {
+          console.error(`[Evidence] Failed to delete file from disk: ${deletedItem.storagePath}`, fileErr);
+        }
+      }
       await storage.recalculateTenantStorageUsed(user.tenantId);
       await storage.createAuditLog({
         tenantId: user.tenantId,

@@ -1,5 +1,7 @@
 import { eq, and, desc, sql, count, avg, ne, like, or, isNull, asc } from "drizzle-orm";
 import { db } from "./db";
+import fs from "fs";
+import path from "path";
 import {
   tenants,
   users,
@@ -155,7 +157,7 @@ export interface IStorage {
 
   getEvidenceByTenant(tenantId: number): Promise<EvidenceItem[]>;
   createEvidenceItem(data: InsertEvidenceItem): Promise<EvidenceItem>;
-  deleteEvidenceItem(id: number): Promise<void>;
+  deleteEvidenceItem(id: number): Promise<EvidenceItem | undefined>;
   lockEvidence(id: number, lockedBy: number, reason: string): Promise<EvidenceItem | undefined>;
   unlockEvidence(id: number): Promise<EvidenceItem | undefined>;
   createEvidenceAccessLog(data: InsertEvidenceAccessLog): Promise<EvidenceAccessLog>;
@@ -272,6 +274,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTenant(id: number): Promise<void> {
+    const tenantEvidence = await db.select({ storagePath: evidenceItems.storagePath }).from(evidenceItems).where(eq(evidenceItems.tenantId, id));
+    const filePaths = tenantEvidence.map(e => e.storagePath).filter((p): p is string => !!p);
+
     await db.delete(tenantDailySnapshots).where(eq(tenantDailySnapshots.tenantId, id));
     await db.delete(tenantDailyAtomicSnapshots).where(eq(tenantDailyAtomicSnapshots.tenantId, id));
     await db.delete(taskAtomicLinks).where(
@@ -311,6 +316,17 @@ export class DatabaseStorage implements IStorage {
     );
     await db.delete(users).where(eq(users.tenantId, id));
     await db.delete(tenants).where(eq(tenants.id, id));
+
+    for (const storagePath of filePaths) {
+      try {
+        const fullPath = path.join(process.cwd(), storagePath);
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      } catch (err) {
+        console.error(`[Tenant Cleanup] Failed to delete file: ${storagePath}`, err);
+      }
+    }
   }
 
   async createUser(data: InsertUser): Promise<User> {
@@ -458,6 +474,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAssessment(id: number): Promise<void> {
+    const relatedEvidence = await db.select({ storagePath: evidenceItems.storagePath }).from(evidenceItems).where(and(eq(evidenceItems.relatedType, "assessment"), eq(evidenceItems.relatedId, id)));
     const relatedTasks = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.assessmentId, id));
     for (const t of relatedTasks) {
       await db.delete(taskAtomicLinks).where(eq(taskAtomicLinks.taskId, t.id));
@@ -466,6 +483,11 @@ export class DatabaseStorage implements IStorage {
     await db.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "assessment"), eq(evidenceItems.relatedId, id)));
     await db.delete(assessmentResponses).where(eq(assessmentResponses.assessmentId, id));
     await db.delete(assessments).where(eq(assessments.id, id));
+    for (const e of relatedEvidence) {
+      if (e.storagePath) {
+        try { const fp = path.join(process.cwd(), e.storagePath); if (fs.existsSync(fp)) fs.unlinkSync(fp); } catch (err) { console.error(`[Assessment Cleanup] Failed to delete file: ${e.storagePath}`, err); }
+      }
+    }
   }
 
   async createAssessmentResponse(data: InsertAssessmentResponse): Promise<AssessmentResponse> {
@@ -546,10 +568,12 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async deleteEvidenceItem(id: number): Promise<void> {
+  async deleteEvidenceItem(id: number): Promise<EvidenceItem | undefined> {
+    const [item] = await db.select().from(evidenceItems).where(eq(evidenceItems.id, id));
     await db.delete(evidenceAccessLogs).where(eq(evidenceAccessLogs.evidenceId, id));
     await db.delete(evidenceUnlockRequests).where(eq(evidenceUnlockRequests.evidenceId, id));
     await db.delete(evidenceItems).where(eq(evidenceItems.id, id));
+    return item;
   }
 
   async lockEvidence(id: number, lockedBy: number, reason: string): Promise<EvidenceItem | undefined> {
@@ -1294,6 +1318,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAtomicAssessment(id: number): Promise<void> {
+    const relatedEvidence = await db.select({ storagePath: evidenceItems.storagePath }).from(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
     const responses = await db.select().from(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
     const controlIds = new Set(responses.map(r => r.atomicControlId));
     const allLinks = await db.select().from(taskAtomicLinks);
@@ -1305,6 +1330,11 @@ export class DatabaseStorage implements IStorage {
     await db.delete(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
     await db.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
     await db.delete(atomicAssessments).where(eq(atomicAssessments.id, id));
+    for (const e of relatedEvidence) {
+      if (e.storagePath) {
+        try { const fp = path.join(process.cwd(), e.storagePath); if (fs.existsSync(fp)) fs.unlinkSync(fp); } catch (err) { console.error(`[Atomic Assessment Cleanup] Failed to delete file: ${e.storagePath}`, err); }
+      }
+    }
   }
 
   async createAtomicAssessmentResponse(data: InsertAtomicAssessmentResponse): Promise<AtomicAssessmentResponse> {
