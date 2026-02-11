@@ -570,6 +570,7 @@ export class DatabaseStorage implements IStorage {
     }
     await db.delete(tasks).where(eq(tasks.assessmentId, id));
     await db.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "assessment"), eq(evidenceItems.relatedId, id)));
+    await db.update(evidenceItems).set({ assessmentId: null }).where(eq(evidenceItems.assessmentId, id));
     await db.delete(assessmentResponses).where(eq(assessmentResponses.assessmentId, id));
     await db.delete(assessments).where(eq(assessments.id, id));
     for (const e of relatedEvidence) {
