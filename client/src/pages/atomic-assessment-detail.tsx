@@ -106,6 +106,10 @@ function ControlResponseCard({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments", assessmentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/snapshots"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assessment-history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments"] });
       toast({ title: "Response saved" });
     },
     onError: (err: any) => {

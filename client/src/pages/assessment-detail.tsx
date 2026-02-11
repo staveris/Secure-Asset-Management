@@ -275,6 +275,9 @@ function ControlCard({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/snapshots"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assessment-history"] });
       toast({ title: "Saved", description: "Control response updated successfully." });
     },
     onError: (err: any) => {
