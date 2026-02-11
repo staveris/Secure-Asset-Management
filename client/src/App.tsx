@@ -119,8 +119,8 @@ function TenantRouter() {
       <Route path="/tasks">{() => <WithFullAccess component={Tasks} />}</Route>
       <Route path="/evidence">{() => <WithFullAccess component={Evidence} />}</Route>
       <Route path="/incidents">{() => <WithFullAccess component={Incidents} />}</Route>
-      <Route path="/suppliers">{() => <WithFullAccess component={Suppliers} />}</Route>
       <Route path="/suppliers/:id">{() => <WithFullAccess component={SupplierDetail} />}</Route>
+      <Route path="/suppliers">{() => <WithFullAccess component={Suppliers} />}</Route>
       <Route path="/risks">{() => <WithFullAccess component={Risks} />}</Route>
       <Route path="/reports">{() => <WithFullAccess component={Reports} />}</Route>
       <Route path="/onboarding" component={Onboarding} />
