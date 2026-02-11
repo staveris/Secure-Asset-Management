@@ -273,6 +273,7 @@ export const evidenceItems = pgTable("evidence_items", {
   tenantId: integer("tenant_id")
     .references(() => tenants.id)
     .notNull(),
+  assessmentId: integer("assessment_id").references(() => assessments.id),
   relatedType: text("related_type").notNull(),
   relatedId: integer("related_id").notNull(),
   filename: text("filename").notNull(),
