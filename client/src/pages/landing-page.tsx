@@ -64,13 +64,6 @@ const features = [
     color: "from-rose-500/20 to-rose-600/20",
     iconColor: "text-rose-400",
   },
-  {
-    icon: AlertTriangle,
-    title: "Incident Management",
-    description: "EU reporting timeline tracking with automated early warning, notification, and final report workflows aligned to NIS2 Article 23.",
-    color: "from-amber-500/20 to-amber-600/20",
-    iconColor: "text-amber-400",
-  },
 ];
 
 const stats = [
@@ -713,7 +706,6 @@ export default function LandingPage() {
               {[
                 { title: "Risk Assessment & Management", desc: "Systematic identification and mitigation of cybersecurity risks aligned with NIS2 requirements", icon: Target },
                 { title: "Supply Chain Security", desc: "Third-party risk management with comprehensive supplier assessment and monitoring", icon: Users },
-                { title: "Incident Management", desc: "Automated EU reporting timelines with early warning, notification, and final report workflows", icon: AlertTriangle },
                 { title: "Audit Trail & Evidence", desc: "Complete audit logging with tamper-proof records and secure evidence management", icon: FileCheck },
               ].map((item) => (
                 <div key={item.title} className="flex gap-4 p-4 rounded-lg bg-white/[0.03] border border-white/[0.06]" data-testid={`checklist-${item.title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`}>
