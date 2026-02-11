@@ -45,7 +45,7 @@ import {
   Plus, ListTodo, Clock, CheckCircle2, Circle, Eye, Calendar,
   Shield, ClipboardList, Pencil, Trash2, MessageSquare, Send,
   ExternalLink, Search, MoreHorizontal, AlertTriangle, ArrowUpDown,
-  User, ChevronDown, ChevronUp, Flame, ArrowUp, ArrowDown, Minus,
+  User, ChevronDown, ChevronUp, ChevronRight, Flame, ArrowUp, ArrowDown, Minus,
   LayoutList, GanttChart,
 } from "lucide-react";
 import type { Task } from "@shared/schema";
@@ -230,6 +230,17 @@ const STATUS_COLORS: Record<string, string> = {
 
 function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskClick: (id: number) => void }) {
   const [groupBy, setGroupBy] = useState<"status" | "priority" | "category">("status");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const { timelineStart, timelineEnd, totalDays, groups, hasAnyDates } = useMemo(() => {
     const now = new Date();
@@ -244,9 +255,9 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
       if (due) { if (due > maxDate) maxDate = new Date(due); if (due < minDate) minDate = new Date(due); anyDates = true; }
     }
 
-    minDate.setDate(minDate.getDate() - 3);
-    maxDate.setDate(maxDate.getDate() + 7);
-    const days = Math.max(Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)), 14);
+    minDate.setDate(minDate.getDate() - 5);
+    maxDate.setDate(maxDate.getDate() + 10);
+    const days = Math.max(Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)), 21);
 
     const grouped: Record<string, EnrichedTask[]> = {};
     for (const t of tasks) {
@@ -271,7 +282,7 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
       const monthEnd = Math.min(totalDays, (nextMonth.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24));
       if (monthEnd > monthStart) {
         result.push({
-          label: current.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+          label: current.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
           startPct: (monthStart / totalDays) * 100,
           widthPct: ((monthEnd - monthStart) / totalDays) * 100,
         });
@@ -282,7 +293,7 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
   }, [timelineStart, timelineEnd, totalDays]);
 
   const weeks = useMemo(() => {
-    const result: { label: string; pct: number }[] = [];
+    const result: { label: string; pct: number; isMonthStart: boolean }[] = [];
     const start = new Date(timelineStart);
     const dayOfWeek = start.getDay();
     const firstMonday = new Date(start);
@@ -292,8 +303,9 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
       const dayOffset = (cursor.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
       if (dayOffset >= 0 && dayOffset <= totalDays) {
         result.push({
-          label: cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          label: cursor.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
           pct: (dayOffset / totalDays) * 100,
+          isMonthStart: cursor.getDate() <= 7,
         });
       }
       cursor.setDate(cursor.getDate() + 7);
@@ -324,13 +336,18 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
     if (endDay <= startDay) endDay = startDay + 1;
 
     const leftPct = Math.max(0, (startDay / totalDays) * 100);
-    const widthPct = Math.max(1, ((endDay - startDay) / totalDays) * 100);
+    const widthPct = Math.max(1.5, ((endDay - startDay) / totalDays) * 100);
 
     let color = PRIORITY_COLORS[task.priority] || "#3b82f6";
     if (task.status === "DONE") color = STATUS_COLORS.DONE;
     const isOverdue = due && due < now && task.status !== "DONE";
 
-    return { leftPct, widthPct, color, isOverdue, hasDueDate: !!due };
+    let progressPct = 0;
+    if (task.status === "DONE") progressPct = 100;
+    else if (task.status === "IN_REVIEW") progressPct = 80;
+    else if (task.status === "IN_PROGRESS") progressPct = 40;
+
+    return { leftPct, widthPct, color, isOverdue, hasDueDate: !!due, progressPct };
   };
 
   if (tasks.length === 0) return null;
@@ -345,142 +362,272 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
   const remainingKeys = Object.keys(groups).filter(k => !sortedGroupKeys.includes(k) && groups[k].length > 0);
   const allGroupKeys = [...sortedGroupKeys, ...remainingKeys];
 
+  const groupColorMap: Record<string, string> = {
+    "To Do": "#94a3b8", "In Progress": "#3b82f6", "In Review": "#f59e0b", "Done": "#22c55e",
+    "Critical": "#ef4444", "High": "#f59e0b", "Medium": "#3b82f6", "Low": "#94a3b8",
+  };
+
+  const totalTaskCount = tasks.length;
+  const doneCount = tasks.filter(t => t.status === "DONE").length;
+  const overdueCount = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "DONE").length;
+
   return (
     <div className="space-y-3" data-testid="gantt-timeline">
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">Group by:</span>
-        <Select value={groupBy} onValueChange={(v: any) => setGroupBy(v)}>
-          <SelectTrigger className="w-32" data-testid="select-gantt-group">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="status">Status</SelectItem>
-            <SelectItem value="priority">Priority</SelectItem>
-            <SelectItem value="category">Category</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-muted-foreground">Group by:</span>
+          <Select value={groupBy} onValueChange={(v: any) => setGroupBy(v)}>
+            <SelectTrigger className="w-32" data-testid="select-gantt-group">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="status">Status</SelectItem>
+              <SelectItem value="priority">Priority</SelectItem>
+              <SelectItem value="category">Category</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><ListTodo className="w-3.5 h-3.5" />{totalTaskCount} tasks</span>
+          <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-green-500" />{doneCount} done</span>
+          {overdueCount > 0 && (
+            <span className="flex items-center gap-1.5 text-red-500 font-medium"><AlertTriangle className="w-3.5 h-3.5" />{overdueCount} overdue</span>
+          )}
+        </div>
       </div>
 
       <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <div className="min-w-[800px]">
-            <div className="flex border-b border-border">
-              <div className="w-56 shrink-0 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-r border-border">
-                Task
-              </div>
-              <div className="flex-1 relative">
-                <div className="flex">
-                  {months.map((m, i) => (
-                    <div
-                      key={i}
-                      className="text-[10px] font-semibold text-muted-foreground py-2 border-r border-border text-center"
-                      style={{ position: "absolute", left: `${m.startPct}%`, width: `${m.widthPct}%` }}
-                    >
-                      {m.label}
-                    </div>
-                  ))}
+        <CardContent className="p-0">
+          <div className="overflow-x-auto" ref={scrollContainerRef}>
+            <div className="min-w-[900px]">
+              <div className="flex border-b-2 border-border bg-muted/30 sticky top-0 z-20">
+                <div className="w-72 shrink-0 px-4 py-2.5 border-r border-border flex items-center gap-2">
+                  <GanttChart className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Task</span>
                 </div>
-                <div className="flex mt-5 pb-1">
+                <div className="w-20 shrink-0 px-2 py-2.5 border-r border-border text-center">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Priority</span>
+                </div>
+                <div className="flex-1 relative">
+                  <div className="h-full">
+                    {months.map((m, i) => (
+                      <div
+                        key={i}
+                        className="absolute top-0 h-full flex items-center justify-center text-[11px] font-semibold text-muted-foreground border-r border-border/50"
+                        style={{ left: `${m.startPct}%`, width: `${m.widthPct}%` }}
+                      >
+                        {m.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex border-b border-border/60 bg-muted/15">
+                <div className="w-72 shrink-0 border-r border-border" />
+                <div className="w-20 shrink-0 border-r border-border" />
+                <div className="flex-1 relative h-6">
                   {weeks.map((w, i) => (
                     <div
                       key={i}
-                      className="text-[9px] text-muted-foreground absolute"
-                      style={{ left: `${w.pct}%`, transform: "translateX(-50%)" }}
+                      className="absolute top-0 h-full flex items-end justify-center pb-0.5"
+                      style={{ left: `${w.pct}%`, width: "1px" }}
                     >
-                      {w.label}
+                      <span className="text-[9px] text-muted-foreground/70 whitespace-nowrap" style={{ transform: "translateX(-50%)" }}>
+                        {w.label}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
 
-            {allGroupKeys.map((groupKey) => (
-              <div key={groupKey}>
-                <div className="flex items-center px-3 py-1.5 bg-muted/40 border-b border-border">
-                  <span className="text-xs font-semibold">{groupKey}</span>
-                  <Badge variant="secondary" className="ml-2 text-[10px]">{groups[groupKey].length}</Badge>
-                </div>
+              {allGroupKeys.map((groupKey) => {
+                const isCollapsed = collapsedGroups.has(groupKey);
+                const groupTasks = groups[groupKey];
+                const groupDone = groupTasks.filter(t => t.status === "DONE").length;
+                const groupTotal = groupTasks.length;
+                const groupPct = groupTotal > 0 ? Math.round((groupDone / groupTotal) * 100) : 0;
+                const accentColor = groupColorMap[groupKey] || "#6b7280";
 
-                {groups[groupKey].map((task) => {
-                  const bar = getBarStyle(task);
-                  const sc = statusConfig[task.status] || statusConfig.TODO;
-                  const StatusIcon = sc.icon;
-
-                  return (
+                return (
+                  <div key={groupKey}>
                     <div
-                      key={task.id}
-                      className="flex items-center border-b border-border/50 hover-elevate cursor-pointer"
-                      onClick={() => onTaskClick(task.id)}
-                      data-testid={`gantt-row-${task.id}`}
+                      className="flex items-center border-b border-border cursor-pointer"
+                      onClick={() => toggleGroup(groupKey)}
+                      style={{ borderLeft: `3px solid ${accentColor}` }}
+                      data-testid={`gantt-group-${groupKey.toLowerCase().replace(/\s+/g, "-")}`}
                     >
-                      <div className="w-56 shrink-0 px-3 py-2 border-r border-border flex items-center gap-2 min-w-0">
-                        <StatusIcon className={`w-3.5 h-3.5 shrink-0 ${sc.color}`} />
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-xs font-medium truncate ${task.status === "DONE" ? "line-through text-muted-foreground" : ""}`}>
-                            {task.title}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "No due date"}
-                          </p>
-                        </div>
+                      <div className="w-72 shrink-0 px-3 py-2 border-r border-border flex items-center gap-2">
+                        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+                        <span className="text-xs font-semibold">{groupKey}</span>
+                        <Badge variant="secondary" className="text-[10px] ml-auto">{groupTotal}</Badge>
                       </div>
-
-                      <div className="flex-1 relative h-10">
-                        {weeks.map((w, i) => (
-                          <div
-                            key={i}
-                            className="absolute top-0 bottom-0 border-l border-border/30"
-                            style={{ left: `${w.pct}%` }}
-                          />
-                        ))}
-                        {todayPct >= 0 && todayPct <= 100 && (
-                          <div
-                            className="absolute top-0 bottom-0 w-0.5 bg-red-400 z-10"
-                            style={{ left: `${todayPct}%` }}
-                          />
-                        )}
-                        <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, minWidth: "8px" }}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div
-                                className={`h-6 rounded-sm flex items-center px-1.5 overflow-hidden ${bar.isOverdue ? "ring-1 ring-red-500" : ""} ${!bar.hasDueDate ? "opacity-50" : ""}`}
-                                style={{ backgroundColor: bar.color + "30", borderLeft: `3px solid ${bar.color}` }}
-                              >
-                                <span className="text-[10px] font-medium truncate whitespace-nowrap" style={{ color: bar.color }}>
-                                  {task.title}
-                                </span>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">
-                              <div className="space-y-1">
-                                <p className="font-semibold text-xs">{task.title}</p>
-                                <p className="text-[10px]">Status: {sc.label}</p>
-                                <p className="text-[10px]">Priority: {priorityConfig[task.priority]?.label || task.priority}</p>
-                                {task.dueDate && <p className="text-[10px]">Due: {new Date(task.dueDate).toLocaleDateString()}</p>}
-                                {bar.isOverdue && <p className="text-[10px] text-red-500 font-medium">Overdue</p>}
-                                {!bar.hasDueDate && <p className="text-[10px] text-muted-foreground">No due date set</p>}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
+                      <div className="w-20 shrink-0 px-2 border-r border-border" />
+                      <div className="flex-1 px-3 py-2 flex items-center gap-3">
+                        <div className="flex-1 max-w-48 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${groupPct}%`, backgroundColor: accentColor, opacity: 0.7 }} />
                         </div>
+                        <span className="text-[10px] text-muted-foreground font-medium shrink-0">{groupPct}% complete</span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ))}
+
+                    {!isCollapsed && groupTasks.map((task, taskIdx) => {
+                      const bar = getBarStyle(task);
+                      const sc = statusConfig[task.status] || statusConfig.TODO;
+                      const StatusIcon = sc.icon;
+                      const pc = priorityConfig[task.priority] || priorityConfig.MEDIUM;
+                      const PriorityIcon = pc.icon;
+                      const isEvenRow = taskIdx % 2 === 0;
+
+                      return (
+                        <div
+                          key={task.id}
+                          className={`flex items-center border-b border-border/40 cursor-pointer hover-elevate ${isEvenRow ? "" : "bg-muted/15"}`}
+                          onClick={() => onTaskClick(task.id)}
+                          data-testid={`gantt-row-${task.id}`}
+                        >
+                          <div className="w-72 shrink-0 px-4 py-2.5 border-r border-border flex items-center gap-2.5 min-w-0">
+                            <StatusIcon className={`w-4 h-4 shrink-0 ${sc.color}`} />
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-sm font-medium truncate ${task.status === "DONE" ? "line-through text-muted-foreground" : ""}`} data-testid={`gantt-task-title-${task.id}`}>
+                                {task.title}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {task.dueDate ? (
+                                  <span className={`text-[10px] flex items-center gap-0.5 ${bar.isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                                    <Calendar className="w-2.5 h-2.5" />
+                                    {new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                    {bar.isOverdue && " (overdue)"}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground/60 italic">No due date</span>
+                                )}
+                                {task.ownerName && (
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                    <User className="w-2.5 h-2.5" />
+                                    {task.ownerName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="w-20 shrink-0 px-2 py-2 border-r border-border flex items-center justify-center">
+                            <div className="flex items-center gap-1">
+                              <PriorityIcon className="w-3 h-3" style={{ color: PRIORITY_COLORS[task.priority] || "#6b7280" }} />
+                              <span className="text-[10px] font-medium" style={{ color: PRIORITY_COLORS[task.priority] || "#6b7280" }}>
+                                {pc.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex-1 relative h-12">
+                            {weeks.map((w, i) => (
+                              <div
+                                key={i}
+                                className="absolute top-0 bottom-0 border-l border-border/20"
+                                style={{ left: `${w.pct}%` }}
+                              />
+                            ))}
+                            {todayPct >= 0 && todayPct <= 100 && (
+                              <div
+                                className="absolute top-0 bottom-0 w-px z-10"
+                                style={{ left: `${todayPct}%`, background: "linear-gradient(to bottom, #ef4444, #ef444480)" }}
+                              />
+                            )}
+                            <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, minWidth: "12px" }}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    className={`h-7 rounded-md flex items-center px-2 overflow-hidden relative ${bar.isOverdue ? "ring-1 ring-red-500/70 ring-offset-1 ring-offset-background" : ""} ${!bar.hasDueDate ? "opacity-60 border border-dashed" : ""}`}
+                                    style={{
+                                      backgroundColor: bar.color + "20",
+                                      borderColor: !bar.hasDueDate ? bar.color + "40" : undefined,
+                                    }}
+                                  >
+                                    <div
+                                      className="absolute left-0 top-0 bottom-0 rounded-md"
+                                      style={{
+                                        width: `${bar.progressPct}%`,
+                                        backgroundColor: bar.color + "35",
+                                      }}
+                                    />
+                                    <div
+                                      className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md"
+                                      style={{ backgroundColor: bar.color }}
+                                    />
+                                    <span className="text-[10px] font-medium truncate whitespace-nowrap relative z-10 pl-1" style={{ color: bar.color }}>
+                                      {task.title}
+                                    </span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs p-3">
+                                  <div className="space-y-1.5">
+                                    <p className="font-semibold text-sm">{task.title}</p>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                      <span className="text-[11px] text-muted-foreground">Status:</span>
+                                      <span className="text-[11px] font-medium">{sc.label}</span>
+                                      <span className="text-[11px] text-muted-foreground">Priority:</span>
+                                      <span className="text-[11px] font-medium">{pc.label}</span>
+                                      {task.dueDate && (
+                                        <>
+                                          <span className="text-[11px] text-muted-foreground">Due:</span>
+                                          <span className="text-[11px] font-medium">{new Date(task.dueDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                                        </>
+                                      )}
+                                      {task.ownerName && (
+                                        <>
+                                          <span className="text-[11px] text-muted-foreground">Assigned:</span>
+                                          <span className="text-[11px] font-medium">{task.ownerName}</span>
+                                        </>
+                                      )}
+                                      {task.category && (
+                                        <>
+                                          <span className="text-[11px] text-muted-foreground">Category:</span>
+                                          <span className="text-[11px] font-medium">{getTaskCategory(task)}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                    {bar.isOverdue && <p className="text-[11px] text-red-500 font-semibold flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Overdue</p>}
+                                    {!bar.hasDueDate && <p className="text-[11px] text-muted-foreground italic">No due date set — bar shown as estimate</p>}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="flex items-center gap-4 flex-wrap text-[10px] text-muted-foreground">
-        <span className="font-medium">Legend:</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: PRIORITY_COLORS.CRITICAL }} />Critical</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: PRIORITY_COLORS.HIGH }} />High</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: PRIORITY_COLORS.MEDIUM }} />Medium</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: PRIORITY_COLORS.LOW }} />Low</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-1.5 rounded-sm" style={{ backgroundColor: STATUS_COLORS.DONE }} />Done</span>
-        <span className="flex items-center gap-1"><span className="w-0.5 h-3 bg-red-400" />Today</span>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+          <span className="font-semibold text-foreground">Legend:</span>
+          {Object.entries(PRIORITY_COLORS).map(([key, color]) => (
+            <span key={key} className="flex items-center gap-1.5">
+              <span className="w-3 h-2 rounded-sm" style={{ backgroundColor: color }} />
+              {priorityConfig[key]?.label || key}
+            </span>
+          ))}
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-2 rounded-sm" style={{ backgroundColor: STATUS_COLORS.DONE }} />
+            Done
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-px h-3.5 bg-red-500" />
+            Today
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-2 rounded-sm border border-dashed border-muted-foreground/40 bg-muted/30" />
+            No due date
+          </span>
+        </div>
       </div>
     </div>
   );
