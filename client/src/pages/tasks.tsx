@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -26,16 +27,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, ListTodo, Clock, CheckCircle2, Circle, Eye, Calendar,
   Shield, ClipboardList, Pencil, Trash2, MessageSquare, Send,
-  ExternalLink,
+  ExternalLink, Search, MoreHorizontal, AlertTriangle, ArrowUpDown,
+  User, ChevronDown, ChevronUp, Flame, ArrowUp, ArrowDown, Minus,
 } from "lucide-react";
 import type { Task } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
-import { User } from "lucide-react";
 import { Link } from "wouter";
 
 type TenantUser = {
@@ -83,19 +96,44 @@ type EnrichedComment = {
   userName: string;
 };
 
-const priorityColors: Record<string, string> = {
-  CRITICAL: "destructive",
-  HIGH: "destructive",
-  MEDIUM: "secondary",
-  LOW: "outline",
+const statusConfig: Record<string, { label: string; icon: any; color: string }> = {
+  TODO: { label: "To Do", icon: Circle, color: "text-muted-foreground" },
+  IN_PROGRESS: { label: "In Progress", icon: Clock, color: "text-blue-500" },
+  IN_REVIEW: { label: "In Review", icon: Eye, color: "text-amber-500" },
+  DONE: { label: "Done", icon: CheckCircle2, color: "text-green-500" },
 };
 
-const statusDisplay: Record<string, { label: string; icon: any }> = {
-  TODO: { label: "To Do", icon: Circle },
-  IN_PROGRESS: { label: "In Progress", icon: Clock },
-  IN_REVIEW: { label: "In Review", icon: Eye },
-  DONE: { label: "Done", icon: CheckCircle2 },
+const priorityConfig: Record<string, { label: string; variant: string; icon: any }> = {
+  CRITICAL: { label: "Critical", variant: "destructive", icon: Flame },
+  HIGH: { label: "High", variant: "destructive", icon: ArrowUp },
+  MEDIUM: { label: "Medium", variant: "secondary", icon: Minus },
+  LOW: { label: "Low", variant: "outline", icon: ArrowDown },
 };
+
+type SortOption = "priority" | "dueDate" | "status" | "title";
+
+function getTaskCategory(task: EnrichedTask): string {
+  if (task.atomicControlId && task.sourceKey === "CIR_2024_2690") return "CIR";
+  if (task.atomicControlId) return "NIS2 Atomic";
+  if (task.category) return task.category;
+  return "NIS2 Objective";
+}
+
+function getCategoryVariant(category: string): "default" | "secondary" | "outline" {
+  if (category === "CIR") return "default";
+  if (category === "NIS2 Atomic") return "secondary";
+  return "outline";
+}
+
+function prioritySortValue(p: string): number {
+  const map: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  return map[p] ?? 4;
+}
+
+function statusSortValue(s: string): number {
+  const map: Record<string, number> = { TODO: 0, IN_PROGRESS: 1, IN_REVIEW: 2, DONE: 3 };
+  return map[s] ?? 4;
+}
 
 function TaskComments({ taskId }: { taskId: number }) {
   const [content, setContent] = useState("");
@@ -124,7 +162,7 @@ function TaskComments({ taskId }: { taskId: number }) {
   });
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pt-3">
       <div className="flex items-center gap-2">
         <MessageSquare className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-medium">Comments</span>
@@ -138,8 +176,8 @@ function TaskComments({ taskId }: { taskId: number }) {
       ) : comments && comments.length > 0 ? (
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {comments.map((c) => (
-            <div key={c.id} className="p-2 rounded-md bg-muted/50 space-y-0.5" data-testid={`comment-${c.id}`}>
-              <div className="flex items-center justify-between gap-2">
+            <div key={c.id} className="p-2.5 rounded-md bg-muted/50 space-y-0.5" data-testid={`comment-${c.id}`}>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-xs font-medium" data-testid={`text-comment-author-${c.id}`}>{c.userName}</span>
                 <span className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</span>
               </div>
@@ -189,6 +227,9 @@ export default function Tasks() {
   const [assigneeId, setAssigneeId] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [filterByUser, setFilterByUser] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("priority");
+  const [sortAsc, setSortAsc] = useState(true);
 
   const [editingTask, setEditingTask] = useState<EnrichedTask | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -234,6 +275,19 @@ export default function Tasks() {
     }
     return grouped;
   }, [controlObjectives]);
+
+  const stats = useMemo(() => {
+    if (!tasks) return { total: 0, overdue: 0, critical: 0, high: 0, done: 0, inProgress: 0 };
+    const now = new Date();
+    return {
+      total: tasks.length,
+      overdue: tasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== "DONE").length,
+      critical: tasks.filter(t => t.priority === "CRITICAL" && t.status !== "DONE").length,
+      high: tasks.filter(t => t.priority === "HIGH" && t.status !== "DONE").length,
+      done: tasks.filter(t => t.status === "DONE").length,
+      inProgress: tasks.filter(t => t.status === "IN_PROGRESS").length,
+    };
+  }, [tasks]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -324,18 +378,67 @@ export default function Tasks() {
     setEditingTask(task);
   };
 
-  const filteredTasks = tasks?.filter((t) => {
-    if (activeTab !== "all" && t.status !== activeTab) return false;
-    if (isAdmin && filterByUser !== "all" && String(t.ownerUserId) !== filterByUser) return false;
-    return true;
-  }) || [];
+  const filteredTasks = useMemo(() => {
+    let result = tasks || [];
+
+    if (activeTab !== "all") {
+      result = result.filter(t => t.status === activeTab);
+    }
+
+    if (isAdmin && filterByUser !== "all") {
+      result = result.filter(t => String(t.ownerUserId) === filterByUser);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(t =>
+        t.title.toLowerCase().includes(q) ||
+        (t.description && t.description.toLowerCase().includes(q)) ||
+        (t.controlTitle && t.controlTitle.toLowerCase().includes(q)) ||
+        (t.requirementCode && t.requirementCode.toLowerCase().includes(q))
+      );
+    }
+
+    result = [...result].sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case "priority":
+          cmp = prioritySortValue(a.priority) - prioritySortValue(b.priority);
+          break;
+        case "dueDate": {
+          const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+          const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+          cmp = da - db;
+          break;
+        }
+        case "status":
+          cmp = statusSortValue(a.status) - statusSortValue(b.status);
+          break;
+        case "title":
+          cmp = a.title.localeCompare(b.title);
+          break;
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+
+    return result;
+  }, [tasks, activeTab, filterByUser, isAdmin, searchQuery, sortBy, sortAsc]);
+
+  const toggleSort = (option: SortOption) => {
+    if (sortBy === option) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortBy(option);
+      setSortAsc(true);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6" data-testid="tasks-page">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-muted-foreground mt-1">Track remediation and compliance activities</p>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-tasks-heading">Tasks</h1>
+          <p className="text-sm text-muted-foreground mt-1">Track remediation and compliance activities</p>
         </div>
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogTrigger asChild>
@@ -461,138 +564,265 @@ export default function Tasks() {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-4 flex-wrap">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+      {!isLoading && tasks && tasks.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="task-stats">
+          <Card>
+            <CardContent className="p-3 flex flex-col items-center gap-1">
+              <span className="text-2xl font-bold" data-testid="text-stat-total">{stats.total}</span>
+              <span className="text-xs text-muted-foreground">Total Tasks</span>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 flex flex-col items-center gap-1">
+              <span className="text-2xl font-bold text-blue-500" data-testid="text-stat-inprogress">{stats.inProgress}</span>
+              <span className="text-xs text-muted-foreground">In Progress</span>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 flex flex-col items-center gap-1">
+              <span className="text-2xl font-bold text-green-500" data-testid="text-stat-done">{stats.done}</span>
+              <span className="text-xs text-muted-foreground">Completed</span>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 flex flex-col items-center gap-1">
+              <span className={`text-2xl font-bold ${stats.overdue > 0 ? "text-red-500" : ""}`} data-testid="text-stat-overdue">{stats.overdue}</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {stats.overdue > 0 && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                Overdue
+              </span>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 flex flex-col items-center gap-1">
+              <span className={`text-2xl font-bold ${stats.critical > 0 ? "text-red-500" : ""}`} data-testid="text-stat-critical">{stats.critical}</span>
+              <span className="text-xs text-muted-foreground">Critical</span>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 flex flex-col items-center gap-1">
+              <span className={`text-2xl font-bold ${stats.high > 0 ? "text-amber-500" : ""}`} data-testid="text-stat-high">{stats.high}</span>
+              <span className="text-xs text-muted-foreground">High Priority</span>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tasks..."
+              className="pl-9"
+              data-testid="input-search-tasks"
+            />
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" data-testid="button-sort-tasks">
+                <ArrowUpDown className="w-4 h-4 mr-2" />
+                Sort: {sortBy === "priority" ? "Priority" : sortBy === "dueDate" ? "Due Date" : sortBy === "status" ? "Status" : "Title"}
+                {sortAsc ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => toggleSort("priority")} data-testid="sort-priority">
+                Priority {sortBy === "priority" && (sortAsc ? "(High first)" : "(Low first)")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toggleSort("dueDate")} data-testid="sort-duedate">
+                Due Date {sortBy === "dueDate" && (sortAsc ? "(Earliest)" : "(Latest)")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toggleSort("status")} data-testid="sort-status">
+                Status {sortBy === "status" && (sortAsc ? "(To Do first)" : "(Done first)")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toggleSort("title")} data-testid="sort-title">
+                Title {sortBy === "title" && (sortAsc ? "(A-Z)" : "(Z-A)")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {isAdmin && tenantUsers && tenantUsers.length > 1 && (
+            <Select value={filterByUser} onValueChange={setFilterByUser}>
+              <SelectTrigger className="w-48" data-testid="select-filter-user">
+                <User className="w-4 h-4 mr-1 shrink-0" />
+                <SelectValue placeholder="Filter by user" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                {tenantUsers.map((u) => (
+                  <SelectItem key={u.id} value={String(u.id)}>
+                    {u.fullName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList data-testid="tabs-task-filter">
-            <TabsTrigger value="all">All ({tasks?.length || 0})</TabsTrigger>
-            <TabsTrigger value="TODO">To Do ({tasks?.filter((t) => t.status === "TODO").length || 0})</TabsTrigger>
-            <TabsTrigger value="IN_PROGRESS">In Progress ({tasks?.filter((t) => t.status === "IN_PROGRESS").length || 0})</TabsTrigger>
-            <TabsTrigger value="IN_REVIEW">In Review ({tasks?.filter((t) => t.status === "IN_REVIEW").length || 0})</TabsTrigger>
-            <TabsTrigger value="DONE">Done ({tasks?.filter((t) => t.status === "DONE").length || 0})</TabsTrigger>
+            <TabsTrigger value="all" data-testid="tab-all">All ({tasks?.length || 0})</TabsTrigger>
+            <TabsTrigger value="TODO" data-testid="tab-todo">To Do ({tasks?.filter((t) => t.status === "TODO").length || 0})</TabsTrigger>
+            <TabsTrigger value="IN_PROGRESS" data-testid="tab-inprogress">In Progress ({tasks?.filter((t) => t.status === "IN_PROGRESS").length || 0})</TabsTrigger>
+            <TabsTrigger value="IN_REVIEW" data-testid="tab-inreview">In Review ({tasks?.filter((t) => t.status === "IN_REVIEW").length || 0})</TabsTrigger>
+            <TabsTrigger value="DONE" data-testid="tab-done">Done ({tasks?.filter((t) => t.status === "DONE").length || 0})</TabsTrigger>
           </TabsList>
         </Tabs>
-        {isAdmin && tenantUsers && tenantUsers.length > 1 && (
-          <Select value={filterByUser} onValueChange={setFilterByUser}>
-            <SelectTrigger className="w-48" data-testid="select-filter-user">
-              <User className="w-4 h-4 mr-1 shrink-0" />
-              <SelectValue placeholder="Filter by user" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Users</SelectItem>
-              {tenantUsers.map((u) => (
-                <SelectItem key={u.id} value={String(u.id)}>
-                  {u.fullName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
       </div>
 
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}><CardContent className="p-4"><Skeleton className="h-16" /></CardContent></Card>
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}><CardContent className="p-4"><Skeleton className="h-20" /></CardContent></Card>
           ))}
         </div>
       ) : filteredTasks.length > 0 ? (
         <div className="space-y-2">
           {filteredTasks.map((task) => {
-            const statusInfo = statusDisplay[task.status];
-            const StatusIcon = statusInfo?.icon || Circle;
+            const sc = statusConfig[task.status] || statusConfig.TODO;
+            const StatusIcon = sc.icon;
+            const pc = priorityConfig[task.priority] || priorityConfig.MEDIUM;
+            const PriorityIcon = pc.icon;
             const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
             const isExpanded = expandedTaskId === task.id;
+            const category = getTaskCategory(task);
 
             return (
-              <Card key={task.id} data-testid={`card-task-${task.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <Select
-                      value={task.status}
-                      onValueChange={(val) => updateStatusMutation.mutate({ taskId: task.id, status: val })}
-                    >
-                      <SelectTrigger className="w-auto border-0 p-0 h-auto shadow-none" data-testid={`select-task-status-${task.id}`}>
-                        <StatusIcon className={`w-5 h-5 ${task.status === "DONE" ? "text-green-500" : "text-muted-foreground"}`} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="TODO">To Do</SelectItem>
-                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                        <SelectItem value="IN_REVIEW">In Review</SelectItem>
-                        <SelectItem value="DONE">Done</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <Card
+                key={task.id}
+                className={`transition-colors ${isExpanded ? "ring-1 ring-primary/20" : ""}`}
+                data-testid={`card-task-${task.id}`}
+              >
+                <CardContent className="p-0">
+                  <div className="flex items-start gap-4 p-4">
+                    <div className="pt-0.5">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <Select
+                              value={task.status}
+                              onValueChange={(val) => updateStatusMutation.mutate({ taskId: task.id, status: val })}
+                            >
+                              <SelectTrigger className="w-auto border-0 p-0 h-auto shadow-none focus:ring-0" data-testid={`select-task-status-${task.id}`}>
+                                <StatusIcon className={`w-5 h-5 ${sc.color}`} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="TODO">
+                                  <span className="flex items-center gap-2"><Circle className="w-4 h-4" /> To Do</span>
+                                </SelectItem>
+                                <SelectItem value="IN_PROGRESS">
+                                  <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" /> In Progress</span>
+                                </SelectItem>
+                                <SelectItem value="IN_REVIEW">
+                                  <span className="flex items-center gap-2"><Eye className="w-4 h-4 text-amber-500" /> In Review</span>
+                                </SelectItem>
+                                <SelectItem value="DONE">
+                                  <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" /> Done</span>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>{sc.label} - Click to change</TooltipContent>
+                      </Tooltip>
+                    </div>
+
                     <div
                       className="flex-1 min-w-0 cursor-pointer"
                       onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
                       data-testid={`button-expand-task-${task.id}`}
                     >
-                      <p className={`text-sm font-medium ${task.status === "DONE" ? "line-through text-muted-foreground" : ""}`}>
-                        {task.title}
-                      </p>
-                      {task.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.description}</p>
-                      )}
-                      <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        {task.controlTitle && (
-                          <div className="flex items-center gap-1.5">
-                            <Shield className="w-3 h-3 text-primary shrink-0" />
-                            {task.assessmentId && task.navResponseId && task.navSource ? (
-                              <Link
-                                href={`/assessments/${task.assessmentId}?control=${task.navSource}-${task.navResponseId}`}
-                                className="text-xs text-primary hover:underline truncate inline-flex items-center gap-0.5"
-                                data-testid={`link-task-control-${task.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {task.requirementCode ? `${task.requirementCode} — ` : ""}{task.controlTitle}
-                                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                              </Link>
-                            ) : (
-                              <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-control-${task.id}`}>
-                                {task.requirementCode ? `${task.requirementCode} — ` : ""}{task.controlTitle}
-                              </span>
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className={`text-sm font-medium ${task.status === "DONE" ? "line-through text-muted-foreground" : ""}`} data-testid={`text-task-title-${task.id}`}>
+                              {task.title}
+                            </p>
+                            <Badge variant={getCategoryVariant(category)} className="text-[10px] shrink-0" data-testid={`badge-task-category-${task.id}`}>
+                              {category}
+                            </Badge>
+                          </div>
+
+                          {task.description && !isExpanded && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{task.description}</p>
+                          )}
+
+                          <div className="flex items-center gap-x-4 gap-y-1 mt-2 flex-wrap">
+                            {task.controlTitle && (
+                              <div className="flex items-center gap-1.5">
+                                <Shield className="w-3 h-3 text-primary shrink-0" />
+                                {task.assessmentId && task.navResponseId && task.navSource ? (
+                                  <Link
+                                    href={`/assessments/${task.assessmentId}?control=${task.navSource}-${task.navResponseId}`}
+                                    className="text-xs text-primary hover:underline truncate inline-flex items-center gap-0.5 max-w-[250px]"
+                                    data-testid={`link-task-control-${task.id}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {task.requirementCode ? `${task.requirementCode}` : ""}{task.requirementCode ? " — " : ""}{task.controlTitle}
+                                    <ExternalLink className="w-2.5 h-2.5 shrink-0 ml-0.5" />
+                                  </Link>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground truncate max-w-[250px]" data-testid={`text-task-control-${task.id}`}>
+                                    {task.requirementCode ? `${task.requirementCode} — ` : ""}{task.controlTitle}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {task.assessmentName && (
+                              <div className="flex items-center gap-1.5">
+                                <ClipboardList className="w-3 h-3 text-muted-foreground shrink-0" />
+                                {task.assessmentId ? (
+                                  <Link
+                                    href={`/assessments/${task.assessmentId}`}
+                                    className="text-xs text-muted-foreground hover:text-foreground hover:underline truncate inline-flex items-center gap-0.5"
+                                    data-testid={`link-task-assessment-${task.id}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {task.assessmentName}
+                                  </Link>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-assessment-${task.id}`}>
+                                    {task.assessmentName}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {task.ownerName && (
+                              <div className="flex items-center gap-1.5">
+                                <User className="w-3 h-3 text-muted-foreground shrink-0" />
+                                <span className="text-xs text-muted-foreground" data-testid={`text-task-owner-${task.id}`}>
+                                  {task.ownerName}
+                                </span>
+                              </div>
                             )}
                           </div>
-                        )}
-                        {task.assessmentName && (
-                          <div className="flex items-center gap-1.5">
-                            <ClipboardList className="w-3 h-3 text-blue-500 shrink-0" />
-                            {task.assessmentId ? (
-                              <Link
-                                href={`/assessments/${task.assessmentId}`}
-                                className="text-xs text-primary hover:underline truncate inline-flex items-center gap-0.5"
-                                data-testid={`link-task-assessment-${task.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {task.assessmentName}
-                                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                              </Link>
-                            ) : (
-                              <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-assessment-${task.id}`}>
-                                {task.assessmentName}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {task.ownerName && (
-                          <div className="flex items-center gap-1.5">
-                            <User className="w-3 h-3 text-orange-500 shrink-0" />
-                            <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-owner-${task.id}`}>
-                              {task.ownerName}
-                            </span>
-                          </div>
-                        )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+
+                    <div className="flex items-center gap-2 shrink-0 pt-0.5">
                       {task.dueDate && (
-                        <span className={`text-xs flex items-center gap-1 ${isOverdue ? "text-red-500" : "text-muted-foreground"}`}>
-                          <Calendar className="w-3 h-3" />
-                          {new Date(task.dueDate).toLocaleDateString()}
-                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={`text-xs flex items-center gap-1 whitespace-nowrap ${isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"}`} data-testid={`text-task-due-${task.id}`}>
+                              <Calendar className="w-3.5 h-3.5" />
+                              {new Date(task.dueDate).toLocaleDateString()}
+                              {isOverdue && <AlertTriangle className="w-3 h-3" />}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>{isOverdue ? "Overdue!" : "Due date"}</TooltipContent>
+                        </Tooltip>
                       )}
-                      <Badge variant={priorityColors[task.priority] as any} className="text-xs">
-                        {task.priority}
+
+                      <Badge variant={pc.variant as any} className="text-xs gap-1 shrink-0" data-testid={`badge-task-priority-${task.id}`}>
+                        <PriorityIcon className="w-3 h-3" />
+                        {pc.label}
                       </Badge>
+
                       <Button
                         size="icon"
                         variant="ghost"
@@ -601,32 +831,57 @@ export default function Tasks() {
                       >
                         <MessageSquare className="w-4 h-4" />
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => openEdit(task)}
-                        data-testid={`button-edit-task-${task.id}`}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setDeletingTask(task)}
-                        data-testid={`button-delete-task-${task.id}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" data-testid={`button-task-actions-${task.id}`}>
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(task)} data-testid={`menu-edit-task-${task.id}`}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit Task
+                          </DropdownMenuItem>
+                          {task.assessmentId && task.navResponseId && task.navSource && (
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/assessments/${task.assessmentId}?control=${task.navSource}-${task.navResponseId}`}
+                                className="flex items-center"
+                                data-testid={`menu-goto-control-${task.id}`}
+                              >
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                Go to Control
+                              </Link>
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeletingTask(task)}
+                            data-testid={`menu-delete-task-${task.id}`}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Task
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
 
                   {isExpanded && (
-                    <div className="mt-4 pt-3 border-t">
-                      {task.description && (
-                        <p className="text-sm text-muted-foreground mb-3">{task.description}</p>
-                      )}
-                      <TaskComments taskId={task.id} />
-                    </div>
+                    <>
+                      <Separator />
+                      <div className="p-4 bg-muted/30">
+                        {task.description && (
+                          <div className="mb-3">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Description</span>
+                            <p className="text-sm mt-1">{task.description}</p>
+                          </div>
+                        )}
+                        <TaskComments taskId={task.id} />
+                      </div>
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -637,12 +892,18 @@ export default function Tasks() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <ListTodo className="w-12 h-12 text-muted-foreground/40 mb-4" />
-            <h3 className="font-semibold mb-1">No tasks found</h3>
-            <p className="text-sm text-muted-foreground mb-4">Create tasks to track compliance activities</p>
-            <Button onClick={() => setShowCreate(true)} data-testid="button-create-first-task">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Task
-            </Button>
+            <h3 className="font-semibold mb-1">
+              {searchQuery ? "No tasks match your search" : "No tasks found"}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {searchQuery ? "Try adjusting your search or filters" : "Create tasks to track compliance activities"}
+            </p>
+            {!searchQuery && (
+              <Button onClick={() => setShowCreate(true)} data-testid="button-create-first-task">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Task
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
