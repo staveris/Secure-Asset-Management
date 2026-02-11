@@ -28,6 +28,13 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   ChevronDown,
   ListTodo,
@@ -47,10 +54,13 @@ import {
   Check,
   StickyNote,
   AlertCircle,
+  Upload,
+  FileText,
+  Lock,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import type { AtomicAssessmentResponse, AtomicControl } from "@shared/schema";
+import type { AtomicAssessmentResponse, AtomicControl, EvidenceItem } from "@shared/schema";
 
 interface AtomicAssessmentDetail {
   id: number;
@@ -148,17 +158,21 @@ function ControlResponseCard({
   control,
   assessmentId,
   existingResponse,
+  controlEvidence,
   isExpanded,
   onToggleExpand,
 }: {
   control: AtomicControl;
   assessmentId: string;
   existingResponse?: AtomicAssessmentResponse;
+  controlEvidence: EvidenceItem[];
   isExpanded: boolean;
   onToggleExpand: () => void;
 }) {
   const { toast } = useToast();
   const [showNotes, setShowNotes] = useState(!!existingResponse?.notes);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [implStatus, setImplStatus] = useState<string>(existingResponse?.implementationStatus || "NOT_STARTED");
   const [maturity, setMaturity] = useState(existingResponse?.maturityLevel ?? 0);
@@ -190,6 +204,38 @@ function ControlResponseCard({
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
       setSaveState("error");
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("relatedType", "AtomicControl");
+      formData.append("relatedId", String(control.id));
+      const { getCsrfToken } = await import("@/lib/queryClient");
+      const csrfToken = await getCsrfToken();
+      const res = await fetch("/api/evidence/upload", {
+        method: "POST",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const text = (await res.text()) || res.statusText;
+        throw new Error(`${res.status}: ${text}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments", assessmentId] });
+      toast({ title: "Evidence uploaded" });
+      setUploadOpen(false);
+      setSelectedFile(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -465,6 +511,68 @@ function ControlResponseCard({
                 </Button>
               )}
             </div>
+
+            <div className="flex items-center gap-2 pt-1 border-t">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setUploadOpen(true)}
+                data-testid={`button-upload-evidence-${control.id}`}
+              >
+                <Upload className="w-3.5 h-3.5 mr-1.5" />
+                Evidence ({controlEvidence.length})
+              </Button>
+            </div>
+
+            {controlEvidence.length > 0 && (
+              <div className="space-y-1.5" data-testid={`evidence-section-${control.id}`}>
+                {controlEvidence.map(ev => (
+                  <div
+                    key={ev.id}
+                    className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs"
+                    data-testid={`evidence-item-${control.id}-${ev.id}`}
+                  >
+                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="font-medium truncate flex-1">{ev.filename}</span>
+                    {(ev as any).lockedAt && (
+                      <Lock className="w-3 h-3 text-green-500 shrink-0" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Dialog open={uploadOpen} onOpenChange={(v) => { setUploadOpen(v); if (!v) setSelectedFile(null); }}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Upload Evidence</DialogTitle>
+                  <DialogDescription>
+                    Upload a file as evidence for "{control.shortTitle}" ({control.controlId}).
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor={`evidence-file-${control.id}`}>Select File</Label>
+                    <Input
+                      id={`evidence-file-${control.id}`}
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.7z"
+                      data-testid={`input-evidence-file-${control.id}`}
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    />
+                  </div>
+                  <Button
+                    onClick={() => selectedFile && uploadMutation.mutate(selectedFile)}
+                    disabled={!selectedFile || uploadMutation.isPending}
+                    className="w-full"
+                    data-testid={`button-submit-evidence-${control.id}`}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {uploadMutation.isPending ? "Uploading..." : "Upload Evidence"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </CardContent>
@@ -496,6 +604,17 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
   const { data: controlsData, isLoading: controlsLoading } = useQuery<AtomicControlsPage>({
     queryKey: ["/api/atomic-controls?page=1&limit=500"],
   });
+
+  const { data: evidenceItems } = useQuery<EvidenceItem[]>({
+    queryKey: ["/api/evidence"],
+  });
+
+  const getControlEvidence = useCallback((atomicControlId: number): EvidenceItem[] => {
+    if (!evidenceItems) return [];
+    return evidenceItems.filter(
+      e => e.relatedType === "AtomicControl" && e.relatedId === atomicControlId
+    );
+  }, [evidenceItems]);
 
   const generateTasksMutation = useMutation({
     mutationFn: async () => {
@@ -873,6 +992,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
                       control={control}
                       assessmentId={id}
                       existingResponse={responseMap.get(control.id)}
+                      controlEvidence={getControlEvidence(control.id)}
                       isExpanded={expandedCards.has(control.id)}
                       onToggleExpand={() => toggleCard(control.id)}
                     />

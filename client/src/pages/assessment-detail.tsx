@@ -315,8 +315,13 @@ function ControlCard({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("relatedType", "Control");
-      formData.append("relatedId", String(response.controlObjectiveId));
+      if (isAtomicControl && response.atomicControlId) {
+        formData.append("relatedType", "AtomicControl");
+        formData.append("relatedId", String(response.atomicControlId));
+      } else {
+        formData.append("relatedType", "Control");
+        formData.append("relatedId", String(response.controlObjectiveId));
+      }
       const { getCsrfToken } = await import("@/lib/queryClient");
       const csrfToken = await getCsrfToken();
       const res = await fetch("/api/evidence/upload", {
@@ -626,8 +631,8 @@ function ControlCard({
                   )}
                 </div>
 
-                {!isAtomicControl && (
-                  <div className="flex items-center gap-2 pt-1 border-t">
+                <div className="flex items-center gap-2 pt-1 border-t">
+                  {!isAtomicControl && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -637,17 +642,17 @@ function ControlCard({
                       <ListTodo className="w-3.5 h-3.5 mr-1.5" />
                       Tasks ({controlTasks.length})
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setUploadOpen(true)}
-                      data-testid={`button-upload-evidence-${response.id}`}
-                    >
-                      <Upload className="w-3.5 h-3.5 mr-1.5" />
-                      Evidence ({controlEvidence.length})
-                    </Button>
-                  </div>
-                )}
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setUploadOpen(true)}
+                    data-testid={`button-upload-evidence-${response.id}`}
+                  >
+                    <Upload className="w-3.5 h-3.5 mr-1.5" />
+                    Evidence ({controlEvidence.length})
+                  </Button>
+                </div>
 
                 {!isAtomicControl && controlTasks.length > 0 && (
                   <div className="space-y-1.5" data-testid={`tasks-section-${response.id}`}>
@@ -676,7 +681,7 @@ function ControlCard({
                   </div>
                 )}
 
-                {!isAtomicControl && controlEvidence.length > 0 && (
+                {controlEvidence.length > 0 && (
                   <div className="space-y-1.5" data-testid={`evidence-section-${response.id}`}>
                     {controlEvidence.map(ev => (
                       <div
@@ -828,12 +833,14 @@ export default function AssessmentDetail({ id }: { id: string }) {
     return data.tasks.filter(t => t.controlObjectiveId === controlObjectiveId);
   };
 
-  const getControlEvidence = (controlObjectiveId: number | undefined): EvidenceItem[] => {
-    if (!evidenceItems || !controlObjectiveId) return [];
-    return evidenceItems.filter(
-      e => (e.relatedType === "Control" && e.relatedId === controlObjectiveId) ||
-           (e.relatedType === "Assessment" && e.relatedId === parseInt(id))
-    );
+  const getControlEvidence = (controlObjectiveId: number | undefined, atomicControlId?: number): EvidenceItem[] => {
+    if (!evidenceItems) return [];
+    return evidenceItems.filter(e => {
+      if (atomicControlId && e.relatedType === "AtomicControl" && e.relatedId === atomicControlId) return true;
+      if (controlObjectiveId && e.relatedType === "Control" && e.relatedId === controlObjectiveId) return true;
+      if (e.relatedType === "Assessment" && e.relatedId === parseInt(id)) return true;
+      return false;
+    });
   };
 
   const stats = useMemo(() => {
@@ -1266,7 +1273,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
                           <ControlCard
                             response={response}
                             assessmentId={id}
-                            controlEvidence={getControlEvidence(response.controlObjectiveId)}
+                            controlEvidence={getControlEvidence(response.controlObjectiveId, response.atomicControlId)}
                             controlTasks={getControlTasks(response.controlObjectiveId)}
                             isExpanded={expandedCards.has(cardKey)}
                             onToggleExpand={() => toggleCard(cardKey)}
