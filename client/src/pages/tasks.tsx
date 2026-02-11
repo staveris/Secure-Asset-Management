@@ -31,10 +31,12 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Plus, ListTodo, Clock, CheckCircle2, Circle, Eye, Calendar,
   Shield, ClipboardList, Pencil, Trash2, MessageSquare, Send,
+  ExternalLink,
 } from "lucide-react";
 import type { Task } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
 import { User } from "lucide-react";
+import { Link } from "wouter";
 
 type TenantUser = {
   id: number;
@@ -49,6 +51,10 @@ type EnrichedTask = Task & {
   category?: string | null;
   assessmentName?: string | null;
   ownerName?: string | null;
+  atomicControlId?: number | null;
+  sourceKey?: string | null;
+  navResponseId?: number | null;
+  navSource?: string | null;
 };
 
 type ControlObjective = {
@@ -530,17 +536,41 @@ export default function Tasks() {
                         {task.controlTitle && (
                           <div className="flex items-center gap-1.5">
                             <Shield className="w-3 h-3 text-primary shrink-0" />
-                            <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-control-${task.id}`}>
-                              {task.requirementCode ? `${task.requirementCode} — ` : ""}{task.controlTitle}
-                            </span>
+                            {task.assessmentId && task.navResponseId && task.navSource ? (
+                              <Link
+                                href={`/assessments/${task.assessmentId}?control=${task.navSource}-${task.navResponseId}`}
+                                className="text-xs text-primary hover:underline truncate inline-flex items-center gap-0.5"
+                                data-testid={`link-task-control-${task.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {task.requirementCode ? `${task.requirementCode} — ` : ""}{task.controlTitle}
+                                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-control-${task.id}`}>
+                                {task.requirementCode ? `${task.requirementCode} — ` : ""}{task.controlTitle}
+                              </span>
+                            )}
                           </div>
                         )}
                         {task.assessmentName && (
                           <div className="flex items-center gap-1.5">
                             <ClipboardList className="w-3 h-3 text-blue-500 shrink-0" />
-                            <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-assessment-${task.id}`}>
-                              {task.assessmentName}
-                            </span>
+                            {task.assessmentId ? (
+                              <Link
+                                href={`/assessments/${task.assessmentId}`}
+                                className="text-xs text-primary hover:underline truncate inline-flex items-center gap-0.5"
+                                data-testid={`link-task-assessment-${task.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {task.assessmentName}
+                                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-muted-foreground truncate" data-testid={`text-task-assessment-${task.id}`}>
+                                {task.assessmentName}
+                              </span>
+                            )}
                           </div>
                         )}
                         {task.ownerName && (

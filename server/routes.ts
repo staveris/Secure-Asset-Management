@@ -1341,18 +1341,75 @@ export async function registerRoutes(
     const reqs = await storage.getAllRequirements();
     const assessments = await storage.getAssessmentsByTenant(user.tenantId);
     const tenantUsers = await storage.getUsersByTenant(user.tenantId);
+
+    const allAtomicControls = await storage.getAllAtomicControls();
+    const atomicControlMap = new Map(allAtomicControls.map(c => [c.id, c]));
+
+    const taskAtomicLinksMap = new Map<number, number>();
+    for (const t of list) {
+      const links = await storage.getTaskAtomicLinks(t.id);
+      if (links.length > 0) {
+        taskAtomicLinksMap.set(t.id, links[0].atomicControlId);
+      }
+    }
+
+    const atomicResponseMap = new Map<number, { responseId: number; atomicAssessmentId: number }>();
+    const atomicAssessmentsList = await db
+      .select({
+        responseId: atomicAssessmentResponses.id,
+        atomicControlId: atomicAssessmentResponses.atomicControlId,
+        atomicAssessmentId: atomicAssessments.id,
+      })
+      .from(atomicAssessmentResponses)
+      .innerJoin(atomicAssessments, eq(atomicAssessmentResponses.atomicAssessmentId, atomicAssessments.id))
+      .where(eq(atomicAssessments.tenantId, user.tenantId));
+    for (const row of atomicAssessmentsList) {
+      atomicResponseMap.set(row.atomicControlId, { responseId: row.responseId, atomicAssessmentId: row.atomicAssessmentId });
+    }
+
+    const objectiveResponseMap = new Map<string, number>();
+    for (const a of assessments) {
+      const aResponses = await storage.getAssessmentResponses(a.id);
+      for (const r of aResponses) {
+        objectiveResponseMap.set(`${a.id}-${r.controlObjectiveId}`, r.id);
+      }
+    }
+
     const enriched = list.map((t) => {
       const control = t.controlObjectiveId ? controls.find((c) => c.id === t.controlObjectiveId) : null;
       const req = control ? reqs.find((r) => r.id === control.requirementId) : null;
       const assessment = t.assessmentId ? assessments.find((a) => a.id === t.assessmentId) : null;
       const owner = t.ownerUserId ? tenantUsers.find(u => u.id === t.ownerUserId) : null;
+
+      const atomicControlId = taskAtomicLinksMap.get(t.id);
+      const atomicCtrl = atomicControlId ? atomicControlMap.get(atomicControlId) : null;
+      const atomicResponseInfo = atomicControlId ? atomicResponseMap.get(atomicControlId) : null;
+
+      let navResponseId: number | null = null;
+      let navSource: string | null = null;
+
+      if (atomicCtrl && atomicResponseInfo) {
+        navResponseId = atomicResponseInfo.responseId;
+        navSource = atomicCtrl.sourceKey === "CIR_2024_2690" ? "CIR" : "NIS2";
+      } else if (control && t.assessmentId) {
+        const objRespId = objectiveResponseMap.get(`${t.assessmentId}-${control.id}`);
+        if (objRespId) {
+          navResponseId = objRespId;
+          navSource = "NIS2";
+        }
+      }
+
       return {
         ...t,
-        controlTitle: control?.title || null,
-        requirementCode: req?.code || null,
-        category: req?.category || null,
+        controlTitle: atomicCtrl ? `${atomicCtrl.controlId} - ${atomicCtrl.shortTitle}` : (control?.title || null),
+        requirementCode: atomicCtrl ? atomicCtrl.controlId : (req?.code || null),
+        category: atomicCtrl ? (atomicCtrl.sourceKey === "CIR_2024_2690" ? "CIR 2024/2690" : "NIS2 Atomic") : (req?.category || null),
         assessmentName: assessment?.name || null,
         ownerName: owner?.fullName || null,
+        atomicControlId: atomicControlId || null,
+        sourceKey: atomicCtrl?.sourceKey || null,
+        navResponseId: navResponseId,
+        navSource: navSource,
       };
     });
     res.json(enriched);
@@ -3109,12 +3166,15 @@ export async function registerRoutes(
     const allControls = await storage.getAllAtomicControls();
     const controlMap = new Map(allControls.map(c => [c.id, c]));
     let created = 0;
+    const parentAssessmentId = assessment.parentAssessmentId || undefined;
     for (const gap of gaps) {
       const ctrl = controlMap.get(gap.atomicControlId);
       if (!ctrl) continue;
+      const isCir = ctrl.sourceKey === "CIR_2024_2690";
       const task = await storage.createTask({
         tenantId: user.tenantId,
-        title: `[Atomic] ${ctrl.shortTitle}`,
+        assessmentId: parentAssessmentId,
+        title: `[${isCir ? "CIR" : "Atomic"}] ${ctrl.shortTitle}`,
         description: `Address gap: ${ctrl.obligationText}\n\nControl: ${ctrl.controlId}\nCurrent status: ${gap.implementationStatus}`,
         priority: ctrl.weight >= 3 ? "HIGH" : ctrl.weight >= 2 ? "MEDIUM" : "LOW",
         status: "TODO",
