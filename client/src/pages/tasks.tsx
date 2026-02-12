@@ -292,23 +292,8 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
     return result;
   }, [timelineStart, timelineEnd, totalDays]);
 
-  const [timelineWidth, setTimelineWidth] = useState(600);
-
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const measure = () => {
-      const fixedCols = 72 * 4 + 80;
-      setTimelineWidth(Math.max(200, el.clientWidth - fixedCols));
-    };
-    measure();
-    const obs = new ResizeObserver(measure);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
   const weeks = useMemo(() => {
-    const result: { label: string; pct: number; isMonthStart: boolean; showLabel: boolean }[] = [];
+    const result: { label: string; pct: number; isMonthStart: boolean }[] = [];
     const start = new Date(timelineStart);
     const dayOfWeek = start.getDay();
     const firstMonday = new Date(start);
@@ -321,24 +306,12 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
           label: cursor.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
           pct: (dayOffset / totalDays) * 100,
           isMonthStart: cursor.getDate() <= 7,
-          showLabel: true,
         });
       }
       cursor.setDate(cursor.getDate() + 7);
     }
-    if (result.length > 1) {
-      const pctGap = result[1].pct - result[0].pct;
-      const pixelGap = (pctGap / 100) * timelineWidth;
-      const labelWidth = 52;
-      const showEveryN = pixelGap > 0 ? Math.max(1, Math.ceil(labelWidth / pixelGap)) : 1;
-      if (showEveryN > 1) {
-        for (let i = 0; i < result.length; i++) {
-          result[i].showLabel = i % showEveryN === 0;
-        }
-      }
-    }
     return result;
-  }, [timelineStart, timelineEnd, totalDays, timelineWidth]);
+  }, [timelineStart, timelineEnd, totalDays]);
 
   const todayPct = useMemo(() => {
     const now = new Date();
@@ -453,19 +426,20 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
               <div className="flex border-b border-border/60 bg-muted/15">
                 <div className="w-72 shrink-0 border-r border-border" />
                 <div className="w-20 shrink-0 border-r border-border" />
-                <div className="flex-1 relative h-7">
+                <div className="flex-1 relative h-10 overflow-hidden">
                   {weeks.map((w, i) => (
-                    <div
+                    <span
                       key={i}
-                      className="absolute top-0 h-full flex items-end pb-1"
-                      style={{ left: `${w.pct}%` }}
+                      className="absolute text-[10px] font-medium text-muted-foreground whitespace-nowrap"
+                      style={{
+                        left: `${w.pct}%`,
+                        bottom: "2px",
+                        transform: "rotate(-45deg)",
+                        transformOrigin: "bottom left",
+                      }}
                     >
-                      {w.showLabel && (
-                        <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap" style={{ transform: "translateX(-50%)" }}>
-                          {w.label}
-                        </span>
-                      )}
-                    </div>
+                      {w.label}
+                    </span>
                   ))}
                 </div>
               </div>
