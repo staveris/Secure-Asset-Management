@@ -46,6 +46,7 @@ import {
   Lock,
   Atom,
   ArrowDownToLine,
+  AlertTriangle,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -60,6 +61,7 @@ const tenantMenuItems = [
   { title: "Tasks", url: "/tasks", icon: ListTodo, requiresFullAccess: true },
   { title: "Evidence", url: "/evidence", icon: FileBox, requiresFullAccess: true },
   { title: "Suppliers", url: "/suppliers", icon: Truck, requiresFullAccess: true },
+  { title: "Incidents", url: "/incidents", icon: AlertTriangle, requiresFullAccess: true },
   { title: "Risks", url: "/risks", icon: Shield, requiresFullAccess: true },
   { title: "Reports", url: "/reports", icon: FileText, requiresFullAccess: true },
   { title: "Users", url: "/users", icon: Users, requiresFullAccess: false },
