@@ -293,7 +293,7 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
   }, [timelineStart, timelineEnd, totalDays]);
 
   const weeks = useMemo(() => {
-    const result: { label: string; pct: number; isMonthStart: boolean }[] = [];
+    const result: { label: string; pct: number; isMonthStart: boolean; showLabel: boolean }[] = [];
     const start = new Date(timelineStart);
     const dayOfWeek = start.getDay();
     const firstMonday = new Date(start);
@@ -306,9 +306,18 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
           label: cursor.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
           pct: (dayOffset / totalDays) * 100,
           isMonthStart: cursor.getDate() <= 7,
+          showLabel: true,
         });
       }
       cursor.setDate(cursor.getDate() + 7);
+    }
+    const weekPctGap = result.length > 1 ? result[1].pct - result[0].pct : 100;
+    const minPctForLabel = 4.5;
+    const showEveryN = weekPctGap > 0 ? Math.max(1, Math.ceil(minPctForLabel / weekPctGap)) : 1;
+    if (showEveryN > 1) {
+      for (let i = 0; i < result.length; i++) {
+        result[i].showLabel = i % showEveryN === 0;
+      }
     }
     return result;
   }, [timelineStart, timelineEnd, totalDays]);
@@ -433,9 +442,11 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
                       className="absolute top-0 h-full flex items-end pb-1"
                       style={{ left: `${w.pct}%` }}
                     >
-                      <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap" style={{ transform: "translateX(-50%)" }}>
-                        {w.label}
-                      </span>
+                      {w.showLabel && (
+                        <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap" style={{ transform: "translateX(-50%)" }}>
+                          {w.label}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
