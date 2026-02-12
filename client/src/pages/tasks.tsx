@@ -292,6 +292,21 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
     return result;
   }, [timelineStart, timelineEnd, totalDays]);
 
+  const [timelineWidth, setTimelineWidth] = useState(600);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const fixedCols = 72 * 4 + 80;
+      setTimelineWidth(Math.max(200, el.clientWidth - fixedCols));
+    };
+    measure();
+    const obs = new ResizeObserver(measure);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   const weeks = useMemo(() => {
     const result: { label: string; pct: number; isMonthStart: boolean; showLabel: boolean }[] = [];
     const start = new Date(timelineStart);
@@ -311,16 +326,19 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
       }
       cursor.setDate(cursor.getDate() + 7);
     }
-    const weekPctGap = result.length > 1 ? result[1].pct - result[0].pct : 100;
-    const minPctForLabel = 4.5;
-    const showEveryN = weekPctGap > 0 ? Math.max(1, Math.ceil(minPctForLabel / weekPctGap)) : 1;
-    if (showEveryN > 1) {
-      for (let i = 0; i < result.length; i++) {
-        result[i].showLabel = i % showEveryN === 0;
+    if (result.length > 1) {
+      const pctGap = result[1].pct - result[0].pct;
+      const pixelGap = (pctGap / 100) * timelineWidth;
+      const labelWidth = 52;
+      const showEveryN = pixelGap > 0 ? Math.max(1, Math.ceil(labelWidth / pixelGap)) : 1;
+      if (showEveryN > 1) {
+        for (let i = 0; i < result.length; i++) {
+          result[i].showLabel = i % showEveryN === 0;
+        }
       }
     }
     return result;
-  }, [timelineStart, timelineEnd, totalDays]);
+  }, [timelineStart, timelineEnd, totalDays, timelineWidth]);
 
   const todayPct = useMemo(() => {
     const now = new Date();
@@ -422,7 +440,7 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
                     {months.map((m, i) => (
                       <div
                         key={i}
-                        className="absolute top-0 h-full flex items-center justify-center text-xs font-semibold text-foreground/80 border-r border-border/50"
+                        className="absolute top-0 h-full flex items-center justify-center text-xs font-semibold text-foreground/80 border-r border-border/50 overflow-hidden"
                         style={{ left: `${m.startPct}%`, width: `${m.widthPct}%` }}
                       >
                         {m.label}
