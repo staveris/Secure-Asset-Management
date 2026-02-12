@@ -413,7 +413,7 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
                     {months.map((m, i) => (
                       <div
                         key={i}
-                        className="absolute top-0 h-full flex items-center justify-center text-[11px] font-semibold text-muted-foreground border-r border-border/50"
+                        className="absolute top-0 h-full flex items-center justify-center text-xs font-semibold text-foreground/80 border-r border-border/50"
                         style={{ left: `${m.startPct}%`, width: `${m.widthPct}%` }}
                       >
                         {m.label}
@@ -426,14 +426,14 @@ function GanttTimeline({ tasks, onTaskClick }: { tasks: EnrichedTask[]; onTaskCl
               <div className="flex border-b border-border/60 bg-muted/15">
                 <div className="w-72 shrink-0 border-r border-border" />
                 <div className="w-20 shrink-0 border-r border-border" />
-                <div className="flex-1 relative h-6">
+                <div className="flex-1 relative h-7">
                   {weeks.map((w, i) => (
                     <div
                       key={i}
-                      className="absolute top-0 h-full flex items-end justify-center pb-0.5"
-                      style={{ left: `${w.pct}%`, width: "1px" }}
+                      className="absolute top-0 h-full flex items-end pb-1"
+                      style={{ left: `${w.pct}%` }}
                     >
-                      <span className="text-[9px] text-muted-foreground/70 whitespace-nowrap" style={{ transform: "translateX(-50%)" }}>
+                      <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap" style={{ transform: "translateX(-50%)" }}>
                         {w.label}
                       </span>
                     </div>
