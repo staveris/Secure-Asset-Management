@@ -47,10 +47,8 @@ import {
   ShieldCheck,
   Search,
   ArrowUpDown,
-  ListFilter,
   TrendingUp,
-  Clock,
-  Circle,
+  Layers,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
@@ -85,11 +83,11 @@ interface EnrichedAssessment {
 type SortOption = "newest" | "oldest" | "completion-high" | "completion-low" | "maturity-high" | "name-az";
 type StatusFilterOption = "ALL" | "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "ARCHIVED";
 
-const statusConfig: Record<string, { label: string; color: string; dotColor: string }> = {
-  DRAFT: { label: "Draft", color: "secondary", dotColor: "bg-muted-foreground" },
-  IN_PROGRESS: { label: "In Progress", color: "default", dotColor: "bg-blue-500" },
-  COMPLETED: { label: "Completed", color: "outline", dotColor: "bg-green-500" },
-  ARCHIVED: { label: "Archived", color: "outline", dotColor: "bg-muted-foreground/50" },
+const statusConfig: Record<string, { label: string; color: string; dotColor: string; pillBg: string; pillText: string }> = {
+  DRAFT: { label: "Draft", color: "secondary", dotColor: "bg-muted-foreground", pillBg: "bg-muted", pillText: "text-muted-foreground" },
+  IN_PROGRESS: { label: "In Progress", color: "default", dotColor: "bg-blue-500", pillBg: "bg-blue-500/10", pillText: "text-blue-700 dark:text-blue-300" },
+  COMPLETED: { label: "Completed", color: "outline", dotColor: "bg-green-500", pillBg: "bg-green-500/10", pillText: "text-green-700 dark:text-green-300" },
+  ARCHIVED: { label: "Archived", color: "outline", dotColor: "bg-muted-foreground/50", pillBg: "bg-muted", pillText: "text-muted-foreground" },
 };
 
 function formatRelativeDate(dateStr: string): string {
@@ -112,7 +110,7 @@ function formatRelativeDate(dateStr: string): string {
   return date.toLocaleDateString();
 }
 
-function CompletionRing({ value, size = 40, strokeWidth = 4 }: { value: number; size?: number; strokeWidth?: number }) {
+function CompletionRing({ value, size = 48, strokeWidth = 4 }: { value: number; size?: number; strokeWidth?: number }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (value / 100) * circumference;
@@ -124,20 +122,72 @@ function CompletionRing({ value, size = 40, strokeWidth = 4 }: { value: number; 
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" strokeWidth={strokeWidth} className="stroke-muted" />
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} className={`${color} transition-all duration-500`} />
       </svg>
-      <span className="absolute text-[10px] font-bold tabular-nums">{value}%</span>
+      <span className="absolute text-xs font-bold tabular-nums">{value}%</span>
     </div>
   );
 }
 
-function MaturityIndicator({ value, max = 5 }: { value: number; max?: number }) {
-  const pct = (value / max) * 100;
-  const color = pct >= 80 ? "bg-green-500" : pct >= 60 ? "bg-blue-500" : pct >= 40 ? "bg-yellow-500" : pct >= 20 ? "bg-orange-500" : "bg-red-500";
+function MaturityDots({ value, max = 5 }: { value: number; max?: number }) {
+  const roundedValue = Math.round(value);
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="text-[11px] font-medium tabular-nums w-8 text-right">{value}/{max}</span>
+    <div className="flex items-center gap-1">
+      {Array.from({ length: max }, (_, i) => {
+        const filled = i < roundedValue;
+        const fillColor = roundedValue >= 4 ? "bg-green-500" : roundedValue >= 3 ? "bg-blue-500" : roundedValue >= 2 ? "bg-yellow-500" : "bg-orange-500";
+        return (
+          <div
+            key={i}
+            className={`w-2 h-2 rounded-full transition-colors ${filled ? fillColor : "bg-muted"}`}
+          />
+        );
+      })}
+      <span className="text-xs font-medium tabular-nums ml-1.5 text-muted-foreground">{value.toFixed(1)}</span>
+    </div>
+  );
+}
+
+function StatusPills({
+  statusFilter,
+  onFilterChange,
+  statusCounts,
+}: {
+  statusFilter: StatusFilterOption;
+  onFilterChange: (s: StatusFilterOption) => void;
+  statusCounts: Record<string, number>;
+}) {
+  const total = Object.values(statusCounts).reduce((s, n) => s + n, 0);
+  const options: { key: StatusFilterOption; label: string }[] = [
+    { key: "ALL", label: "All" },
+    { key: "IN_PROGRESS", label: "In Progress" },
+    { key: "COMPLETED", label: "Completed" },
+    { key: "DRAFT", label: "Draft" },
+    { key: "ARCHIVED", label: "Archived" },
+  ];
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap" data-testid="status-pills">
+      {options.map(({ key, label }) => {
+        const count = key === "ALL" ? total : (statusCounts[key] || 0);
+        if (key !== "ALL" && count === 0) return null;
+        const isActive = statusFilter === key;
+        return (
+          <Button
+            key={key}
+            variant={isActive ? "default" : "outline"}
+            size="sm"
+            onClick={() => onFilterChange(key)}
+            className="rounded-full text-xs"
+            data-testid={`pill-status-${key.toLowerCase()}`}
+          >
+            {label}
+            {count > 0 && (
+              <span className={`ml-1.5 tabular-nums ${isActive ? "opacity-80" : ""}`}>
+                {count}
+              </span>
+            )}
+          </Button>
+        );
+      })}
     </div>
   );
 }
@@ -244,7 +294,10 @@ export default function Assessments() {
     const avgMaturity = parseFloat((assessments.reduce((s, a) => s + a.maturityAvg, 0) / total).toFixed(1));
     const inProgress = assessments.filter(a => a.status === "IN_PROGRESS").length;
     const completed = assessments.filter(a => a.status === "COMPLETED").length;
-    return { total, avgCompletion, avgMaturity, inProgress, completed };
+    const totalControls = assessments.reduce((s, a) => s + a.totalControls, 0);
+    const implementedControls = assessments.reduce((s, a) => s + a.implementedControls, 0);
+    const needsAttention = assessments.filter(a => a.status === "IN_PROGRESS" && a.completionPct < 25).length;
+    return { total, avgCompletion, avgMaturity, inProgress, completed, totalControls, implementedControls, needsAttention };
   }, [assessments]);
 
   const statusCounts = useMemo(() => {
@@ -258,7 +311,7 @@ export default function Assessments() {
   const hasAnyAssessments = assessments && assessments.length > 0;
 
   return (
-    <div className="p-6 space-y-5" data-testid="assessments-page">
+    <div className="p-6 space-y-6" data-testid="assessments-page">
       <div className="flex items-center justify-between gap-4 flex-wrap" data-testid="page-header">
         <div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Assessments</h1>
@@ -316,10 +369,10 @@ export default function Assessments() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map(i => (
-              <Card key={i}><CardContent className="p-4"><Skeleton className="h-10 w-full" /></CardContent></Card>
+              <Card key={i}><CardContent className="p-4"><Skeleton className="h-16 w-full" /></CardContent></Card>
             ))}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -331,93 +384,86 @@ export default function Assessments() {
       ) : hasAnyAssessments ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="summary-stats">
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-md bg-primary/10">
-                  <ClipboardCheck className="w-4 h-4 text-primary" />
+            <Card className="border-t-2 border-t-primary">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Layers className="w-4 h-4 text-primary" />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Total</p>
-                  <p className="text-lg font-bold tabular-nums" data-testid="text-total-assessments">{summaryStats?.total}</p>
-                </div>
+                <p className="text-2xl font-bold tabular-nums mt-3" data-testid="text-total-assessments">{summaryStats?.total}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Total Assessments</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-md bg-blue-500/10">
-                  <TrendingUp className="w-4 h-4 text-blue-500" />
+            <Card className="border-t-2 border-t-blue-500">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="p-2 rounded-lg bg-blue-500/10">
+                    <TrendingUp className="w-4 h-4 text-blue-500" />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Avg. Completion</p>
-                  <p className="text-lg font-bold tabular-nums" data-testid="text-avg-completion">{summaryStats?.avgCompletion}%</p>
-                </div>
+                <p className="text-2xl font-bold tabular-nums mt-3" data-testid="text-avg-completion">{summaryStats?.avgCompletion}%</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Avg. Completion</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-md bg-green-500/10">
-                  <BarChart3 className="w-4 h-4 text-green-500" />
+            <Card className="border-t-2 border-t-green-500">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="p-2 rounded-lg bg-green-500/10">
+                    <BarChart3 className="w-4 h-4 text-green-500" />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Avg. Maturity</p>
-                  <p className="text-lg font-bold tabular-nums" data-testid="text-avg-maturity">{summaryStats?.avgMaturity}/5</p>
-                </div>
+                <p className="text-2xl font-bold tabular-nums mt-3" data-testid="text-avg-maturity">{summaryStats?.avgMaturity}/5</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Avg. Maturity</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-md bg-yellow-500/10">
-                  <CheckCircle2 className="w-4 h-4 text-yellow-500" />
+            <Card className="border-t-2 border-t-yellow-500">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="p-2 rounded-lg bg-yellow-500/10">
+                    <CheckCircle2 className="w-4 h-4 text-yellow-500" />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Completed</p>
-                  <p className="text-lg font-bold tabular-nums" data-testid="text-completed-count">{summaryStats?.completed}/{summaryStats?.total}</p>
-                </div>
+                <p className="text-2xl font-bold tabular-nums mt-3" data-testid="text-completed-count">{summaryStats?.completed}<span className="text-sm font-normal text-muted-foreground">/{summaryStats?.total}</span></p>
+                <p className="text-xs text-muted-foreground mt-0.5">Completed</p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap" data-testid="toolbar">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search assessments..."
-                className="pl-9"
-                data-testid="input-search-assessments"
-              />
+          <div className="space-y-3">
+            <StatusPills
+              statusFilter={statusFilter}
+              onFilterChange={setStatusFilter}
+              statusCounts={statusCounts}
+            />
+
+            <div className="flex items-center gap-3 flex-wrap" data-testid="toolbar">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name or scope..."
+                  className="pl-9"
+                  data-testid="input-search-assessments"
+                />
+              </div>
+
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                <SelectTrigger className="w-[170px]" data-testid="select-sort">
+                  <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="completion-high">Highest Completion</SelectItem>
+                  <SelectItem value="completion-low">Lowest Completion</SelectItem>
+                  <SelectItem value="maturity-high">Highest Maturity</SelectItem>
+                  <SelectItem value="name-az">Name A-Z</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilterOption)}>
-              <SelectTrigger className="w-[150px]" data-testid="select-status-filter">
-                <ListFilter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Statuses</SelectItem>
-                {Object.entries(statusConfig).map(([key, cfg]) => (
-                  <SelectItem key={key} value={key}>
-                    {cfg.label} {statusCounts[key] ? `(${statusCounts[key]})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-              <SelectTrigger className="w-[160px]" data-testid="select-sort">
-                <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest First</SelectItem>
-                <SelectItem value="oldest">Oldest First</SelectItem>
-                <SelectItem value="completion-high">Highest Completion</SelectItem>
-                <SelectItem value="completion-low">Lowest Completion</SelectItem>
-                <SelectItem value="maturity-high">Highest Maturity</SelectItem>
-                <SelectItem value="name-az">Name A-Z</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           {filtered.length > 0 ? (
@@ -428,117 +474,121 @@ export default function Assessments() {
                 const hasNis2Atomic = (assessment.cirInfo?.nis2AtomicTotal ?? 0) > 0;
                 const stCfg = statusConfig[assessment.status] || statusConfig.DRAFT;
                 const objectivesCount = Math.max(0, assessment.totalControls - (assessment.cirInfo?.nis2AtomicTotal ?? 0) - (assessment.cirInfo?.cirTotal ?? 0));
+                const notStartedControls = assessment.totalControls - assessment.implementedControls - assessment.inProgressControls;
 
                 return (
                   <Card
                     key={assessment.id}
-                    className="hover-elevate cursor-pointer group"
+                    className="hover-elevate cursor-pointer group overflow-hidden"
                     onClick={() => navigate(`/assessments/${assessment.id}`)}
                     data-testid={`card-assessment-${assessment.id}`}
                   >
                     <CardContent className="p-0">
-                      <div className="flex">
-                        <div className={`w-1 shrink-0 rounded-l-md ${stCfg.dotColor}`} />
-                        <div className="flex-1 p-4 space-y-3 min-w-0">
-                          <div className="flex items-start gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-semibold truncate" data-testid={`text-assessment-name-${assessment.id}`}>
-                                  {assessment.name}
-                                </h3>
-                                <Badge variant={stCfg.color as any} className="text-[10px] shrink-0">
-                                  {stCfg.label}
+                      <div className="p-4 pb-3 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <CompletionRing value={assessment.completionPct} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold truncate" data-testid={`text-assessment-name-${assessment.id}`}>
+                                {assessment.name}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${stCfg.pillBg} ${stCfg.pillText}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${stCfg.dotColor}`} />
+                                {stCfg.label}
+                              </span>
+                              {hasAtomicInfo && (
+                                <Badge variant="outline" className="text-[10px] shrink-0">
+                                  {hasCir ? "NIS2 + CIR" : "NIS2"}
                                 </Badge>
-                                {hasAtomicInfo && (
-                                  <Badge variant="outline" className="text-[10px] shrink-0">
-                                    {hasCir ? "NIS2 + CIR" : "NIS2"}
-                                  </Badge>
-                                )}
-                              </div>
-                              {assessment.scope && (
-                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{assessment.scope}</p>
                               )}
                             </div>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                              <CompletionRing value={assessment.completionPct} />
-                              {isAdmin && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteTarget(assessment);
-                                  }}
-                                  data-testid={`button-delete-${assessment.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
-                              )}
-                            </div>
+                            {assessment.scope && (
+                              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">{assessment.scope}</p>
+                            )}
                           </div>
-
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                            <div className="space-y-1">
-                              <p className="text-[11px] text-muted-foreground">Completion</p>
-                              <Progress value={assessment.completionPct} className="h-1.5" />
-                              <p className="text-[10px] text-muted-foreground tabular-nums">
-                                {assessment.implementedControls} of {assessment.totalControls} controls done
-                              </p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-[11px] text-muted-foreground">Maturity Level</p>
-                              <MaturityIndicator value={assessment.maturityAvg} />
-                            </div>
-                          </div>
-
-                          {hasAtomicInfo && (
-                            <div className="pt-2 border-t space-y-1.5" data-testid={`text-type-breakdown-${assessment.id}`}>
-                              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Independent Control Sets</p>
-                              <div className="grid grid-cols-1 gap-1">
-                                <div className="flex items-center justify-between gap-2 text-[11px]" data-testid={`text-objectives-${assessment.id}`}>
-                                  <span className="flex items-center gap-1.5">
-                                    <ClipboardCheck className="w-3 h-3 text-blue-500 shrink-0" />
-                                    <span>NIS2 Objectives</span>
-                                    <span className="text-muted-foreground text-[10px]">(Directive goals)</span>
-                                  </span>
-                                  <span className="text-muted-foreground tabular-nums">{objectivesCount}</span>
-                                </div>
-                                {hasNis2Atomic && (
-                                  <div className="flex items-center justify-between gap-2 text-[11px]" data-testid={`text-nis2-atomic-${assessment.id}`}>
-                                    <span className="flex items-center gap-1.5">
-                                      <Target className="w-3 h-3 text-emerald-500 shrink-0" />
-                                      <span>NIS2 Atomic Controls</span>
-                                      <span className="text-muted-foreground text-[10px]">(Regulation details)</span>
-                                    </span>
-                                    <span className="text-muted-foreground tabular-nums">{assessment.cirInfo!.nis2AtomicImplemented}/{assessment.cirInfo!.nis2AtomicTotal}</span>
-                                  </div>
-                                )}
-                                {hasCir && (
-                                  <div className="flex items-center justify-between gap-2 text-[11px]" data-testid={`text-cir-controls-${assessment.id}`}>
-                                    <span className="flex items-center gap-1.5">
-                                      <ShieldCheck className="w-3 h-3 text-purple-500 shrink-0" />
-                                      <span>CIR Controls</span>
-                                      <span className="text-muted-foreground text-[10px]">(Sector-specific)</span>
-                                    </span>
-                                    <span className="text-muted-foreground tabular-nums">{assessment.cirInfo!.cirImplemented}/{assessment.cirInfo!.cirTotal}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 -mt-1 -mr-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteTarget(assessment);
+                              }}
+                              data-testid={`button-delete-${assessment.id}`}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
                           )}
+                        </div>
 
-                          <div className="flex items-center justify-between gap-3 pt-2 border-t">
-                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid={`text-date-${assessment.id}`}>
-                              <Calendar className="w-3 h-3" />
-                              {formatRelativeDate(assessment.createdAt)}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] text-muted-foreground">Completion</span>
+                            <span className="text-[11px] font-medium tabular-nums">
+                              {assessment.implementedControls} of {assessment.totalControls} controls
                             </span>
-                            <span className="flex items-center gap-1 text-xs font-medium text-primary lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                              Open <ChevronRight className="w-3.5 h-3.5" />
+                          </div>
+                          <Progress value={assessment.completionPct} className="h-2" />
+                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                              Done {assessment.implementedControls}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              In progress {assessment.inProgressControls}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+                              Remaining {notStartedControls}
                             </span>
                           </div>
                         </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] text-muted-foreground">Maturity</span>
+                          <MaturityDots value={assessment.maturityAvg} />
+                        </div>
+                      </div>
+
+                      {hasAtomicInfo && (
+                        <div className="px-4 py-2.5 bg-muted/30 border-t space-y-1.5" data-testid={`text-type-breakdown-${assessment.id}`}>
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Control Sets</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1">
+                            <span className="flex items-center gap-1.5 text-[11px]" data-testid={`text-objectives-${assessment.id}`}>
+                              <ClipboardCheck className="w-3 h-3 text-blue-500 shrink-0" />
+                              <span className="text-muted-foreground">Objectives</span>
+                              <span className="font-medium tabular-nums">{objectivesCount}</span>
+                            </span>
+                            {hasNis2Atomic && (
+                              <span className="flex items-center gap-1.5 text-[11px]" data-testid={`text-nis2-atomic-${assessment.id}`}>
+                                <Target className="w-3 h-3 text-emerald-500 shrink-0" />
+                                <span className="text-muted-foreground">Atomic</span>
+                                <span className="font-medium tabular-nums">{assessment.cirInfo!.nis2AtomicImplemented}/{assessment.cirInfo!.nis2AtomicTotal}</span>
+                              </span>
+                            )}
+                            {hasCir && (
+                              <span className="flex items-center gap-1.5 text-[11px]" data-testid={`text-cir-controls-${assessment.id}`}>
+                                <ShieldCheck className="w-3 h-3 text-purple-500 shrink-0" />
+                                <span className="text-muted-foreground">CIR</span>
+                                <span className="font-medium tabular-nums">{assessment.cirInfo!.cirImplemented}/{assessment.cirInfo!.cirTotal}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t bg-card">
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid={`text-date-${assessment.id}`}>
+                          <Calendar className="w-3 h-3" />
+                          {formatRelativeDate(assessment.createdAt)}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs font-medium text-primary lg:opacity-0 lg:group-hover:opacity-100 transition-opacity" data-testid={`link-open-${assessment.id}`}>
+                          Open <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
                       </div>
                     </CardContent>
                   </Card>

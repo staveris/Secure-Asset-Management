@@ -25,7 +25,7 @@ The platform is built with a modern web stack, featuring React, TypeScript, Vite
 
 **Frontend Pages & Components:**
 - **Dashboard:** KPIs, charts, and compliance trends.
-- **Assessments:** Management and detail views for standard and atomic assessments.
+- **Assessments:** Management and detail views for standard and atomic assessments. List page features KPI summary cards (colored top borders), status filter pills, search + sort toolbar, and assessment cards with completion rings, progress breakdowns (Done/In Progress/Remaining), maturity dots, and control set summaries. Assessment detail pages use ref-based expanded state to keep control cards open during autosave.
 - **Tasks:** Task management with filtering.
 - **Evidence Vault:** Centralized evidence storage and upload.
 - **Incidents:** Incident tracking and notification drafting.
