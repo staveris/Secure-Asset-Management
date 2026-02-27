@@ -161,7 +161,7 @@ function ControlResponseCard({
   parentAssessmentId,
   existingResponse,
   controlEvidence,
-  isExpanded,
+  isExpanded: parentExpanded,
   onToggleExpand,
 }: {
   control: AtomicControl;
@@ -172,6 +172,23 @@ function ControlResponseCard({
   isExpanded: boolean;
   onToggleExpand: () => void;
 }) {
+  const [localExpanded, setLocalExpanded] = useState(parentExpanded);
+  const prevParentExpanded = useRef(parentExpanded);
+
+  useEffect(() => {
+    if (parentExpanded !== prevParentExpanded.current) {
+      setLocalExpanded(parentExpanded);
+      prevParentExpanded.current = parentExpanded;
+    }
+  }, [parentExpanded]);
+
+  const isExpanded = localExpanded;
+
+  const handleToggle = () => {
+    setLocalExpanded(prev => !prev);
+    onToggleExpand();
+  };
+
   const { toast } = useToast();
   const [showNotes, setShowNotes] = useState(!!existingResponse?.notes);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -317,7 +334,7 @@ function ControlResponseCard({
         <button
           type="button"
           className="w-full text-left p-3 flex items-center gap-3 hover:bg-muted/30 transition-colors"
-          onClick={onToggleExpand}
+          onClick={handleToggle}
           data-testid={`button-toggle-atomic-control-${control.id}`}
         >
           <div className={`p-1.5 rounded-md ${statusCfg.bg} shrink-0`}>
