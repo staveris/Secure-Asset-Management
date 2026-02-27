@@ -596,6 +596,8 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
   const [statusFilter, setStatusFilter] = useState<AtomicStatusFilter>("ALL");
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
+  const [openDomains, setOpenDomains] = useState<Set<string>>(new Set());
+  const domainsInitialized = useRef(false);
   const controlRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const { data: flagData, isLoading: flagLoading } = useQuery<{ enabled: boolean }>({
@@ -692,6 +694,24 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
     }
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [filteredControls]);
+
+  useEffect(() => {
+    const domainNames = groupedControls.map(([d]) => d);
+    if (!domainsInitialized.current && domainNames.length > 0) {
+      domainsInitialized.current = true;
+      setOpenDomains(new Set(domainNames));
+    } else if (domainsInitialized.current) {
+      setOpenDomains(prev => {
+        const newDomains = domainNames.filter(d => !prev.has(d));
+        if (newDomains.length > 0) {
+          const next = new Set(prev);
+          newDomains.forEach(d => next.add(d));
+          return next;
+        }
+        return prev;
+      });
+    }
+  }, [groupedControls]);
 
   const stats = useMemo(() => {
     const total = controls.length;
@@ -965,7 +985,18 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
           const domainRemaining = domainControls.length - domainAnswered;
 
           return (
-            <Collapsible key={domain} defaultOpen>
+            <Collapsible
+              key={domain}
+              open={openDomains.has(domain)}
+              onOpenChange={(isOpen) => {
+                setOpenDomains(prev => {
+                  const next = new Set(prev);
+                  if (isOpen) next.add(domain);
+                  else next.delete(domain);
+                  return next;
+                });
+              }}
+            >
               <CollapsibleTrigger className="flex items-center justify-between gap-2 w-full p-3 rounded-md bg-muted/50 hover-elevate" data-testid={`collapsible-domain-${domain}`}>
                 <div className="flex items-center gap-2">
                   <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform" />

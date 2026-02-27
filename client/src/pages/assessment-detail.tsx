@@ -815,6 +815,8 @@ export default function AssessmentDetail({ id }: { id: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
+  const [openAccordionGroups, setOpenAccordionGroups] = useState<string[]>([]);
+  const accordionInitialized = useRef(false);
   const controlRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const scrolledToControl = useRef(false);
 
@@ -938,6 +940,19 @@ export default function AssessmentDetail({ id }: { id: string }) {
       {} as Record<string, AssessmentResponse[]>,
     );
   }, [filteredResponses, groupMode]);
+
+  useEffect(() => {
+    const groupKeys = Object.keys(grouped);
+    if (!accordionInitialized.current && groupKeys.length > 0) {
+      accordionInitialized.current = true;
+      setOpenAccordionGroups(groupKeys);
+    } else if (accordionInitialized.current) {
+      setOpenAccordionGroups(prev => {
+        const newGroups = groupKeys.filter(k => !prev.includes(k));
+        return newGroups.length > 0 ? [...prev, ...newGroups] : prev;
+      });
+    }
+  }, [grouped]);
 
   const toggleCard = useCallback((cardKey: string) => {
     setExpandedCards(prev => {
@@ -1317,7 +1332,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
           </CardContent>
         </Card>
       ) : (
-        <Accordion type="multiple" defaultValue={Object.keys(grouped)} className="space-y-3">
+        <Accordion type="multiple" value={openAccordionGroups} onValueChange={setOpenAccordionGroups} className="space-y-3">
           {Object.entries(grouped).map(([groupName, responses]) => {
             const groupImplemented = responses.filter(
               r => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED",
