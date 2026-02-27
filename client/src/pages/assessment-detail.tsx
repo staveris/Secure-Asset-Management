@@ -36,7 +36,6 @@ import {
   BarChart3,
   Target,
   Shield,
-  Filter,
   Search,
   FileText,
   Upload,
@@ -114,36 +113,35 @@ const statusConfig: Record<string, { icon: any; color: string; bg: string; label
 
 const maturityLabels = ["None", "Initial", "Repeatable", "Defined", "Managed", "Optimized"];
 
-function MaturityBar({ value, max = 5 }: { value: number; max?: number }) {
+function MaturityDots({ value, max = 5 }: { value: number; max?: number }) {
+  const roundedValue = Math.round(value);
   return (
-    <div className="flex gap-0.5">
-      {Array.from({ length: max }, (_, i) => (
-        <div
-          key={i}
-          className={`h-3 flex-1 rounded-sm transition-colors ${
-            i < value
-              ? value >= 4 ? "bg-green-500" : value >= 3 ? "bg-blue-500" : value >= 2 ? "bg-yellow-500" : "bg-orange-500"
-              : "bg-muted"
-          }`}
-        />
-      ))}
+    <div className="flex items-center gap-1">
+      {Array.from({ length: max }, (_, i) => {
+        const filled = i < roundedValue;
+        const fillColor = roundedValue >= 4 ? "bg-green-500" : roundedValue >= 3 ? "bg-blue-500" : roundedValue >= 2 ? "bg-yellow-500" : "bg-orange-500";
+        return (
+          <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors ${filled ? fillColor : "bg-muted"}`} />
+        );
+      })}
+      <span className="text-xs font-medium tabular-nums ml-1 text-muted-foreground">{value.toFixed(1)}</span>
     </div>
   );
 }
 
-function StatCard({ label, value, subtitle, icon: Icon, color }: {
-  label: string; value: string | number; subtitle?: string; icon: any; color: string;
-}) {
+function CompletionRing({ value, size = 56, strokeWidth = 5 }: { value: number; size?: number; strokeWidth?: number }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (value / 100) * circumference;
+  const color = value >= 80 ? "stroke-green-500" : value >= 50 ? "stroke-blue-500" : value >= 25 ? "stroke-yellow-500" : "stroke-muted-foreground/30";
+
   return (
-    <div className="flex items-start gap-3 p-3 rounded-md bg-muted/50">
-      <div className={`p-2 rounded-md ${color}`}>
-        <Icon className="w-4 h-4" />
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-lg font-bold leading-tight">{value}</p>
-        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-      </div>
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" strokeWidth={strokeWidth} className="stroke-muted" />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} className={`${color} transition-all duration-500`} />
+      </svg>
+      <span className="absolute text-sm font-bold tabular-nums">{value}%</span>
     </div>
   );
 }
@@ -1068,10 +1066,14 @@ export default function AssessmentDetail({ id }: { id: string }) {
 
   if (!data || !stats) return null;
 
+  const nis2ObjDone = allResponses.filter(r => r.sourceKey === "NIS2_OBJECTIVE" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length;
+  const nis2AtomicDone = allResponses.filter(r => r.sourceKey === "NIS2_2022_2555" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length;
+  const cirDone = allResponses.filter(r => r.sourceKey === "CIR_2024_2690" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length;
+
   return (
     <div className="p-6 space-y-6" data-testid="assessment-detail-page">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/assessments")} data-testid="button-back">
+      <div className="flex items-start gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/assessments")} className="mt-0.5 shrink-0" data-testid="button-back">
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
@@ -1084,58 +1086,35 @@ export default function AssessmentDetail({ id }: { id: string }) {
             {data.scope || "Full NIS2 compliance assessment"}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => generateNis2TasksMutation.mutate()}
-            disabled={generateNis2TasksMutation.isPending}
-            data-testid="button-generate-nis2-tasks"
-          >
-            <ListTodo className="w-4 h-4 mr-2" />
-            {generateNis2TasksMutation.isPending ? "Generating..." : "Generate NIS2 Tasks"}
-          </Button>
-          {hasAtomicControls && data.cirInfo && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => generateAtomicTasksMutation.mutate()}
-              disabled={generateAtomicTasksMutation.isPending}
-              data-testid="button-generate-atomic-tasks"
-            >
-              <ListTodo className="w-4 h-4 mr-2" />
-              {generateAtomicTasksMutation.isPending ? "Generating..." : "Generate Atomic/CIR Tasks"}
-            </Button>
-          )}
-        </div>
       </div>
 
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b -mx-6 px-6 py-3 space-y-2" data-testid="sticky-progress-bar">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b -mx-6 px-6 py-3" data-testid="sticky-progress-bar">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">{stats.completionPct}%</span>
-              <span className="text-xs text-muted-foreground">complete</span>
-            </div>
-            <div className="w-32 sm:w-48">
-              <Progress value={stats.completionPct} className="h-2" />
-            </div>
-            <div className="hidden md:flex items-center gap-3">
-              {Object.entries(statusConfig).map(([key, config]) => {
-                const count = allResponses.filter(r => r.implementationStatus === key).length;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setStatusFilter(statusFilter === key as StatusFilter ? "ALL" : key as StatusFilter)}
-                    className={`flex items-center gap-1 text-xs cursor-pointer transition-opacity ${statusFilter === key ? "opacity-100 font-medium" : "opacity-60 hover:opacity-100"}`}
-                    data-testid={`button-status-count-${key.toLowerCase()}`}
-                  >
-                    <div className={`w-2 h-2 rounded-full ${config.color.replace("text-", "bg-")}`} />
-                    <span>{count}</span>
-                  </button>
-                );
-              })}
+            <CompletionRing value={stats.completionPct} size={44} strokeWidth={4} />
+            <div>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="font-semibold">{stats.implemented + stats.verified} of {stats.total} controls done</span>
+              </div>
+              <div className="flex items-center gap-2.5 mt-1">
+                {Object.entries(statusConfig).map(([key, config]) => {
+                  const count = allResponses.filter(r => r.implementationStatus === key).length;
+                  if (count === 0) return null;
+                  return (
+                    <Button
+                      key={key}
+                      variant={statusFilter === key ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setStatusFilter(statusFilter === key as StatusFilter ? "ALL" : key as StatusFilter)}
+                      className="h-6 px-2 text-[11px] gap-1.5"
+                      data-testid={`button-status-count-${key.toLowerCase()}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${config.color.replace("text-", "bg-")}`} />
+                      {config.shortLabel} {count}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1170,175 +1149,192 @@ export default function AssessmentDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard
-          label="Completion"
-          value={`${stats.completionPct}%`}
-          subtitle={`${stats.implemented + stats.verified} of ${stats.total} controls`}
-          icon={Target}
-          color="bg-green-500/10 text-green-600"
-        />
-        <StatCard
-          label="Maturity Level"
-          value={stats.maturityAvg.toFixed(1)}
-          subtitle={maturityLabels[Math.round(stats.maturityAvg)] || "None"}
-          icon={BarChart3}
-          color="bg-blue-500/10 text-blue-600"
-        />
-        <StatCard
-          label="In Progress"
-          value={stats.inProgress}
-          subtitle={`${stats.notStarted} not started`}
-          icon={Clock}
-          color="bg-yellow-500/10 text-yellow-600"
-        />
-        <StatCard
-          label="Verified"
-          value={stats.verified}
-          subtitle={`${stats.implemented} implemented`}
-          icon={Shield}
-          color="bg-purple-500/10 text-purple-600"
-        />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="kpi-stats">
+        <Card className="border-t-2 border-t-green-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <Target className="w-4 h-4 text-green-500" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold tabular-nums mt-3" data-testid="text-completion-pct">{stats.completionPct}%</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Completion</p>
+            <p className="text-[10px] text-muted-foreground">{stats.implemented + stats.verified} of {stats.total} controls</p>
+          </CardContent>
+        </Card>
+        <Card className="border-t-2 border-t-blue-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <BarChart3 className="w-4 h-4 text-blue-500" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <p className="text-2xl font-bold tabular-nums" data-testid="text-maturity-avg">{stats.maturityAvg.toFixed(1)}<span className="text-sm font-normal text-muted-foreground">/5</span></p>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">Maturity - {maturityLabels[Math.round(stats.maturityAvg)] || "None"}</p>
+            <div className="mt-1.5">
+              <MaturityDots value={stats.maturityAvg} />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-t-2 border-t-yellow-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="p-2 rounded-lg bg-yellow-500/10">
+                <Clock className="w-4 h-4 text-yellow-500" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold tabular-nums mt-3" data-testid="text-in-progress">{stats.inProgress}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">In Progress</p>
+            <p className="text-[10px] text-muted-foreground">{stats.notStarted} not started</p>
+          </CardContent>
+        </Card>
+        <Card className="border-t-2 border-t-purple-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <Shield className="w-4 h-4 text-purple-500" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold tabular-nums mt-3" data-testid="text-verified">{stats.verified}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Verified</p>
+            <p className="text-[10px] text-muted-foreground">{stats.implemented} implemented</p>
+          </CardContent>
+        </Card>
       </div>
 
       {hasAtomicControls && (
-        <div className="space-y-2" data-testid="control-type-summary">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold">Three Independent Control Sets</h2>
-            <span className="text-[10px] text-muted-foreground">Each assessed separately</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Card className="border-blue-200 dark:border-blue-800/50">
-              <CardContent className="p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <ClipboardCheck className="w-4 h-4 text-blue-500" />
-                  <span className="text-xs font-semibold">NIS2 Objectives</span>
-                  <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2ObjectiveCount}</Badge>
+        <Card data-testid="control-type-summary">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">Control Sets</h2>
+              <span className="text-[10px] text-muted-foreground">Each assessed independently</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="p-3 rounded-lg border-l-2 border-l-blue-500 bg-muted/30 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ClipboardCheck className="w-4 h-4 text-blue-500" />
+                    <span className="text-xs font-semibold">NIS2 Objectives</span>
+                  </div>
+                  <span className="text-xs font-medium tabular-nums">{nis2ObjDone}/{stats.nis2ObjectiveCount}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground leading-tight">
-                  High-level goals from the NIS2 Directive (2022/2555).
-                </p>
                 <Progress
-                  value={stats.nis2ObjectiveCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_OBJECTIVE" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2ObjectiveCount) * 100 : 0}
+                  value={stats.nis2ObjectiveCount > 0 ? (nis2ObjDone / stats.nis2ObjectiveCount) * 100 : 0}
                   className="h-1.5"
                 />
-              </CardContent>
-            </Card>
-            {(stats.nis2AtomicCount > 0) && (
-              <Card className="border-emerald-200 dark:border-emerald-800/50">
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-emerald-500" />
-                    <span className="text-xs font-semibold">NIS2 Atomic Controls</span>
-                    <Badge variant="outline" className="text-[10px] ml-auto">{stats.nis2AtomicCount}</Badge>
+                <p className="text-[10px] text-muted-foreground">High-level Directive goals (2022/2555)</p>
+              </div>
+              {stats.nis2AtomicCount > 0 && (
+                <div className="p-3 rounded-lg border-l-2 border-l-emerald-500 bg-muted/30 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-emerald-500" />
+                      <span className="text-xs font-semibold">NIS2 Atomic</span>
+                    </div>
+                    <span className="text-xs font-medium tabular-nums">{nis2AtomicDone}/{stats.nis2AtomicCount}</span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    Detailed, granular requirements from the NIS2 Regulation.
-                  </p>
                   <Progress
-                    value={stats.nis2AtomicCount > 0 ? (allResponses.filter(r => r.sourceKey === "NIS2_2022_2555" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.nis2AtomicCount) * 100 : 0}
+                    value={stats.nis2AtomicCount > 0 ? (nis2AtomicDone / stats.nis2AtomicCount) * 100 : 0}
                     className="h-1.5"
                   />
-                </CardContent>
-              </Card>
-            )}
-            {(stats.cirCount > 0) && (
-              <Card className="border-purple-200 dark:border-purple-800/50">
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-purple-500" />
-                    <span className="text-xs font-semibold">CIR Controls</span>
-                    <Badge variant="outline" className="text-[10px] ml-auto">{stats.cirCount}</Badge>
+                  <p className="text-[10px] text-muted-foreground">Granular regulation requirements</p>
+                </div>
+              )}
+              {stats.cirCount > 0 && (
+                <div className="p-3 rounded-lg border-l-2 border-l-purple-500 bg-muted/30 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-purple-500" />
+                      <span className="text-xs font-semibold">CIR Controls</span>
+                    </div>
+                    <span className="text-xs font-medium tabular-nums">{cirDone}/{stats.cirCount}</span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    Sector-specific technical requirements from the Implementing Regulation.
-                  </p>
                   <Progress
-                    value={stats.cirCount > 0 ? (allResponses.filter(r => r.sourceKey === "CIR_2024_2690" && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED")).length / stats.cirCount) * 100 : 0}
+                    value={stats.cirCount > 0 ? (cirDone / stats.cirCount) * 100 : 0}
                     className="h-1.5"
                   />
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+                  <p className="text-[10px] text-muted-foreground">Sector-specific implementing regulation</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">Overall Maturity</span>
-            <span className="text-muted-foreground">{stats.maturityAvg.toFixed(1)} / 5.0 ({maturityLabels[Math.round(stats.maturityAvg)] || "None"})</span>
-          </div>
-          <MaturityBar value={Math.round(stats.maturityAvg)} />
-        </CardContent>
-      </Card>
-
-      {hasAtomicControls && (
-        <div className="space-y-1.5">
-          <p className="text-[11px] text-muted-foreground font-medium">Filter by Control Set</p>
+      <div className="space-y-3">
+        {hasAtomicControls && (
           <div className="flex items-center gap-1.5 flex-wrap" data-testid="control-type-tabs">
             {[
               { value: "ALL" as ControlTypeFilter, label: "All Controls", count: stats.total, dotColor: "" },
-              { value: "OBJECTIVES" as ControlTypeFilter, label: "NIS2 Objectives", count: stats.nis2ObjectiveCount, dotColor: "bg-blue-500" },
-              { value: "NIS2_ATOMIC" as ControlTypeFilter, label: "Atomic Controls", count: stats.nis2AtomicCount, dotColor: "bg-emerald-500" },
-              ...(hasCir ? [{ value: "CIR" as ControlTypeFilter, label: "CIR Controls", count: stats.cirCount, dotColor: "bg-purple-500" }] : []),
+              { value: "OBJECTIVES" as ControlTypeFilter, label: "Objectives", count: stats.nis2ObjectiveCount, dotColor: "bg-blue-500" },
+              { value: "NIS2_ATOMIC" as ControlTypeFilter, label: "Atomic", count: stats.nis2AtomicCount, dotColor: "bg-emerald-500" },
+              ...(hasCir ? [{ value: "CIR" as ControlTypeFilter, label: "CIR", count: stats.cirCount, dotColor: "bg-purple-500" }] : []),
             ].map((tab) => (
-              <button
+              <Button
                 key={tab.value}
-                type="button"
+                variant={controlTypeFilter === tab.value ? "default" : "outline"}
+                size="sm"
                 onClick={() => setControlTypeFilter(tab.value)}
-                className={`px-3 h-8 rounded-md text-xs font-medium border transition-all flex items-center gap-1.5 ${
-                  controlTypeFilter === tab.value
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
-                }`}
+                className="rounded-full text-xs gap-1.5"
                 data-testid={`button-type-filter-${tab.value.toLowerCase()}`}
               >
                 {tab.dotColor && <span className={`w-2 h-2 rounded-full ${tab.dotColor} shrink-0`} />}
                 {tab.label}
-                <span className={`text-[10px] tabular-nums ${controlTypeFilter === tab.value ? "opacity-80" : ""}`}>
-                  ({tab.count})
+                <span className={`tabular-nums ${controlTypeFilter === tab.value ? "opacity-80" : "text-muted-foreground"}`}>
+                  {tab.count}
                 </span>
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search controls..."
-            className="pl-9"
-            data-testid="input-search-controls"
-          />
+        <div className="flex items-center gap-3 flex-wrap" data-testid="toolbar">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search controls by name, code, or description..."
+              className="pl-9"
+              data-testid="input-search-controls"
+            />
+          </div>
+          <Select value={groupMode} onValueChange={(v) => setGroupMode(v as GroupMode)}>
+            <SelectTrigger className="w-[140px]" data-testid="select-group-mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="domain">By Domain</SelectItem>
+              <SelectItem value="category">By Category</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => generateNis2TasksMutation.mutate()}
+              disabled={generateNis2TasksMutation.isPending}
+              data-testid="button-generate-nis2-tasks"
+            >
+              <ListTodo className="w-4 h-4 mr-1.5" />
+              {generateNis2TasksMutation.isPending ? "..." : "NIS2 Tasks"}
+            </Button>
+            {hasAtomicControls && data.cirInfo && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => generateAtomicTasksMutation.mutate()}
+                disabled={generateAtomicTasksMutation.isPending}
+                data-testid="button-generate-atomic-tasks"
+              >
+                <ListTodo className="w-4 h-4 mr-1.5" />
+                {generateAtomicTasksMutation.isPending ? "..." : "Atomic Tasks"}
+              </Button>
+            )}
+          </div>
         </div>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <SelectTrigger className="w-[160px]" data-testid="select-status-filter">
-            <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Statuses</SelectItem>
-            <SelectItem value="NOT_STARTED">Not Started</SelectItem>
-            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-            <SelectItem value="IMPLEMENTED">Implemented</SelectItem>
-            <SelectItem value="VERIFIED">Verified</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={groupMode} onValueChange={(v) => setGroupMode(v as GroupMode)}>
-          <SelectTrigger className="w-[140px]" data-testid="select-group-mode">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="domain">By Domain</SelectItem>
-            <SelectItem value="category">By Category</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {filteredResponses.length === 0 ? (
@@ -1357,6 +1353,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
             const groupImplemented = responses.filter(
               r => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED",
             ).length;
+            const groupInProgress = responses.filter(r => r.implementationStatus === "IN_PROGRESS").length;
             const groupNotStarted = responses.filter(r => r.implementationStatus === "NOT_STARTED").length;
             const groupCompletionPct = responses.length > 0 ? Math.round((groupImplemented / responses.length) * 100) : 0;
 
@@ -1365,33 +1362,47 @@ export default function AssessmentDetail({ id }: { id: string }) {
             const hasCirInGroup = responses.some(r => r.sourceKey === "CIR_2024_2690");
 
             return (
-              <AccordionItem key={groupName} value={groupName} className="border rounded-md px-4">
-                <AccordionTrigger className="hover:no-underline py-3" data-testid={`accordion-${groupName}`}>
-                  <div className="flex items-center gap-3 flex-1 flex-wrap">
-                    <span className="font-semibold text-sm">{groupName}</span>
-                    <div className="flex items-center gap-1">
-                      {hasObjectives && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" title="NIS2 Objectives" />}
-                      {hasAtomic && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="NIS2 Atomic Controls" />}
-                      {hasCirInGroup && <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" title="CIR Controls" />}
+              <AccordionItem key={groupName} value={groupName} className="border rounded-lg overflow-hidden">
+                <AccordionTrigger className="hover:no-underline px-4 py-3" data-testid={`accordion-${groupName}`}>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm truncate">{groupName}</span>
+                        <div className="flex items-center gap-1">
+                          {hasObjectives && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" title="NIS2 Objectives" />}
+                          {hasAtomic && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="NIS2 Atomic Controls" />}
+                          {hasCirInGroup && <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" title="CIR Controls" />}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 mt-1 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                          Done {groupImplemented}
+                        </span>
+                        {groupInProgress > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            In progress {groupInProgress}
+                          </span>
+                        )}
+                        {groupNotStarted > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+                            Remaining {groupNotStarted}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {groupImplemented}/{responses.length}
-                    </Badge>
-                    {groupNotStarted > 0 && (
-                      <Badge variant="secondary" className="text-[10px]">
-                        {groupNotStarted} remaining
-                      </Badge>
-                    )}
-                    <div className="hidden sm:flex items-center gap-2 ml-auto mr-4">
+                    <div className="hidden sm:flex items-center gap-2 shrink-0 mr-2">
                       <div className="w-20">
                         <Progress value={groupCompletionPct} className="h-1.5" />
                       </div>
-                      <span className="text-xs text-muted-foreground tabular-nums">{groupCompletionPct}%</span>
+                      <span className="text-xs font-medium text-muted-foreground tabular-nums w-8 text-right">{groupCompletionPct}%</span>
                     </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="space-y-2 pb-2">
+                  <div className="space-y-2 px-4 pb-3">
                     {responses.map((response) => {
                       const cardKey = `${response.source || "NIS2"}-${response.id}`;
                       return (
