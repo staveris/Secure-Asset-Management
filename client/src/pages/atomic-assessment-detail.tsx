@@ -594,7 +594,8 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
   const { isPlatformAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AtomicStatusFilter>("ALL");
-  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
+  const expandedCardsRef = useRef<Set<number>>(new Set());
+  const [expandedCardsVersion, setExpandedCardsVersion] = useState(0);
   const [expandAll, setExpandAll] = useState(false);
   const [openDomains, setOpenDomains] = useState<Set<string>>(new Set());
   const domainsInitialized = useRef(false);
@@ -734,26 +735,24 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
   }, [controls, responses]);
 
   const toggleCard = useCallback((controlId: number) => {
-    setExpandedCards(prev => {
-      const next = new Set(prev);
-      if (next.has(controlId)) {
-        next.delete(controlId);
-      } else {
-        next.add(controlId);
-      }
-      return next;
-    });
+    const set = expandedCardsRef.current;
+    if (set.has(controlId)) {
+      set.delete(controlId);
+    } else {
+      set.add(controlId);
+    }
+    setExpandedCardsVersion(v => v + 1);
   }, []);
 
   const toggleExpandAll = useCallback(() => {
     if (expandAll) {
-      setExpandedCards(new Set());
+      expandedCardsRef.current.clear();
       setExpandAll(false);
     } else {
-      const allKeys = new Set(filteredControls.map(c => c.id));
-      setExpandedCards(allKeys);
+      expandedCardsRef.current = new Set(filteredControls.map(c => c.id));
       setExpandAll(true);
     }
+    setExpandedCardsVersion(v => v + 1);
   }, [expandAll, filteredControls]);
 
   const jumpToNextIncomplete = useCallback(() => {
@@ -767,14 +766,16 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
         return r?.implementationStatus === "IN_PROGRESS";
       });
       if (nextInProgress) {
-        setExpandedCards(prev => new Set(prev).add(nextInProgress.id));
+        expandedCardsRef.current.add(nextInProgress.id);
+        setExpandedCardsVersion(v => v + 1);
         controlRefs.current.get(nextInProgress.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
       } else {
         toast({ title: "All done", description: "All controls have been completed." });
       }
       return;
     }
-    setExpandedCards(prev => new Set(prev).add(nextIncomplete.id));
+    expandedCardsRef.current.add(nextIncomplete.id);
+    setExpandedCardsVersion(v => v + 1);
     setTimeout(() => {
       controlRefs.current.get(nextIncomplete.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
@@ -1031,7 +1032,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
                       parentAssessmentId={assessment?.parentAssessmentId}
                       existingResponse={responseMap.get(control.id)}
                       controlEvidence={getControlEvidence(control.id)}
-                      isExpanded={expandedCards.has(control.id)}
+                      isExpanded={expandedCardsRef.current.has(control.id)}
                       onToggleExpand={() => toggleCard(control.id)}
                     />
                   </div>

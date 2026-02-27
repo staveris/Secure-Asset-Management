@@ -813,7 +813,8 @@ export default function AssessmentDetail({ id }: { id: string }) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [controlTypeFilter, setControlTypeFilter] = useState<ControlTypeFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const expandedCardsRef = useRef<Set<string>>(new Set());
+  const [expandedCardsVersion, setExpandedCardsVersion] = useState(0);
   const [expandAll, setExpandAll] = useState(false);
   const [openAccordionGroups, setOpenAccordionGroups] = useState<string[]>([]);
   const accordionInitialized = useRef(false);
@@ -850,7 +851,8 @@ export default function AssessmentDetail({ id }: { id: string }) {
     if (!controlParam) return;
 
     scrolledToControl.current = true;
-    setExpandedCards(prev => new Set(prev).add(controlParam));
+    expandedCardsRef.current.add(controlParam);
+    setExpandedCardsVersion(v => v + 1);
 
     setTimeout(() => {
       const el = controlRefs.current.get(controlParam);
@@ -955,26 +957,25 @@ export default function AssessmentDetail({ id }: { id: string }) {
   }, [grouped]);
 
   const toggleCard = useCallback((cardKey: string) => {
-    setExpandedCards(prev => {
-      const next = new Set(prev);
-      if (next.has(cardKey)) {
-        next.delete(cardKey);
-      } else {
-        next.add(cardKey);
-      }
-      return next;
-    });
+    const set = expandedCardsRef.current;
+    if (set.has(cardKey)) {
+      set.delete(cardKey);
+    } else {
+      set.add(cardKey);
+    }
+    setExpandedCardsVersion(v => v + 1);
   }, []);
 
   const toggleExpandAll = useCallback(() => {
     if (expandAll) {
-      setExpandedCards(new Set());
+      expandedCardsRef.current.clear();
       setExpandAll(false);
     } else {
-      const allKeys = new Set(filteredResponses.map(r => `${r.source || "NIS2"}-${r.id}`));
-      setExpandedCards(allKeys);
+      const allKeys = filteredResponses.map(r => `${r.source || "NIS2"}-${r.id}`);
+      expandedCardsRef.current = new Set(allKeys);
       setExpandAll(true);
     }
+    setExpandedCardsVersion(v => v + 1);
   }, [expandAll, filteredResponses]);
 
   const jumpToNextIncomplete = useCallback(() => {
@@ -983,7 +984,8 @@ export default function AssessmentDetail({ id }: { id: string }) {
       const nextInProgress = filteredResponses.find(r => r.implementationStatus === "IN_PROGRESS");
       if (nextInProgress) {
         const key = `${nextInProgress.source || "NIS2"}-${nextInProgress.id}`;
-        setExpandedCards(prev => new Set(prev).add(key));
+        expandedCardsRef.current.add(key);
+        setExpandedCardsVersion(v => v + 1);
         controlRefs.current.get(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
       } else {
         toast({ title: "All done", description: "All controls have been completed." });
@@ -991,7 +993,8 @@ export default function AssessmentDetail({ id }: { id: string }) {
       return;
     }
     const key = `${nextIncomplete.source || "NIS2"}-${nextIncomplete.id}`;
-    setExpandedCards(prev => new Set(prev).add(key));
+    expandedCardsRef.current.add(key);
+    setExpandedCardsVersion(v => v + 1);
     setTimeout(() => {
       controlRefs.current.get(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
@@ -1384,7 +1387,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
                             assessmentId={id}
                             controlEvidence={getControlEvidence(response.controlObjectiveId, response.atomicControlId)}
                             controlTasks={getControlTasks(response.controlObjectiveId, response.atomicControlId)}
-                            isExpanded={expandedCards.has(cardKey)}
+                            isExpanded={expandedCardsRef.current.has(cardKey)}
                             onToggleExpand={() => toggleCard(cardKey)}
                           />
                         </div>
