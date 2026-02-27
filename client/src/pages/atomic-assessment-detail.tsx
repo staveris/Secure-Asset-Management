@@ -161,7 +161,7 @@ function ControlResponseCard({
   parentAssessmentId,
   existingResponse,
   controlEvidence,
-  isExpanded: parentExpanded,
+  isExpanded,
   onToggleExpand,
 }: {
   control: AtomicControl;
@@ -172,22 +172,6 @@ function ControlResponseCard({
   isExpanded: boolean;
   onToggleExpand: () => void;
 }) {
-  const [localExpanded, setLocalExpanded] = useState(parentExpanded);
-  const prevParentExpanded = useRef(parentExpanded);
-
-  useEffect(() => {
-    if (parentExpanded !== prevParentExpanded.current) {
-      setLocalExpanded(parentExpanded);
-      prevParentExpanded.current = parentExpanded;
-    }
-  }, [parentExpanded]);
-
-  const isExpanded = localExpanded;
-
-  const handleToggle = () => {
-    setLocalExpanded(prev => !prev);
-    onToggleExpand();
-  };
 
   const { toast } = useToast();
   const [showNotes, setShowNotes] = useState(!!existingResponse?.notes);
@@ -334,7 +318,7 @@ function ControlResponseCard({
         <button
           type="button"
           className="w-full text-left p-3 flex items-center gap-3 hover:bg-muted/30 transition-colors"
-          onClick={handleToggle}
+          onClick={onToggleExpand}
           data-testid={`button-toggle-atomic-control-${control.id}`}
         >
           <div className={`p-1.5 rounded-md ${statusCfg.bg} shrink-0`}>
@@ -611,8 +595,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
   const { isPlatformAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AtomicStatusFilter>("ALL");
-  const expandedCardsRef = useRef<Set<number>>(new Set());
-  const [expandedCardsVersion, setExpandedCardsVersion] = useState(0);
+  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
   const [openDomains, setOpenDomains] = useState<Set<string>>(new Set());
   const domainsInitialized = useRef(false);
@@ -752,24 +735,25 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
   }, [controls, responses]);
 
   const toggleCard = useCallback((controlId: number) => {
-    const set = expandedCardsRef.current;
-    if (set.has(controlId)) {
-      set.delete(controlId);
-    } else {
-      set.add(controlId);
-    }
-    setExpandedCardsVersion(v => v + 1);
+    setExpandedCards(prev => {
+      const next = new Set(prev);
+      if (next.has(controlId)) {
+        next.delete(controlId);
+      } else {
+        next.add(controlId);
+      }
+      return next;
+    });
   }, []);
 
   const toggleExpandAll = useCallback(() => {
     if (expandAll) {
-      expandedCardsRef.current.clear();
+      setExpandedCards(new Set());
       setExpandAll(false);
     } else {
-      expandedCardsRef.current = new Set(filteredControls.map(c => c.id));
+      setExpandedCards(new Set(filteredControls.map(c => c.id)));
       setExpandAll(true);
     }
-    setExpandedCardsVersion(v => v + 1);
   }, [expandAll, filteredControls]);
 
   const jumpToNextIncomplete = useCallback(() => {
@@ -783,16 +767,14 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
         return r?.implementationStatus === "IN_PROGRESS";
       });
       if (nextInProgress) {
-        expandedCardsRef.current.add(nextInProgress.id);
-        setExpandedCardsVersion(v => v + 1);
+        setExpandedCards(prev => new Set(prev).add(nextInProgress.id));
         controlRefs.current.get(nextInProgress.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
       } else {
         toast({ title: "All done", description: "All controls have been completed." });
       }
       return;
     }
-    expandedCardsRef.current.add(nextIncomplete.id);
-    setExpandedCardsVersion(v => v + 1);
+    setExpandedCards(prev => new Set(prev).add(nextIncomplete.id));
     setTimeout(() => {
       controlRefs.current.get(nextIncomplete.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
@@ -1049,7 +1031,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
                       parentAssessmentId={assessment?.parentAssessmentId}
                       existingResponse={responseMap.get(control.id)}
                       controlEvidence={getControlEvidence(control.id)}
-                      isExpanded={expandedCardsRef.current.has(control.id)}
+                      isExpanded={expandedCards.has(control.id)}
                       onToggleExpand={() => toggleCard(control.id)}
                     />
                   </div>
