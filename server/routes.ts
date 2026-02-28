@@ -2773,7 +2773,7 @@ export async function registerRoutes(
     if (title !== undefined && !title.trim()) return res.status(400).json({ message: "Title cannot be empty" });
     const validTreatments = ["ACCEPT", "MITIGATE", "TRANSFER", "AVOID"];
     if (treatment !== undefined && !validTreatments.includes(treatment)) return res.status(400).json({ message: "Invalid treatment" });
-    const validStatuses = ["IDENTIFIED", "ASSESSING", "TREATING", "MONITORED", "CLOSED"];
+    const validStatuses = ["IDENTIFIED", "ANALYZING", "TREATING", "MONITORING", "CLOSED"];
     if (status !== undefined && !validStatuses.includes(status)) return res.status(400).json({ message: "Invalid status" });
     if (likelihood !== undefined && (likelihood < 1 || likelihood > 5)) return res.status(400).json({ message: "Likelihood must be 1-5" });
     if (impact !== undefined && (impact < 1 || impact > 5)) return res.status(400).json({ message: "Impact must be 1-5" });
