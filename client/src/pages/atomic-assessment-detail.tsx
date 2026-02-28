@@ -37,6 +37,8 @@ import {
 import {
   ArrowLeft,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ListTodo,
   CheckCircle2,
   Shield,
@@ -48,6 +50,12 @@ import {
   Clock,
   Search,
   Filter,
+  Focus,
+  LayoutList,
+  SkipForward,
+  Info,
+  HelpCircle,
+  Lightbulb,
   ArrowDown,
   ChevronsDown,
   Loader2,
@@ -589,6 +597,439 @@ function ControlResponseCard({
 
 type AtomicStatusFilter = "ALL" | "NOT_STARTED" | "IN_PROGRESS" | "IMPLEMENTED" | "VERIFIED";
 
+const STEP_DESCRIPTIONS: Record<string, { title: string; help: string }> = {
+  implementationStatus: {
+    title: "Implementation Status",
+    help: "How far along is this control in your organization? 'Not Started' means no work has begun, 'In Progress' means you're actively working on it, 'Implemented' means it's in place, and 'Verified' means it's been independently confirmed.",
+  },
+  maturityLevel: {
+    title: "Maturity Level",
+    help: "How mature is this control's implementation? Level 0 = None, 1 = Initial (ad-hoc), 2 = Repeatable (basic processes), 3 = Defined (documented & standardized), 4 = Managed (measured & controlled), 5 = Optimized (continuously improving).",
+  },
+  evidenceConfidence: {
+    title: "Evidence Confidence",
+    help: "How strong is the evidence supporting your assessment? 'None' = no evidence yet, 'Low' = self-assessed only, 'Medium' = documented & reviewed internally, 'High' = independently verified or audited.",
+  },
+  notes: {
+    title: "Implementation Notes",
+    help: "Add any relevant details about how this control is implemented, planned actions, blockers, or references to internal documentation. These notes will appear in compliance reports.",
+  },
+};
+
+function AtomicFocusModeView({
+  controls,
+  assessmentId,
+  parentAssessmentId,
+  responseMap,
+  getControlEvidence,
+}: {
+  controls: AtomicControl[];
+  assessmentId: string;
+  parentAssessmentId?: number | null;
+  responseMap: Map<number, AtomicAssessmentResponse>;
+  getControlEvidence: (atomicControlId: number) => EvidenceItem[];
+}) {
+  const { toast } = useToast();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [activeStep, setActiveStep] = useState(0);
+  const [showHelp, setShowHelp] = useState<string | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const control = controls[currentIndex];
+  if (!control) return null;
+
+  const existingResponse = responseMap.get(control.id);
+  const controlEvidence = getControlEvidence(control.id);
+
+  const [implStatus, setImplStatus] = useState<string>(existingResponse?.implementationStatus || "NOT_STARTED");
+  const [maturity, setMaturity] = useState(existingResponse?.maturityLevel ?? 0);
+  const [confidence, setConfidence] = useState<string>(existingResponse?.confidence || "NONE");
+  const [notes, setNotes] = useState(existingResponse?.notes || "");
+
+  useEffect(() => {
+    const resp = responseMap.get(controls[currentIndex]?.id);
+    setImplStatus(resp?.implementationStatus || "NOT_STARTED");
+    setMaturity(resp?.maturityLevel ?? 0);
+    setConfidence(resp?.confidence || "NONE");
+    setNotes(resp?.notes || "");
+    setActiveStep(0);
+    setShowHelp(null);
+  }, [currentIndex, controls, responseMap]);
+
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/atomic-assessments/${assessmentId}/responses`, {
+        atomicControlId: control.id,
+        implementationStatus: implStatus,
+        maturityLevel: maturity,
+        confidence,
+        notes: notes || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments", assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2000);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error saving", description: err.message, variant: "destructive" });
+      setSaveState("error");
+    },
+  });
+
+  const doSave = useCallback(() => {
+    setSaveState("saving");
+    saveMutation.mutate();
+  }, [saveMutation]);
+
+  const origStatus = existingResponse?.implementationStatus || "NOT_STARTED";
+  const origMaturity = existingResponse?.maturityLevel ?? 0;
+  const origConfidence = existingResponse?.confidence || "NONE";
+  const origNotes = existingResponse?.notes || "";
+  const hasChanges = implStatus !== origStatus || maturity !== origMaturity || confidence !== origConfidence || notes !== origNotes;
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevValsRef = useRef({ implStatus, maturity, confidence, notes });
+  const lastSavedValsRef = useRef({ implStatus, maturity, confidence, notes });
+
+  const hasNewEditsAfterError =
+    implStatus !== lastSavedValsRef.current.implStatus ||
+    maturity !== lastSavedValsRef.current.maturity ||
+    confidence !== lastSavedValsRef.current.confidence ||
+    notes !== lastSavedValsRef.current.notes;
+
+  useEffect(() => {
+    const prev = prevValsRef.current;
+    prevValsRef.current = { implStatus, maturity, confidence, notes };
+    if (!hasChanges || saveMutation.isPending) return;
+    if (saveState === "error" && !hasNewEditsAfterError) return;
+    const isNotesOnly = implStatus === prev.implStatus && maturity === prev.maturity && confidence === prev.confidence && notes !== prev.notes;
+    const delay = isNotesOnly ? 2000 : 800;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      lastSavedValsRef.current = { implStatus, maturity, confidence, notes };
+      doSave();
+    }, delay);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [implStatus, maturity, confidence, notes, hasChanges, saveMutation.isPending, saveState, hasNewEditsAfterError, doSave]);
+
+  useEffect(() => {
+    const timer = timerRef.current;
+    return () => { if (timer) { clearTimeout(timer); doSave(); } };
+  }, []);
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("relatedType", "AtomicControl");
+      formData.append("relatedId", String(control.id));
+      if (parentAssessmentId) formData.append("assessmentId", String(parentAssessmentId));
+      const { getCsrfToken } = await import("@/lib/queryClient");
+      const csrfToken = await getCsrfToken();
+      const res = await fetch("/api/evidence/upload", {
+        method: "POST",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) { const text = (await res.text()) || res.statusText; throw new Error(`${res.status}: ${text}`); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments", assessmentId] });
+      toast({ title: "Evidence uploaded" });
+      setUploadOpen(false);
+      setSelectedFile(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const completedCount = controls.filter(c => {
+    const r = responseMap.get(c.id);
+    return r && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED");
+  }).length;
+  const completionPct = controls.length > 0 ? Math.round((completedCount / controls.length) * 100) : 0;
+  const currentIsComplete = implStatus === "IMPLEMENTED" || implStatus === "VERIFIED";
+
+  const goToNext = () => { if (currentIndex < controls.length - 1) setCurrentIndex(currentIndex + 1); };
+  const goToPrev = () => { if (currentIndex > 0) setCurrentIndex(currentIndex - 1); };
+  const skipToNextIncomplete = () => {
+    for (let i = currentIndex + 1; i < controls.length; i++) {
+      const r = responseMap.get(controls[i].id);
+      if (!r || r.implementationStatus === "NOT_STARTED" || r.implementationStatus === "IN_PROGRESS") { setCurrentIndex(i); return; }
+    }
+    for (let i = 0; i < currentIndex; i++) {
+      const r = responseMap.get(controls[i].id);
+      if (!r || r.implementationStatus === "NOT_STARTED" || r.implementationStatus === "IN_PROGRESS") { setCurrentIndex(i); return; }
+    }
+    toast({ title: "All done!", description: "Every control has been completed." });
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === "ArrowRight" || e.key === "n") { e.preventDefault(); goToNext(); }
+      if (e.key === "ArrowLeft" || e.key === "p") { e.preventDefault(); goToPrev(); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex, controls.length]);
+
+  const miniMap = useMemo(() => {
+    const visible = 11;
+    const half = Math.floor(visible / 2);
+    let start = Math.max(0, currentIndex - half);
+    let end = Math.min(controls.length, start + visible);
+    if (end - start < visible) start = Math.max(0, end - visible);
+    return controls.slice(start, end).map((c, i) => {
+      const r = responseMap.get(c.id);
+      return { control: c, response: r, globalIndex: start + i };
+    });
+  }, [controls, currentIndex, responseMap]);
+
+  return (
+    <div className="space-y-4" data-testid="atomic-focus-mode-view">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b -mx-6 px-6 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold tabular-nums" data-testid="focus-step-counter">
+              {currentIndex + 1} <span className="text-muted-foreground font-normal">of</span> {controls.length}
+            </span>
+            <div className="w-32 hidden sm:block">
+              <Progress value={(currentIndex + 1) / controls.length * 100} className="h-1.5" />
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+              <span>{completedCount} completed ({completionPct}%)</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {saveState === "saving" && <span className="text-xs text-blue-500 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Saving...</span>}
+            {saveState === "saved" && <span className="text-xs text-green-500 flex items-center gap-1.5"><Check className="w-3 h-3" /> Saved</span>}
+            {saveState === "error" && <span className="text-xs text-red-500 flex items-center gap-1.5"><AlertCircle className="w-3 h-3" /> Failed</span>}
+          </div>
+        </div>
+        <div className="flex items-center justify-center gap-1 mt-2" data-testid="focus-minimap">
+          {miniMap.map(({ control: c, response: r, globalIndex }) => {
+            const isActive = globalIndex === currentIndex;
+            const isDone = r && (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED");
+            const isInProgress = r?.implementationStatus === "IN_PROGRESS";
+            return (
+              <Tooltip key={globalIndex}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentIndex(globalIndex)}
+                    aria-label={`Go to control ${globalIndex + 1}: ${c.shortTitle.slice(0, 40)}`}
+                    className={`h-2 rounded-full transition-all ${isActive ? "w-6 bg-primary" : isDone ? "w-2 bg-green-500" : isInProgress ? "w-2 bg-blue-400" : "w-2 bg-muted-foreground/20"}`}
+                    data-testid={`focus-minimap-dot-${globalIndex}`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">{c.controlId}: {c.shortTitle.slice(0, 40)}{c.shortTitle.length > 40 ? "..." : ""}</TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </div>
+
+      <Card className={`overflow-hidden ${currentIsComplete ? "ring-1 ring-green-400/30" : ""}`} data-testid="focus-control-card">
+        <div className="h-1.5 bg-emerald-500" />
+        <CardContent className="p-6 space-y-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-xl bg-emerald-500/5 shrink-0">
+              <Target className="w-6 h-6 text-emerald-500" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="text-xs font-mono">{control.controlId}</Badge>
+                <Badge variant="secondary" className="text-[10px]">{control.sourceKey}</Badge>
+                {control.domain && <Badge variant="secondary" className="text-[10px]">{control.domain}</Badge>}
+              </div>
+              <h2 className="text-lg font-semibold leading-snug" data-testid="focus-control-title">{control.shortTitle}</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">{control.obligationText}</p>
+              <p className="text-xs text-muted-foreground italic">{control.legalRef}</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className={`space-y-3 p-4 rounded-lg border transition-colors ${activeStep === 0 ? "border-primary/30 bg-primary/5" : "border-transparent"}`} onClick={() => setActiveStep(0)} data-testid="focus-step-status">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">1</div>
+                  <Label className="text-sm font-medium">Implementation Status</Label>
+                </div>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setShowHelp(showHelp === "implementationStatus" ? null : "implementationStatus"); }} className="text-muted-foreground hover:text-primary transition-colors" data-testid="button-help-status">
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              {showHelp === "implementationStatus" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/5 border border-blue-200 dark:border-blue-800">
+                  <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{STEP_DESCRIPTIONS.implementationStatus.help}</p>
+                </div>
+              )}
+              <QuickStatusButtons currentStatus={implStatus} onStatusChange={setImplStatus} />
+            </div>
+
+            <div className={`space-y-3 p-4 rounded-lg border transition-colors ${activeStep === 1 ? "border-primary/30 bg-primary/5" : "border-transparent"}`} onClick={() => setActiveStep(1)} data-testid="focus-step-maturity">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">2</div>
+                  <Label className="text-sm font-medium">Maturity Level</Label>
+                  <span className="text-xs text-muted-foreground ml-1">{maturity}/5 — {maturityLabels[maturity]}</span>
+                </div>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setShowHelp(showHelp === "maturityLevel" ? null : "maturityLevel"); }} className="text-muted-foreground hover:text-primary transition-colors" data-testid="button-help-maturity">
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              {showHelp === "maturityLevel" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/5 border border-blue-200 dark:border-blue-800">
+                  <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{STEP_DESCRIPTIONS.maturityLevel.help}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-6 gap-2" data-testid="focus-maturity-buttons">
+                {[0, 1, 2, 3, 4, 5].map((level) => {
+                  const isActive = maturity === level;
+                  const isFilled = level <= maturity && level > 0;
+                  const fillColor = level >= 4 ? "bg-green-500 text-white" : level >= 3 ? "bg-blue-500 text-white" : level >= 2 ? "bg-yellow-500 text-white" : level >= 1 ? "bg-orange-500 text-white" : "";
+                  return (
+                    <button key={level} type="button" onClick={() => setMaturity(level)} className={`h-10 rounded-lg text-sm font-medium border transition-all ${isActive ? `${fillColor || "bg-muted"} ring-2 ring-offset-1 ring-primary/50` : isFilled ? `${fillColor} opacity-70` : "bg-muted/50 text-muted-foreground hover:bg-muted"}`} data-testid={`focus-button-maturity-${level}`}>
+                      <div className="flex flex-col items-center">
+                        <span>{level}</span>
+                        <span className="text-[9px] opacity-70 hidden sm:block">{maturityLabels[level].slice(0, 4)}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className={`space-y-3 p-4 rounded-lg border transition-colors ${activeStep === 2 ? "border-primary/30 bg-primary/5" : "border-transparent"}`} onClick={() => setActiveStep(2)} data-testid="focus-step-confidence">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">3</div>
+                  <Label className="text-sm font-medium">Evidence Confidence</Label>
+                </div>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setShowHelp(showHelp === "evidenceConfidence" ? null : "evidenceConfidence"); }} className="text-muted-foreground hover:text-primary transition-colors" data-testid="button-help-confidence">
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              {showHelp === "evidenceConfidence" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/5 border border-blue-200 dark:border-blue-800">
+                  <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{STEP_DESCRIPTIONS.evidenceConfidence.help}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {[
+                  { value: "NONE", label: "None", desc: "No evidence", color: "border-muted-foreground/20" },
+                  { value: "LOW", label: "Low", desc: "Self-assessed", color: "border-orange-300 dark:border-orange-700" },
+                  { value: "MEDIUM", label: "Medium", desc: "Reviewed internally", color: "border-blue-300 dark:border-blue-700" },
+                  { value: "HIGH", label: "High", desc: "Audited / verified", color: "border-green-300 dark:border-green-700" },
+                ].map((opt) => {
+                  const isActive = confidence === opt.value;
+                  return (
+                    <button key={opt.value} type="button" onClick={() => setConfidence(opt.value)} className={`p-3 rounded-lg border-2 text-left transition-all ${isActive ? `${opt.color} bg-primary/5 ring-1 ring-primary/30` : "border-transparent bg-muted/30 hover:bg-muted/50"}`} data-testid={`focus-button-confidence-${opt.value.toLowerCase()}`}>
+                      <span className={`text-sm font-medium ${isActive ? "" : "text-muted-foreground"}`}>{opt.label}</span>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className={`space-y-3 p-4 rounded-lg border transition-colors ${activeStep === 3 ? "border-primary/30 bg-primary/5" : "border-transparent"}`} onClick={() => setActiveStep(3)} data-testid="focus-step-notes">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">4</div>
+                  <Label className="text-sm font-medium">Notes & Evidence</Label>
+                  <span className="text-[10px] text-muted-foreground">(optional)</span>
+                </div>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setShowHelp(showHelp === "notes" ? null : "notes"); }} className="text-muted-foreground hover:text-primary transition-colors" data-testid="button-help-notes">
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              {showHelp === "notes" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/5 border border-blue-200 dark:border-blue-800">
+                  <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{STEP_DESCRIPTIONS.notes.help}</p>
+                </div>
+              )}
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add implementation notes, references, or action items..." className="text-sm min-h-[80px]" data-testid="focus-textarea-notes" />
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)} data-testid="focus-button-upload">
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Evidence ({controlEvidence.length})
+                </Button>
+              </div>
+              {controlEvidence.length > 0 && (
+                <div className="space-y-1">
+                  {controlEvidence.map(ev => (
+                    <div key={ev.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs">
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-medium truncate flex-1">{ev.filename}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center justify-between gap-4 py-2">
+        <Button variant="outline" onClick={goToPrev} disabled={currentIndex === 0} className="gap-2" data-testid="focus-button-prev">
+          <ChevronLeft className="w-4 h-4" /> Previous
+        </Button>
+        <Button variant="ghost" size="sm" onClick={skipToNextIncomplete} className="text-xs gap-1.5" data-testid="focus-button-skip-incomplete">
+          <SkipForward className="w-3.5 h-3.5" /> Skip to incomplete
+        </Button>
+        <Button onClick={goToNext} disabled={currentIndex === controls.length - 1} className="gap-2" data-testid="focus-button-next">
+          Next <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pb-2">
+        <span className="flex items-center gap-1">
+          <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px] font-mono">←</kbd>
+          <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px] font-mono">→</kbd>
+          navigate
+        </span>
+        <span>Changes auto-save</span>
+      </div>
+
+      <Dialog open={uploadOpen} onOpenChange={(v) => { setUploadOpen(v); if (!v) setSelectedFile(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Evidence</DialogTitle>
+            <DialogDescription>Upload a file as evidence for "{control.shortTitle}".</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Select File</Label>
+              <Input type="file" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.7z" data-testid="focus-input-evidence-file" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+            </div>
+            <Button onClick={() => selectedFile && uploadMutation.mutate(selectedFile)} disabled={!selectedFile || uploadMutation.isPending} className="w-full" data-testid="focus-button-submit-evidence">
+              <Upload className="w-4 h-4 mr-2" />
+              {uploadMutation.isPending ? "Uploading..." : "Upload Evidence"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function AtomicAssessmentDetail({ id }: { id: string }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -598,6 +1039,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
   const [openDomains, setOpenDomains] = useState<Set<string>>(new Set());
+  const [focusMode, setFocusMode] = useState(false);
   const domainsInitialized = useRef(false);
   const controlRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
@@ -914,30 +1356,48 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant={focusMode ? "default" : "outline"}
                   size="sm"
-                  onClick={jumpToNextIncomplete}
-                  data-testid="button-jump-next"
+                  onClick={() => setFocusMode(!focusMode)}
+                  data-testid="button-focus-mode"
                 >
-                  <ArrowDown className="w-3.5 h-3.5 mr-1.5" />
-                  <span className="hidden sm:inline">Next</span>
+                  {focusMode ? <LayoutList className="w-3.5 h-3.5 mr-1.5" /> : <Focus className="w-3.5 h-3.5 mr-1.5" />}
+                  <span className="hidden sm:inline">{focusMode ? "List View" : "Focus Mode"}</span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Jump to next incomplete control</TooltipContent>
+              <TooltipContent>{focusMode ? "Switch to list view" : "Step-by-step guided mode — work through one control at a time"}</TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleExpandAll}
-                  data-testid="button-expand-all"
-                >
-                  <ChevronsDown className={`w-3.5 h-3.5 transition-transform ${expandAll ? "rotate-180" : ""}`} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{expandAll ? "Collapse all" : "Expand all"}</TooltipContent>
-            </Tooltip>
+            {!focusMode && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={jumpToNextIncomplete}
+                      data-testid="button-jump-next"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5 mr-1.5" />
+                      <span className="hidden sm:inline">Next</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Jump to next incomplete control</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={toggleExpandAll}
+                      data-testid="button-expand-all"
+                    >
+                      <ChevronsDown className={`w-3.5 h-3.5 transition-transform ${expandAll ? "rotate-180" : ""}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{expandAll ? "Collapse all" : "Expand all"}</TooltipContent>
+                </Tooltip>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -949,6 +1409,15 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
         <StatCard label="Verified" value={`${stats.verifiedPct}%`} icon={Shield} color="bg-purple-500/10 text-purple-500" />
       </div>
 
+      {focusMode ? (
+        <AtomicFocusModeView
+          controls={filteredControls}
+          assessmentId={id}
+          parentAssessmentId={assessment?.parentAssessmentId}
+          responseMap={responseMap}
+          getControlEvidence={getControlEvidence}
+        />
+      ) : (<>
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1059,6 +1528,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
           </Card>
         )}
       </div>
+      </>)}
     </div>
   );
 }

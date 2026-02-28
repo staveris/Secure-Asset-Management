@@ -29,6 +29,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   Circle,
   Clock,
@@ -45,12 +46,20 @@ import {
   ListTodo,
   ClipboardCheck,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronsDown,
   ArrowDown,
   Loader2,
   Check,
   StickyNote,
   ExternalLink,
+  Focus,
+  LayoutList,
+  SkipForward,
+  Info,
+  HelpCircle,
+  Lightbulb,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLocation, useSearch, Link } from "wouter";
@@ -804,6 +813,661 @@ function ControlCard({
 }
 
 
+const STEP_DESCRIPTIONS: Record<string, { title: string; help: string }> = {
+  implementationStatus: {
+    title: "Implementation Status",
+    help: "How far along is this control in your organization? 'Not Started' means no work has begun, 'In Progress' means you're actively working on it, 'Implemented' means it's in place, and 'Verified' means it's been independently confirmed.",
+  },
+  maturityLevel: {
+    title: "Maturity Level",
+    help: "How mature is this control's implementation? Level 0 = None, 1 = Initial (ad-hoc), 2 = Repeatable (basic processes), 3 = Defined (documented & standardized), 4 = Managed (measured & controlled), 5 = Optimized (continuously improving).",
+  },
+  evidenceConfidence: {
+    title: "Evidence Confidence",
+    help: "How strong is the evidence supporting your assessment? 'None' = no evidence yet, 'Low' = self-assessed only, 'Medium' = documented & reviewed internally, 'High' = independently verified or audited.",
+  },
+  notes: {
+    title: "Implementation Notes",
+    help: "Add any relevant details about how this control is implemented, planned actions, blockers, or references to internal documentation. These notes will appear in compliance reports.",
+  },
+};
+
+function FocusModeView({
+  responses,
+  assessmentId,
+  getControlEvidence,
+  getControlTasks,
+  initialIndex,
+}: {
+  responses: AssessmentResponse[];
+  assessmentId: string;
+  getControlEvidence: (controlObjectiveId: number | undefined, atomicControlId?: number) => EvidenceItem[];
+  getControlTasks: (controlObjectiveId: number | undefined, atomicControlId?: number) => Task[];
+  initialIndex?: number;
+}) {
+  const { toast } = useToast();
+  const [currentIndex, setCurrentIndex] = useState(initialIndex || 0);
+  const [activeStep, setActiveStep] = useState(0);
+  const [showHelp, setShowHelp] = useState<string | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
+  const [taskPriority, setTaskPriority] = useState("MEDIUM");
+
+  const response = responses[currentIndex];
+  if (!response) return null;
+
+  const isCir = response.sourceKey === "CIR_2024_2690";
+  const isNis2Atomic = response.sourceKey === "NIS2_2022_2555";
+  const isAtomicControl = isCir || isNis2Atomic;
+  const parsedAssessmentId = parseInt(assessmentId);
+
+  const typeConfig = isCir
+    ? { stripColor: "bg-purple-500", label: "CIR Control", icon: Shield, iconColor: "text-purple-500", badgeClass: "border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300", bgAccent: "bg-purple-500/5" }
+    : isNis2Atomic
+      ? { stripColor: "bg-emerald-500", label: "NIS2 Atomic Control", icon: Target, iconColor: "text-emerald-500", badgeClass: "border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300", bgAccent: "bg-emerald-500/5" }
+      : { stripColor: "bg-blue-500", label: "NIS2 Objective", icon: ClipboardCheck, iconColor: "text-blue-500", badgeClass: "border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300", bgAccent: "bg-blue-500/5" };
+
+  const controlEvidence = getControlEvidence(response.controlObjectiveId, response.atomicControlId);
+  const controlTasks = getControlTasks(response.controlObjectiveId, response.atomicControlId);
+
+  const [edits, setEdits] = useState<LocalEdits>({
+    implementationStatus: response.implementationStatus,
+    maturityLevel: response.maturityLevel,
+    evidenceConfidence: response.evidenceConfidence,
+    notes: response.notes || "",
+  });
+
+  useEffect(() => {
+    setEdits({
+      implementationStatus: response.implementationStatus,
+      maturityLevel: response.maturityLevel,
+      evidenceConfidence: response.evidenceConfidence,
+      notes: response.notes || "",
+    });
+    setActiveStep(0);
+    setShowHelp(null);
+  }, [response.id, response.implementationStatus, response.maturityLevel, response.evidenceConfidence, response.notes]);
+
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (isAtomicControl && response.atomicAssessmentId && response.atomicControlId) {
+        await apiRequest("POST", `/api/atomic-assessments/${response.atomicAssessmentId}/responses`, {
+          atomicControlId: response.atomicControlId,
+          implementationStatus: edits.implementationStatus,
+          maturityLevel: edits.maturityLevel,
+          confidence: edits.evidenceConfidence,
+          notes: edits.notes || null,
+        });
+      } else {
+        const payload: any = { responseId: response.id };
+        if (edits.implementationStatus !== response.implementationStatus) payload.implementationStatus = edits.implementationStatus;
+        if (edits.maturityLevel !== response.maturityLevel) payload.maturityLevel = edits.maturityLevel;
+        if (edits.evidenceConfidence !== response.evidenceConfidence) payload.evidenceConfidence = edits.evidenceConfidence;
+        if (edits.notes !== (response.notes || "")) payload.notes = edits.notes;
+        await apiRequest("PATCH", `/api/assessment-responses/${response.id}`, payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2000);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error saving", description: err.message, variant: "destructive" });
+      setSaveState("error");
+    },
+  });
+
+  const doSave = useCallback(() => {
+    setSaveState("saving");
+    saveMutation.mutate();
+  }, [saveMutation]);
+
+  const hasChanges = useAutoSave(edits, response, doSave, saveMutation.isPending, saveState === "error");
+
+  const createTaskMutation = useMutation({
+    mutationFn: async () => {
+      const payload: Record<string, any> = {
+        title: taskTitle,
+        description: taskDescription || null,
+        priority: taskPriority,
+        assessmentId: parsedAssessmentId,
+      };
+      if (isAtomicControl && response.atomicControlId) {
+        payload.atomicControlId = response.atomicControlId;
+      } else {
+        payload.controlObjectiveId = response.controlObjectiveId;
+      }
+      await apiRequest("POST", "/api/tasks", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({ title: "Task created" });
+      setTaskOpen(false);
+      setTaskTitle("");
+      setTaskDescription("");
+      setTaskPriority("MEDIUM");
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (isAtomicControl && response.atomicControlId) {
+        formData.append("relatedType", "AtomicControl");
+        formData.append("relatedId", String(response.atomicControlId));
+      } else {
+        formData.append("relatedType", "Control");
+        formData.append("relatedId", String(response.controlObjectiveId));
+      }
+      if (!isNaN(parsedAssessmentId)) {
+        formData.append("assessmentId", String(parsedAssessmentId));
+      }
+      const { getCsrfToken } = await import("@/lib/queryClient");
+      const csrfToken = await getCsrfToken();
+      const res = await fetch("/api/evidence/upload", {
+        method: "POST",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const text = (await res.text()) || res.statusText;
+        throw new Error(`${res.status}: ${text}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments", assessmentId] });
+      toast({ title: "Evidence uploaded" });
+      setUploadOpen(false);
+      setSelectedFile(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const completedCount = responses.filter(r => r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED").length;
+  const completionPct = responses.length > 0 ? Math.round((completedCount / responses.length) * 100) : 0;
+  const currentIsComplete = edits.implementationStatus === "IMPLEMENTED" || edits.implementationStatus === "VERIFIED";
+
+  const goToNext = () => {
+    if (currentIndex < responses.length - 1) setCurrentIndex(currentIndex + 1);
+  };
+  const goToPrev = () => {
+    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
+  };
+  const skipToNextIncomplete = () => {
+    for (let i = currentIndex + 1; i < responses.length; i++) {
+      if (responses[i].implementationStatus === "NOT_STARTED" || responses[i].implementationStatus === "IN_PROGRESS") {
+        setCurrentIndex(i);
+        return;
+      }
+    }
+    for (let i = 0; i < currentIndex; i++) {
+      if (responses[i].implementationStatus === "NOT_STARTED" || responses[i].implementationStatus === "IN_PROGRESS") {
+        setCurrentIndex(i);
+        return;
+      }
+    }
+    toast({ title: "All done!", description: "Every control has been completed." });
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === "ArrowRight" || e.key === "n") { e.preventDefault(); goToNext(); }
+      if (e.key === "ArrowLeft" || e.key === "p") { e.preventDefault(); goToPrev(); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex, responses.length]);
+
+  const config = statusConfig[edits.implementationStatus] || statusConfig.NOT_STARTED;
+  const TypeIcon = typeConfig.icon;
+
+  const steps = ["implementationStatus", "maturityLevel", "evidenceConfidence", "notes"];
+
+  const miniMap = useMemo(() => {
+    const visible = 11;
+    const half = Math.floor(visible / 2);
+    let start = Math.max(0, currentIndex - half);
+    let end = Math.min(responses.length, start + visible);
+    if (end - start < visible) start = Math.max(0, end - visible);
+    return responses.slice(start, end).map((r, i) => ({ response: r, globalIndex: start + i }));
+  }, [responses, currentIndex]);
+
+  return (
+    <div className="space-y-4" data-testid="focus-mode-view">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b -mx-6 px-6 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold tabular-nums" data-testid="focus-step-counter">
+              {currentIndex + 1} <span className="text-muted-foreground font-normal">of</span> {responses.length}
+            </span>
+            <div className="w-32 hidden sm:block">
+              <Progress value={(currentIndex + 1) / responses.length * 100} className="h-1.5" />
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+              <span>{completedCount} completed ({completionPct}%)</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {saveState === "saving" && (
+              <span className="text-xs text-blue-500 flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+              </span>
+            )}
+            {saveState === "saved" && (
+              <span className="text-xs text-green-500 flex items-center gap-1.5">
+                <Check className="w-3 h-3" /> Saved
+              </span>
+            )}
+            {saveState === "error" && (
+              <span className="text-xs text-red-500 flex items-center gap-1.5">
+                <AlertCircle className="w-3 h-3" /> Failed
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-1 mt-2" data-testid="focus-minimap">
+          {miniMap.map(({ response: r, globalIndex }) => {
+            const isActive = globalIndex === currentIndex;
+            const isDone = r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED";
+            const isInProgress = r.implementationStatus === "IN_PROGRESS";
+            return (
+              <Tooltip key={globalIndex}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentIndex(globalIndex)}
+                    aria-label={`Go to control ${globalIndex + 1}: ${r.controlTitle.slice(0, 40)}`}
+                    className={`h-2 rounded-full transition-all ${
+                      isActive ? "w-6 bg-primary" :
+                      isDone ? "w-2 bg-green-500" :
+                      isInProgress ? "w-2 bg-blue-400" :
+                      "w-2 bg-muted-foreground/20"
+                    }`}
+                    data-testid={`focus-minimap-dot-${globalIndex}`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {r.requirementCode}: {r.controlTitle.slice(0, 40)}{r.controlTitle.length > 40 ? "..." : ""}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </div>
+
+      <Card className={`overflow-hidden ${currentIsComplete ? "ring-1 ring-green-400/30" : ""}`} data-testid="focus-control-card">
+        <div className={`h-1.5 ${typeConfig.stripColor}`} />
+        <CardContent className="p-6 space-y-6">
+          <div className="flex items-start gap-4">
+            <div className={`p-3 rounded-xl ${typeConfig.bgAccent} shrink-0`}>
+              <TypeIcon className={`w-6 h-6 ${typeConfig.iconColor}`} />
+            </div>
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className={`text-xs ${typeConfig.badgeClass}`}>{typeConfig.label}</Badge>
+                <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
+                {response.domain && <Badge variant="secondary" className="text-[10px]">{response.domain}</Badge>}
+              </div>
+              <h2 className="text-lg font-semibold leading-snug" data-testid="focus-control-title">{response.controlTitle}</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">{response.controlDescription}</p>
+              {response.guidance && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-200 dark:border-amber-800">
+                  <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">{response.guidance}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className={`space-y-3 p-4 rounded-lg border transition-colors ${activeStep === 0 ? "border-primary/30 bg-primary/5" : "border-transparent"}`}
+              onClick={() => setActiveStep(0)}
+              data-testid="focus-step-status"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">1</div>
+                  <Label className="text-sm font-medium">Implementation Status</Label>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowHelp(showHelp === "implementationStatus" ? null : "implementationStatus"); }}
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                  data-testid="button-help-status"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              {showHelp === "implementationStatus" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/5 border border-blue-200 dark:border-blue-800">
+                  <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{STEP_DESCRIPTIONS.implementationStatus.help}</p>
+                </div>
+              )}
+              <QuickStatusButtons
+                currentStatus={edits.implementationStatus}
+                onStatusChange={(status) => setEdits(prev => ({ ...prev, implementationStatus: status }))}
+              />
+            </div>
+
+            <div className={`space-y-3 p-4 rounded-lg border transition-colors ${activeStep === 1 ? "border-primary/30 bg-primary/5" : "border-transparent"}`}
+              onClick={() => setActiveStep(1)}
+              data-testid="focus-step-maturity"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">2</div>
+                  <Label className="text-sm font-medium">Maturity Level</Label>
+                  <span className="text-xs text-muted-foreground ml-1">{edits.maturityLevel}/5 — {maturityLabels[edits.maturityLevel]}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowHelp(showHelp === "maturityLevel" ? null : "maturityLevel"); }}
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                  data-testid="button-help-maturity"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              {showHelp === "maturityLevel" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/5 border border-blue-200 dark:border-blue-800">
+                  <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{STEP_DESCRIPTIONS.maturityLevel.help}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-6 gap-2" data-testid={`focus-maturity-buttons`}>
+                {[0, 1, 2, 3, 4, 5].map((level) => {
+                  const isActive = edits.maturityLevel === level;
+                  const isFilled = level <= edits.maturityLevel && level > 0;
+                  const fillColor = level >= 4 ? "bg-green-500 text-white" : level >= 3 ? "bg-blue-500 text-white" : level >= 2 ? "bg-yellow-500 text-white" : level >= 1 ? "bg-orange-500 text-white" : "";
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setEdits(prev => ({ ...prev, maturityLevel: level }))}
+                      className={`h-10 rounded-lg text-sm font-medium border transition-all ${
+                        isActive
+                          ? `${fillColor || "bg-muted"} ring-2 ring-offset-1 ring-primary/50`
+                          : isFilled
+                            ? `${fillColor} opacity-70`
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                      }`}
+                      data-testid={`focus-button-maturity-${level}`}
+                    >
+                      <div className="flex flex-col items-center">
+                        <span>{level}</span>
+                        <span className="text-[9px] opacity-70 hidden sm:block">{maturityLabels[level].slice(0, 4)}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className={`space-y-3 p-4 rounded-lg border transition-colors ${activeStep === 2 ? "border-primary/30 bg-primary/5" : "border-transparent"}`}
+              onClick={() => setActiveStep(2)}
+              data-testid="focus-step-confidence"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">3</div>
+                  <Label className="text-sm font-medium">Evidence Confidence</Label>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowHelp(showHelp === "evidenceConfidence" ? null : "evidenceConfidence"); }}
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                  data-testid="button-help-confidence"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              {showHelp === "evidenceConfidence" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/5 border border-blue-200 dark:border-blue-800">
+                  <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{STEP_DESCRIPTIONS.evidenceConfidence.help}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {[
+                  { value: "NONE", label: "None", desc: "No evidence", color: "border-muted-foreground/20" },
+                  { value: "LOW", label: "Low", desc: "Self-assessed", color: "border-orange-300 dark:border-orange-700" },
+                  { value: "MEDIUM", label: "Medium", desc: "Reviewed internally", color: "border-blue-300 dark:border-blue-700" },
+                  { value: "HIGH", label: "High", desc: "Audited / verified", color: "border-green-300 dark:border-green-700" },
+                ].map((opt) => {
+                  const isActive = edits.evidenceConfidence === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setEdits(prev => ({ ...prev, evidenceConfidence: opt.value }))}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${
+                        isActive
+                          ? `${opt.color} bg-primary/5 ring-1 ring-primary/30`
+                          : "border-transparent bg-muted/30 hover:bg-muted/50"
+                      }`}
+                      data-testid={`focus-button-confidence-${opt.value.toLowerCase()}`}
+                    >
+                      <span className={`text-sm font-medium ${isActive ? "" : "text-muted-foreground"}`}>{opt.label}</span>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className={`space-y-3 p-4 rounded-lg border transition-colors ${activeStep === 3 ? "border-primary/30 bg-primary/5" : "border-transparent"}`}
+              onClick={() => setActiveStep(3)}
+              data-testid="focus-step-notes"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">4</div>
+                  <Label className="text-sm font-medium">Notes & Evidence</Label>
+                  <span className="text-[10px] text-muted-foreground">(optional)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowHelp(showHelp === "notes" ? null : "notes"); }}
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                  data-testid="button-help-notes"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              {showHelp === "notes" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/5 border border-blue-200 dark:border-blue-800">
+                  <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{STEP_DESCRIPTIONS.notes.help}</p>
+                </div>
+              )}
+              <Textarea
+                value={edits.notes}
+                onChange={(e) => setEdits(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Add implementation notes, references, or action items..."
+                className="text-sm min-h-[80px]"
+                data-testid="focus-textarea-notes"
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUploadOpen(true)}
+                  data-testid="focus-button-upload"
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Evidence ({controlEvidence.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTaskOpen(true)}
+                  data-testid="focus-button-task"
+                >
+                  <ListTodo className="w-3.5 h-3.5 mr-1.5" />
+                  Tasks ({controlTasks.length})
+                </Button>
+              </div>
+              {controlEvidence.length > 0 && (
+                <div className="space-y-1">
+                  {controlEvidence.map(ev => (
+                    <div key={ev.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs">
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-medium truncate flex-1">{ev.filename}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {controlTasks.length > 0 && (
+                <div className="space-y-1">
+                  {controlTasks.map(task => (
+                    <Link
+                      key={task.id}
+                      href={`/tasks?task=${task.id}`}
+                      className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs hover-elevate cursor-pointer"
+                    >
+                      {task.status === "DONE" ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      )}
+                      <span className={`font-medium truncate flex-1 ${task.status === "DONE" ? "line-through text-muted-foreground" : ""}`}>{task.title}</span>
+                      <Badge variant="outline" className="text-[10px]">{task.priority}</Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center justify-between gap-4 py-2">
+        <Button
+          variant="outline"
+          onClick={goToPrev}
+          disabled={currentIndex === 0}
+          className="gap-2"
+          data-testid="focus-button-prev"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Previous
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={skipToNextIncomplete}
+            className="text-xs gap-1.5"
+            data-testid="focus-button-skip-incomplete"
+          >
+            <SkipForward className="w-3.5 h-3.5" />
+            Skip to incomplete
+          </Button>
+        </div>
+        <Button
+          onClick={goToNext}
+          disabled={currentIndex === responses.length - 1}
+          className="gap-2"
+          data-testid="focus-button-next"
+        >
+          Next
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pb-2">
+        <span className="flex items-center gap-1">
+          <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px] font-mono">←</kbd>
+          <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px] font-mono">→</kbd>
+          navigate
+        </span>
+        <span>Changes auto-save</span>
+      </div>
+
+      <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Task</DialogTitle>
+            <DialogDescription>Create a task linked to "{response.controlTitle}".</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Title <span className="text-red-500">*</span></Label>
+              <Input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Task title" data-testid="focus-input-task-title" />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} placeholder="Task description" data-testid="focus-input-task-desc" />
+            </div>
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Select value={taskPriority} onValueChange={setTaskPriority}>
+                <SelectTrigger data-testid="focus-select-task-priority"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Low</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="HIGH">High</SelectItem>
+                  <SelectItem value="CRITICAL">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={() => createTaskMutation.mutate()} disabled={!taskTitle || createTaskMutation.isPending} className="w-full" data-testid="focus-button-submit-task">
+              <Plus className="w-4 h-4 mr-2" />
+              {createTaskMutation.isPending ? "Creating..." : "Create Task"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={uploadOpen} onOpenChange={(v) => { setUploadOpen(v); if (!v) setSelectedFile(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Evidence</DialogTitle>
+            <DialogDescription>Upload a file as evidence for "{response.controlTitle}".</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Select File</Label>
+              <Input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.7z"
+                data-testid="focus-input-evidence-file"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+              />
+            </div>
+            <Button onClick={() => selectedFile && uploadMutation.mutate(selectedFile)} disabled={!selectedFile || uploadMutation.isPending} className="w-full" data-testid="focus-button-submit-evidence">
+              <Upload className="w-4 h-4 mr-2" />
+              {uploadMutation.isPending ? "Uploading..." : "Upload Evidence"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function AssessmentDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
   const searchString = useSearch();
@@ -815,6 +1479,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
   const [openAccordionGroups, setOpenAccordionGroups] = useState<string[]>([]);
+  const [focusMode, setFocusMode] = useState(false);
   const accordionInitialized = useRef(false);
   const controlRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const scrolledToControl = useRef(false);
@@ -1102,30 +1767,48 @@ export default function AssessmentDetail({ id }: { id: string }) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant={focusMode ? "default" : "outline"}
                   size="sm"
-                  onClick={jumpToNextIncomplete}
-                  data-testid="button-jump-next"
+                  onClick={() => setFocusMode(!focusMode)}
+                  data-testid="button-focus-mode"
                 >
-                  <ArrowDown className="w-3.5 h-3.5 mr-1.5" />
-                  <span className="hidden sm:inline">Next</span>
+                  {focusMode ? <LayoutList className="w-3.5 h-3.5 mr-1.5" /> : <Focus className="w-3.5 h-3.5 mr-1.5" />}
+                  <span className="hidden sm:inline">{focusMode ? "List View" : "Focus Mode"}</span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Jump to next incomplete control</TooltipContent>
+              <TooltipContent>{focusMode ? "Switch to list view" : "Step-by-step guided mode — work through one control at a time"}</TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleExpandAll}
-                  data-testid="button-expand-all"
-                >
-                  <ChevronsDown className={`w-3.5 h-3.5 transition-transform ${expandAll ? "rotate-180" : ""}`} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{expandAll ? "Collapse all" : "Expand all"}</TooltipContent>
-            </Tooltip>
+            {!focusMode && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={jumpToNextIncomplete}
+                      data-testid="button-jump-next"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5 mr-1.5" />
+                      <span className="hidden sm:inline">Next</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Jump to next incomplete control</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={toggleExpandAll}
+                      data-testid="button-expand-all"
+                    >
+                      <ChevronsDown className={`w-3.5 h-3.5 transition-transform ${expandAll ? "rotate-180" : ""}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{expandAll ? "Collapse all" : "Expand all"}</TooltipContent>
+                </Tooltip>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1244,6 +1927,14 @@ export default function AssessmentDetail({ id }: { id: string }) {
         </Card>
       )}
 
+      {focusMode ? (
+        <FocusModeView
+          responses={filteredResponses}
+          assessmentId={id}
+          getControlEvidence={getControlEvidence}
+          getControlTasks={getControlTasks}
+        />
+      ) : (<>
       <div className="space-y-3">
         {hasAtomicControls && (
           <div className="flex items-center gap-1.5 flex-wrap" data-testid="control-type-tabs">
@@ -1409,6 +2100,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
           })}
         </Accordion>
       )}
+      </>)}
     </div>
   );
 }
