@@ -846,7 +846,10 @@ function FocusModeView({
   initialIndex?: number;
 }) {
   const { toast } = useToast();
-  const [currentIndex, setCurrentIndex] = useState(initialIndex || 0);
+  const [currentResponseId, setCurrentResponseId] = useState<number | null>(() => {
+    const idx = initialIndex || 0;
+    return responses[idx]?.id ?? null;
+  });
   const [activeStep, setActiveStep] = useState(0);
   const [showHelp, setShowHelp] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -855,6 +858,17 @@ function FocusModeView({
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPriority, setTaskPriority] = useState("MEDIUM");
+
+  const currentIndex = useMemo(() => {
+    if (currentResponseId === null) return 0;
+    const idx = responses.findIndex(r => r.id === currentResponseId);
+    return idx >= 0 ? idx : Math.min(responses.length - 1, 0);
+  }, [responses, currentResponseId]);
+
+  const setCurrentIndex = useCallback((idx: number) => {
+    const r = responses[idx];
+    if (r) setCurrentResponseId(r.id);
+  }, [responses]);
 
   const response = responses[currentIndex];
   if (!response) return null;
@@ -873,6 +887,7 @@ function FocusModeView({
   const controlEvidence = getControlEvidence(response.controlObjectiveId, response.atomicControlId);
   const controlTasks = getControlTasks(response.controlObjectiveId, response.atomicControlId);
 
+  const prevResponseIdRef = useRef(response.id);
   const [edits, setEdits] = useState<LocalEdits>({
     implementationStatus: response.implementationStatus,
     maturityLevel: response.maturityLevel,
@@ -881,15 +896,18 @@ function FocusModeView({
   });
 
   useEffect(() => {
-    setEdits({
-      implementationStatus: response.implementationStatus,
-      maturityLevel: response.maturityLevel,
-      evidenceConfidence: response.evidenceConfidence,
-      notes: response.notes || "",
-    });
-    setActiveStep(0);
-    setShowHelp(null);
-  }, [response.id, response.implementationStatus, response.maturityLevel, response.evidenceConfidence, response.notes]);
+    if (prevResponseIdRef.current !== response.id) {
+      prevResponseIdRef.current = response.id;
+      setEdits({
+        implementationStatus: response.implementationStatus,
+        maturityLevel: response.maturityLevel,
+        evidenceConfidence: response.evidenceConfidence,
+        notes: response.notes || "",
+      });
+      setActiveStep(0);
+      setShowHelp(null);
+    }
+  }, [response.id]);
 
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 

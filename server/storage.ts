@@ -586,7 +586,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAssessmentResponses(assessmentId: number): Promise<AssessmentResponse[]> {
-    return db.select().from(assessmentResponses).where(eq(assessmentResponses.assessmentId, assessmentId));
+    return db.select().from(assessmentResponses).where(eq(assessmentResponses.assessmentId, assessmentId)).orderBy(assessmentResponses.id);
   }
 
   async getAssessmentResponseById(id: number): Promise<AssessmentResponse | undefined> {
@@ -1654,7 +1654,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAtomicAssessmentResponses(atomicAssessmentId: number): Promise<AtomicAssessmentResponse[]> {
-    return db.select().from(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, atomicAssessmentId));
+    return db.select().from(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, atomicAssessmentId)).orderBy(atomicAssessmentResponses.id);
   }
 
   async upsertAtomicAssessmentResponse(data: InsertAtomicAssessmentResponse): Promise<AtomicAssessmentResponse> {

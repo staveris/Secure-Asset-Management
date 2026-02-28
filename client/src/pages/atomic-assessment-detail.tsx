@@ -630,11 +630,22 @@ function AtomicFocusModeView({
   getControlEvidence: (atomicControlId: number) => EvidenceItem[];
 }) {
   const { toast } = useToast();
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentControlId, setCurrentControlId] = useState<number | null>(() => controls[0]?.id ?? null);
   const [activeStep, setActiveStep] = useState(0);
   const [showHelp, setShowHelp] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const currentIndex = useMemo(() => {
+    if (currentControlId === null) return 0;
+    const idx = controls.findIndex(c => c.id === currentControlId);
+    return idx >= 0 ? idx : Math.min(controls.length - 1, 0);
+  }, [controls, currentControlId]);
+
+  const setCurrentIndex = useCallback((idx: number) => {
+    const c = controls[idx];
+    if (c) setCurrentControlId(c.id);
+  }, [controls]);
 
   const control = controls[currentIndex];
   if (!control) return null;
@@ -642,20 +653,24 @@ function AtomicFocusModeView({
   const existingResponse = responseMap.get(control.id);
   const controlEvidence = getControlEvidence(control.id);
 
+  const prevControlIdRef = useRef(control.id);
   const [implStatus, setImplStatus] = useState<string>(existingResponse?.implementationStatus || "NOT_STARTED");
   const [maturity, setMaturity] = useState(existingResponse?.maturityLevel ?? 0);
   const [confidence, setConfidence] = useState<string>(existingResponse?.confidence || "NONE");
   const [notes, setNotes] = useState(existingResponse?.notes || "");
 
   useEffect(() => {
-    const resp = responseMap.get(controls[currentIndex]?.id);
-    setImplStatus(resp?.implementationStatus || "NOT_STARTED");
-    setMaturity(resp?.maturityLevel ?? 0);
-    setConfidence(resp?.confidence || "NONE");
-    setNotes(resp?.notes || "");
-    setActiveStep(0);
-    setShowHelp(null);
-  }, [currentIndex, controls, responseMap]);
+    if (prevControlIdRef.current !== control.id) {
+      prevControlIdRef.current = control.id;
+      const resp = responseMap.get(control.id);
+      setImplStatus(resp?.implementationStatus || "NOT_STARTED");
+      setMaturity(resp?.maturityLevel ?? 0);
+      setConfidence(resp?.confidence || "NONE");
+      setNotes(resp?.notes || "");
+      setActiveStep(0);
+      setShowHelp(null);
+    }
+  }, [control.id]);
 
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
