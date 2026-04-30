@@ -45,3 +45,7 @@ waitForPort = 5000
 
 [userenv.shared]
 APP_BASE_URL = "https://nis2compliance.toolsoftech.eu"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
