@@ -13,6 +13,20 @@ declare module "http" {
   }
 }
 
+const ALLOWED_HOST = (process.env.ALLOWED_HOST || "nis2compliance.toolsoftech.eu")
+  .toLowerCase()
+  .replace(/\.$/, "")
+  .split(":")[0];
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const rawHost = (req.headers.host || "").toLowerCase().replace(/\.$/, "").split(":")[0];
+  if (rawHost !== ALLOWED_HOST) {
+    res.status(403).send("Forbidden");
+    return;
+  }
+  next();
+});
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
