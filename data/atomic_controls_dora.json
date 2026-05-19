@@ -1,0 +1,3728 @@
+{
+  "sourceKey": "DORA_2022_2554",
+  "legalSource": {
+    "key": "DORA_2022_2554",
+    "title": "Regulation (EU) 2022/2554 — DORA",
+    "url": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+    "version": "2022/2554"
+  },
+  "controls": [
+    {
+      "controlId": "DORA-GOV-001",
+      "domain": "01 Governance & Strategy",
+      "title": "Management body accountability",
+      "objective": "Ensure the management body defines, approves, oversees and remains responsible for ICT risk management.",
+      "platformRequirement": "Create board-level accountability, approval workflow and evidence links for ICT risk decisions.",
+      "tags": [
+        "DORA_FULL",
+        "MANAGEMENT_BODY"
+      ],
+      "doraReference": "Art. 5",
+      "level2Reference": "RTS 2024/1774 where applicable",
+      "evidenceArtifacts": [
+        "Board minutes",
+        "ICT governance policy",
+        "responsibility matrix",
+        "approval records"
+      ],
+      "suggestedFrequency": "Annual + material change",
+      "typicalOwner": "Board / Executive Management",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-002",
+      "domain": "01 Governance & Strategy",
+      "title": "Internal ICT governance and control framework",
+      "objective": "Maintain an internal governance and control framework for effective and prudent ICT risk management.",
+      "platformRequirement": "Enable governance framework record with policies, owners, controls, review dates and approval status.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 5; Art. 6",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Governance framework",
+        "ICT risk policy",
+        "control framework map"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "CISO / Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-003",
+      "domain": "01 Governance & Strategy",
+      "title": "ICT risk roles, responsibilities and segregation",
+      "objective": "Define ICT risk roles and maintain appropriate segregation between operational, control and audit functions.",
+      "platformRequirement": "Add RACI model and conflict/segregation checks for ICT risk responsibilities.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 6(4)",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "RACI matrix",
+        "org chart",
+        "job descriptions",
+        "independence statement"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "CISO / CRO / Internal Audit",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-004",
+      "domain": "01 Governance & Strategy",
+      "title": "ICT risk appetite and tolerance",
+      "objective": "Define ICT risk appetite and tolerance levels consistent with business and resilience objectives.",
+      "platformRequirement": "Capture risk tolerance thresholds and link them to risk scoring, incident severity and remediation SLA.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Risk appetite statement",
+        "tolerance matrix",
+        "approved thresholds"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-005",
+      "domain": "01 Governance & Strategy",
+      "title": "Digital operational resilience strategy",
+      "objective": "Maintain a strategy for digital operational resilience aligned with business strategy and ICT risk profile.",
+      "platformRequirement": "Add strategy object with objectives, roadmap, budget, KPIs and review workflow.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 6",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Resilience strategy",
+        "roadmap",
+        "KPI dashboard",
+        "budget approval"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "CIO / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-006",
+      "domain": "01 Governance & Strategy",
+      "title": "Policy governance and periodic review",
+      "objective": "Approve, maintain and periodically review ICT policies, procedures and protocols.",
+      "platformRequirement": "Implement policy inventory with versioning, approval dates, review cadence and attestation.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 7; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Policy register",
+        "approved policies",
+        "version history",
+        "staff attestations"
+      ],
+      "suggestedFrequency": "Annual + material change",
+      "typicalOwner": "CISO / Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-007",
+      "domain": "01 Governance & Strategy",
+      "title": "Management ICT risk training",
+      "objective": "Ensure management body members maintain sufficient ICT risk awareness and training.",
+      "platformRequirement": "Track executive ICT/cyber resilience training completion and evidence.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 5",
+      "level2Reference": "RTS 2024/1774 where applicable",
+      "evidenceArtifacts": [
+        "Training logs",
+        "certificates",
+        "board cyber briefings"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "HR / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-008",
+      "domain": "01 Governance & Strategy",
+      "title": "ICT internal audit programme",
+      "objective": "Ensure the ICT risk management framework is subject to internal audit proportionate to ICT risk.",
+      "platformRequirement": "Create audit plan linkage to controls, findings, evidence and remediation actions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Internal audit plan",
+        "audit reports",
+        "auditor independence statement"
+      ],
+      "suggestedFrequency": "Annual / risk-based",
+      "typicalOwner": "Internal Audit",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-009",
+      "domain": "01 Governance & Strategy",
+      "title": "Critical audit finding remediation",
+      "objective": "Track and remediate critical ICT audit and assurance findings in a timely manner.",
+      "platformRequirement": "Add remediation workflow with owner, due date, evidence, exception and escalation.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Findings register",
+        "remediation evidence",
+        "closure approvals"
+      ],
+      "suggestedFrequency": "Monthly until closure",
+      "typicalOwner": "CISO / Internal Audit",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-010",
+      "domain": "01 Governance & Strategy",
+      "title": "Proportionality assessment",
+      "objective": "Document how DORA requirements are applied considering size, risk profile, nature, scale and complexity.",
+      "platformRequirement": "Add proportionality profile that influences control applicability and evidence depth.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED",
+        "MICROENTERPRISE"
+      ],
+      "doraReference": "Art. 4",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Proportionality assessment",
+        "entity profile",
+        "management approval"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "Compliance / Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-011",
+      "domain": "01 Governance & Strategy",
+      "title": "Resourcing for digital resilience",
+      "objective": "Ensure sufficient resources, skills and budget are allocated for ICT risk and resilience.",
+      "platformRequirement": "Track resources, skills, budget approvals and open capability gaps.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 5; Art. 6",
+      "level2Reference": "RTS 2024/1774 where applicable",
+      "evidenceArtifacts": [
+        "Budget",
+        "staffing plan",
+        "skills matrix",
+        "training plan"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "CIO / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-GOV-012",
+      "domain": "01 Governance & Strategy",
+      "title": "Management reporting of ICT risk",
+      "objective": "Provide recurring management reporting on ICT risk, resilience, incidents, testing and third-party exposure.",
+      "platformRequirement": "Create executive dashboard and reporting package with risk indicators and exceptions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 5; Art. 6; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Management reports",
+        "KRIs",
+        "board packs",
+        "dashboard screenshots"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "CISO / Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-001",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "Comprehensive ICT risk management framework",
+      "objective": "Maintain a sound, documented and comprehensive ICT risk management framework.",
+      "platformRequirement": "Create DORA RMF module linking assets, risks, controls, policies, evidence, incidents, tests and suppliers.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 6",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "ICT RMF document",
+        "control library",
+        "risk methodology",
+        "dashboards"
+      ],
+      "suggestedFrequency": "Annual + material change",
+      "typicalOwner": "CISO / CRO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-002",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "ICT risk assessment methodology",
+      "objective": "Define methodology for identifying, assessing and documenting ICT risks.",
+      "platformRequirement": "Support inherent/residual risk scoring, likelihood, impact, control effectiveness and risk acceptance.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Risk methodology",
+        "risk register",
+        "scoring model"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-003",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "ICT risk register",
+      "objective": "Maintain an ICT risk register covering threats, vulnerabilities, assets, functions and mitigations.",
+      "platformRequirement": "Add risk records linked to controls, assets, suppliers, incidents and remediation tasks.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "ICT risk register",
+        "risk treatment plans",
+        "acceptance approvals"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-004",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "Threat and vulnerability monitoring",
+      "objective": "Continuously monitor relevant ICT threats and vulnerabilities affecting critical or important functions.",
+      "platformRequirement": "Add threat/vulnerability feeds, manual entries, CVE linkage and risk update workflow.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 10; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Vulnerability scans",
+        "threat intel reports",
+        "risk updates"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "Security Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-005",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "Risk treatment and residual risk acceptance",
+      "objective": "Define mitigation actions for ICT risks outside tolerance and document residual risk acceptance.",
+      "platformRequirement": "Link risk treatment plans to control gaps, tasks, exceptions and approval workflow.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Treatment plans",
+        "residual risk approvals",
+        "exception register"
+      ],
+      "suggestedFrequency": "Monthly",
+      "typicalOwner": "Risk Manager / Control Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-006",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "Major change ICT risk assessment",
+      "objective": "Assess ICT and information security risks arising from major changes to ICT systems, services, processes or procedures.",
+      "platformRequirement": "Require risk assessment gate in change/project workflow for DORA-relevant systems.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Change risk assessments",
+        "CAB approvals",
+        "security review outputs"
+      ],
+      "suggestedFrequency": "Per major change",
+      "typicalOwner": "Change Manager / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-007",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "Risk reassessment after incidents and testing",
+      "objective": "Reassess ICT risk following major ICT incidents and ICT security testing results.",
+      "platformRequirement": "Trigger automatic risk review from major incident closure or severe test findings.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 6; Art. 13; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Post-incident reviews",
+        "updated risk register",
+        "test result remediation"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "CISO / Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-008",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "ICT RMF review and improvement",
+      "objective": "Review the ICT risk management framework periodically and after material changes.",
+      "platformRequirement": "Schedule RMF review campaign with evidence collection and management approval.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 6(5)",
+      "level2Reference": "RTS 2024/1774 Art. 27",
+      "evidenceArtifacts": [
+        "RMF review report",
+        "action plan",
+        "management approval"
+      ],
+      "suggestedFrequency": "Annual + material change",
+      "typicalOwner": "CISO / Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-009",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "Competent authority review report readiness",
+      "objective": "Prepare a searchable report on the review of the ICT risk management framework for supervisory requests.",
+      "platformRequirement": "Generate/export DORA RMF review report from platform data.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 6(5)",
+      "level2Reference": "RTS 2024/1774 Art. 27",
+      "evidenceArtifacts": [
+        "Searchable RMF review report",
+        "evidence index"
+      ],
+      "suggestedFrequency": "On request / annual",
+      "typicalOwner": "Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-010",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "ICT security policies, procedures, protocols and tools",
+      "objective": "Maintain ICT security policies, procedures, protocols and tools to protect ICT assets and data.",
+      "platformRequirement": "Map policy documents to security control domains and evidence requirements.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 7; Art. 9; Art. 15",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "ICT security policy set",
+        "procedures",
+        "tool inventory"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-011",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "Critical or important function mapping",
+      "objective": "Map ICT assets, services and risks to critical or important functions.",
+      "platformRequirement": "Add function register and link function criticality to controls, incidents, suppliers and tests.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 8; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Critical/important function inventory",
+        "dependency maps"
+      ],
+      "suggestedFrequency": "Quarterly + change",
+      "typicalOwner": "Business Owner / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-RMF-012",
+      "domain": "02 ICT Risk Management Framework",
+      "title": "Independent ICT risk control function",
+      "objective": "Assign responsibility for managing and overseeing ICT risk through appropriate control functions.",
+      "platformRequirement": "Capture control function owners, independence evidence and reporting lines.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 6(4)",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Role descriptions",
+        "governance charters",
+        "reporting lines"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "CRO / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-001",
+      "domain": "03 Identification & Asset Management",
+      "title": "ICT asset inventory",
+      "objective": "Identify, classify and document ICT assets supporting business and critical or important functions.",
+      "platformRequirement": "Maintain searchable asset inventory with owner, classification, location, support status and criticality.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 8; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "CMDB",
+        "asset inventory",
+        "classification records"
+      ],
+      "suggestedFrequency": "Continuous / quarterly review",
+      "typicalOwner": "IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-002",
+      "domain": "03 Identification & Asset Management",
+      "title": "Information asset and data inventory",
+      "objective": "Identify and classify information assets and data processed by ICT systems.",
+      "platformRequirement": "Capture data types, business owner, confidentiality/integrity/availability needs and retention.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 8; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Data inventory",
+        "data classification",
+        "ownership records"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "Data Owner / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-003",
+      "domain": "03 Identification & Asset Management",
+      "title": "Critical or important function register",
+      "objective": "Identify and document critical or important functions and the ICT dependencies supporting them.",
+      "platformRequirement": "Create critical/important function object with impact rationale and approval workflow.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 8; Art. 16; Art. 28",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Function register",
+        "BIA",
+        "impact assessment",
+        "approvals"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "Business Continuity Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-004",
+      "domain": "03 Identification & Asset Management",
+      "title": "Dependency mapping",
+      "objective": "Map dependencies among functions, ICT assets, information assets, third parties and interconnections.",
+      "platformRequirement": "Show dependency graph and use it for incident impact, testing scope and supplier risk.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 8; Art. 11; Art. 28",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Dependency map",
+        "architecture diagrams",
+        "supplier mappings"
+      ],
+      "suggestedFrequency": "Quarterly + change",
+      "typicalOwner": "Enterprise Architect / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-005",
+      "domain": "03 Identification & Asset Management",
+      "title": "Third-party ICT dependency identification",
+      "objective": "Identify critical or important functions supported by ICT third-party service providers.",
+      "platformRequirement": "Link assets and functions to vendor contracts and RoI records.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 8; Art. 28",
+      "level2Reference": "RTS 2024/1774; ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Supplier-function mapping",
+        "RoI records",
+        "contract inventory"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2024/2956/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-006",
+      "domain": "03 Identification & Asset Management",
+      "title": "Asset classification scheme",
+      "objective": "Apply classification criteria to ICT assets and information assets based on criticality and risk.",
+      "platformRequirement": "Implement classification values and evidence fields for assets and functions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 8; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Classification policy",
+        "CMDB classification",
+        "data classification records"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "CISO / Asset Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-007",
+      "domain": "03 Identification & Asset Management",
+      "title": "Inventory update after change",
+      "objective": "Ensure asset, data, function and dependency inventories are updated after changes.",
+      "platformRequirement": "Trigger inventory update from change/project closure and supplier onboarding/offboarding.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 8; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Change tickets",
+        "CMDB updates",
+        "review logs"
+      ],
+      "suggestedFrequency": "Per change",
+      "typicalOwner": "IT Operations / Change Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-008",
+      "domain": "03 Identification & Asset Management",
+      "title": "Legacy and unsupported technology register",
+      "objective": "Identify legacy, unsupported or end-of-life ICT assets and associated ICT risk.",
+      "platformRequirement": "Add technology lifecycle fields and EOL risk workflow.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 8; Art. 9",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "EOL register",
+        "risk assessments",
+        "migration plans"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-009",
+      "domain": "03 Identification & Asset Management",
+      "title": "Network and system architecture documentation",
+      "objective": "Maintain architecture documentation for ICT systems, networks and interconnections.",
+      "platformRequirement": "Store diagrams and connect them to assets, systems, functions and third parties.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 8; Art. 9",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Architecture diagrams",
+        "network maps",
+        "data flow diagrams"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "Enterprise Architect",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ID-010",
+      "domain": "03 Identification & Asset Management",
+      "title": "Business process and data flow mapping",
+      "objective": "Document data flows and process dependencies relevant to critical or important functions.",
+      "platformRequirement": "Link process maps and data flows to BIA, RoI, incident impact and continuity plans.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 8; Art. 11; Art. 28",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Process maps",
+        "data flow diagrams",
+        "BIA mappings"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "Business Owner / Data Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-001",
+      "domain": "04 Protection & Prevention",
+      "title": "Secure configuration baselines",
+      "objective": "Establish secure configuration and hardening standards for ICT systems.",
+      "platformRequirement": "Add baseline library and compliance checks against assets.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Hardening standards",
+        "configuration scans",
+        "exceptions"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "IT Security",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-002",
+      "domain": "04 Protection & Prevention",
+      "title": "Identity and access management",
+      "objective": "Control logical access to ICT systems and data according to least privilege and need-to-know.",
+      "platformRequirement": "Track access policies, user lifecycle controls and access review evidence.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "IAM policy",
+        "user provisioning records",
+        "access reviews"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "IAM Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-003",
+      "domain": "04 Protection & Prevention",
+      "title": "Privileged access management",
+      "objective": "Protect, monitor and periodically review privileged access to critical ICT systems.",
+      "platformRequirement": "Add privileged account inventory, approval, monitoring and recertification workflow.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "PAM reports",
+        "admin account register",
+        "review evidence"
+      ],
+      "suggestedFrequency": "Monthly / quarterly",
+      "typicalOwner": "IAM Owner / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-004",
+      "domain": "04 Protection & Prevention",
+      "title": "Strong authentication for critical systems",
+      "objective": "Use strong authentication controls for access to critical systems and remote access.",
+      "platformRequirement": "Capture MFA coverage by system/user group and exceptions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "MFA reports",
+        "authentication policy",
+        "exception approvals"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "IAM Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-005",
+      "domain": "04 Protection & Prevention",
+      "title": "Access recertification",
+      "objective": "Periodically review user access rights and remove excessive or obsolete access.",
+      "platformRequirement": "Launch access recertification campaigns and track decisions/evidence.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Access review campaign",
+        "removal tickets",
+        "approvals"
+      ],
+      "suggestedFrequency": "Quarterly / semi-annual",
+      "typicalOwner": "System Owners / IAM",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-006",
+      "domain": "04 Protection & Prevention",
+      "title": "Network security and segmentation",
+      "objective": "Protect networks through segmentation, boundary controls and secure communication paths.",
+      "platformRequirement": "Map network zones, critical assets and control evidence for firewall/segmentation reviews.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Network diagrams",
+        "firewall rules review",
+        "segmentation tests"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "Network Security",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-007",
+      "domain": "04 Protection & Prevention",
+      "title": "Cryptography and key management",
+      "objective": "Protect data confidentiality and integrity through appropriate cryptographic controls.",
+      "platformRequirement": "Maintain cryptography standard, key inventory and certificate/key lifecycle evidence.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Encryption policy",
+        "key inventory",
+        "certificate reports"
+      ],
+      "suggestedFrequency": "Annual / continuous",
+      "typicalOwner": "CISO / IT Security",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-008",
+      "domain": "04 Protection & Prevention",
+      "title": "Data security controls",
+      "objective": "Protect data against unauthorised access, alteration, loss and leakage.",
+      "platformRequirement": "Map data classes to protection measures such as encryption, masking, DLP and secure storage.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Data security policy",
+        "DLP logs",
+        "encryption evidence"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "Data Owner / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-009",
+      "domain": "04 Protection & Prevention",
+      "title": "Endpoint and server protection",
+      "objective": "Deploy protection measures for endpoints, servers and workloads supporting ICT services.",
+      "platformRequirement": "Track EDR/AV coverage, exceptions and critical asset exposure.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "EDR reports",
+        "coverage dashboards",
+        "exception list"
+      ],
+      "suggestedFrequency": "Monthly",
+      "typicalOwner": "IT Security Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-010",
+      "domain": "04 Protection & Prevention",
+      "title": "Vulnerability and patch management",
+      "objective": "Identify, prioritise and remediate vulnerabilities affecting ICT systems.",
+      "platformRequirement": "Integrate vulnerability results, SLA tracking, risk acceptance and remediation proof.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Vulnerability scan reports",
+        "patch records",
+        "SLA dashboards"
+      ],
+      "suggestedFrequency": "Monthly / risk-based",
+      "typicalOwner": "IT Operations / Security",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-011",
+      "domain": "04 Protection & Prevention",
+      "title": "Malware protection",
+      "objective": "Implement measures to prevent, detect and contain malicious code.",
+      "platformRequirement": "Collect malware protection coverage, alert and remediation evidence.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 10; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Malware protection policy",
+        "EDR alerts",
+        "remediation logs"
+      ],
+      "suggestedFrequency": "Monthly",
+      "typicalOwner": "Security Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-012",
+      "domain": "04 Protection & Prevention",
+      "title": "Log protection and traceability",
+      "objective": "Ensure security logs are collected, protected from tampering and retained according to risk.",
+      "platformRequirement": "Track log sources, retention, integrity controls and gaps for critical systems.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 10; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Logging standard",
+        "SIEM source list",
+        "retention configuration"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "Security Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-013",
+      "domain": "04 Protection & Prevention",
+      "title": "Physical and environmental security",
+      "objective": "Protect premises, data centres and ICT infrastructure against physical and environmental threats.",
+      "platformRequirement": "Record facility controls, environmental monitoring, access review and data centre attestations.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Facility access logs",
+        "data centre attestations",
+        "environmental reports"
+      ],
+      "suggestedFrequency": "Annual / quarterly",
+      "typicalOwner": "Facilities / IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-014",
+      "domain": "04 Protection & Prevention",
+      "title": "Secure change management",
+      "objective": "Manage ICT changes through controlled approval, testing, rollback and risk assessment.",
+      "platformRequirement": "Create DORA change control gates for critical systems and functions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Change tickets",
+        "CAB minutes",
+        "testing and rollback evidence"
+      ],
+      "suggestedFrequency": "Per change",
+      "typicalOwner": "Change Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-015",
+      "domain": "04 Protection & Prevention",
+      "title": "Secure acquisition, development and maintenance",
+      "objective": "Apply security requirements across ICT system acquisition, development and maintenance.",
+      "platformRequirement": "Track secure SDLC controls, code reviews, security tests and supplier/product due diligence.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "SDLC policy",
+        "security requirements",
+        "code review/test evidence"
+      ],
+      "suggestedFrequency": "Per project / release",
+      "typicalOwner": "Application Owner / DevSecOps",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-016",
+      "domain": "04 Protection & Prevention",
+      "title": "ICT operations, capacity and performance controls",
+      "objective": "Operate ICT systems securely and monitor capacity/performance for resilience.",
+      "platformRequirement": "Capture capacity plans, performance thresholds, job monitoring and operational procedures.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 7; Art. 9; Art. 10; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Operations runbooks",
+        "capacity reports",
+        "monitoring dashboards"
+      ],
+      "suggestedFrequency": "Monthly",
+      "typicalOwner": "IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-017",
+      "domain": "04 Protection & Prevention",
+      "title": "Data integrity controls",
+      "objective": "Protect the authenticity, integrity and availability of data and services.",
+      "platformRequirement": "Track integrity checks, reconciliation controls and tamper protection for critical processes.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 7; Art. 9; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Integrity check reports",
+        "reconciliation logs",
+        "control evidence"
+      ],
+      "suggestedFrequency": "Monthly / risk-based",
+      "typicalOwner": "Application Owner / Data Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-PRO-018",
+      "domain": "04 Protection & Prevention",
+      "title": "Remote and third-party access control",
+      "objective": "Control remote access and third-party access to ICT systems and data.",
+      "platformRequirement": "Track vendor remote access approvals, MFA, time bounds, logging and recertification.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 9; Art. 28; Art. 30",
+      "level2Reference": "RTS 2024/1774; RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Remote access policy",
+        "vendor access logs",
+        "review evidence"
+      ],
+      "suggestedFrequency": "Monthly / quarterly",
+      "typicalOwner": "IT Security / Third-Party Risk",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-DET-001",
+      "domain": "05 Detection & Monitoring",
+      "title": "Availability and performance monitoring",
+      "objective": "Monitor ICT systems to identify availability and performance issues affecting services.",
+      "platformRequirement": "Link monitoring coverage to critical systems, alert thresholds and incident workflow.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 10; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Monitoring dashboards",
+        "uptime reports",
+        "alert definitions"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-DET-002",
+      "domain": "05 Detection & Monitoring",
+      "title": "Anomalous activity detection",
+      "objective": "Detect anomalous activity that could indicate ICT or security incidents.",
+      "platformRequirement": "Configure detection criteria and evidence for SIEM/EDR/NDR use cases.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 10; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "SIEM use cases",
+        "alerts",
+        "tuning records",
+        "incident tickets"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "Security Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-DET-003",
+      "domain": "05 Detection & Monitoring",
+      "title": "Network performance and security monitoring",
+      "objective": "Detect network performance problems and network-related security events.",
+      "platformRequirement": "Track network monitoring scope, alerts and incident correlation.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 10; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Network monitoring reports",
+        "alert logs",
+        "NDR/SIEM evidence"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "Network Operations / SOC",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-DET-004",
+      "domain": "05 Detection & Monitoring",
+      "title": "Security logging and SIEM use cases",
+      "objective": "Maintain security monitoring use cases and alerting for material ICT threats.",
+      "platformRequirement": "Add coverage matrix mapping log sources to detection use cases and critical functions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 10; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "SIEM use case catalogue",
+        "log source inventory",
+        "alert review"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "SOC Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-DET-005",
+      "domain": "05 Detection & Monitoring",
+      "title": "Alert thresholds and incident triggers",
+      "objective": "Define alert thresholds and criteria to initiate ICT-related incident response.",
+      "platformRequirement": "Allow threshold records to trigger classification workflow and escalation SLA.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 10; Art. 17; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Alert threshold matrix",
+        "incident trigger rules",
+        "escalation criteria"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "SOC Manager / Incident Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-DET-006",
+      "domain": "05 Detection & Monitoring",
+      "title": "Threat intelligence monitoring",
+      "objective": "Use cyber threat information to improve detection, prevention and response.",
+      "platformRequirement": "Track threat intelligence sources, relevancy to critical functions and action logs.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 10; Art. 13; Art. 45",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Threat intel reports",
+        "action records",
+        "detection updates"
+      ],
+      "suggestedFrequency": "Monthly",
+      "typicalOwner": "Threat Intelligence / SOC",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-DET-007",
+      "domain": "05 Detection & Monitoring",
+      "title": "Alert triage and escalation workflow",
+      "objective": "Ensure alerts are triaged, escalated and recorded in a timely and consistent manner.",
+      "platformRequirement": "Implement workflow stages from alert to event to incident and classification decision.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 10; Art. 17; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Triage procedures",
+        "tickets",
+        "escalation logs"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "SOC / Incident Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-DET-008",
+      "domain": "05 Detection & Monitoring",
+      "title": "Critical function monitoring coverage",
+      "objective": "Ensure monitoring covers systems and services supporting critical or important functions.",
+      "platformRequirement": "Generate monitoring coverage gaps by critical function and asset.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 8; Art. 10; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Coverage matrix",
+        "monitoring dashboards",
+        "gap remediation"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "CISO / IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-001",
+      "domain": "06 Incident Management & Reporting",
+      "title": "ICT-related incident management process",
+      "objective": "Establish and implement a process for detecting, managing and notifying ICT-related incidents.",
+      "platformRequirement": "Create incident module with workflow, classification, evidence, actions and reporting stages.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 17",
+      "level2Reference": "RTS 2024/1772; RTS 2025/301; ITS 2025/302",
+      "evidenceArtifacts": [
+        "Incident management procedure",
+        "incident tickets",
+        "workflow evidence"
+      ],
+      "suggestedFrequency": "Annual review / event-driven",
+      "typicalOwner": "Incident Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-002",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Incident roles and playbooks",
+      "objective": "Define incident roles, escalation paths and response playbooks for material ICT scenarios.",
+      "platformRequirement": "Maintain playbook library linked to incident types and critical systems.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 17",
+      "level2Reference": "RTS 2024/1774; RTS 2025/301",
+      "evidenceArtifacts": [
+        "Playbooks",
+        "on-call rota",
+        "escalation matrix",
+        "test records"
+      ],
+      "suggestedFrequency": "Annual + after incident",
+      "typicalOwner": "Incident Manager / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/301/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-003",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Incident detection, response and notification workflow",
+      "objective": "Operationalise the workflow from detection to containment, recovery, classification and notification.",
+      "platformRequirement": "Automate workflow states, timers and evidence collection for reportable incidents.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 17; Art. 19",
+      "level2Reference": "RTS 2025/301; ITS 2025/302",
+      "evidenceArtifacts": [
+        "Incident tickets",
+        "timelines",
+        "notification drafts",
+        "approvals"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "Incident Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2025/302/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-004",
+      "domain": "06 Incident Management & Reporting",
+      "title": "ICT-related incident classification",
+      "objective": "Classify ICT-related incidents using DORA criteria and materiality thresholds.",
+      "platformRequirement": "Add classification questionnaire and calculated 'major incident' decision output.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 18",
+      "level2Reference": "RTS 2024/1772",
+      "evidenceArtifacts": [
+        "Classification record",
+        "threshold calculations",
+        "impact data"
+      ],
+      "suggestedFrequency": "Per incident",
+      "typicalOwner": "Incident Manager / Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1772/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-005",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Significant cyber threat assessment",
+      "objective": "Assess whether cyber threats are significant and suitable for voluntary notification.",
+      "platformRequirement": "Add significant cyber threat record, relevance assessment and voluntary notification workflow.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 19(2)",
+      "level2Reference": "RTS 2024/1772; RTS 2025/301; ITS 2025/302",
+      "evidenceArtifacts": [
+        "Threat assessment",
+        "voluntary notification template",
+        "approvals"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "CISO / Threat Intelligence",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/301/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-006",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Major ICT incident reporting workflow",
+      "objective": "Report major ICT-related incidents to the competent authority using DORA reporting stages and templates.",
+      "platformRequirement": "Create timer-based reporting workflow with initial, intermediate and final report states.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 19; Art. 20",
+      "level2Reference": "RTS 2025/301; ITS 2025/302",
+      "evidenceArtifacts": [
+        "Initial notification",
+        "intermediate report",
+        "final report",
+        "submission proof"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "Compliance / Incident Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/301/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-007",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Reporting deadlines tracking",
+      "objective": "Track DORA reporting deadlines for initial notification, intermediate report and final report.",
+      "platformRequirement": "Implement countdown timers, SLA breaches and escalation for reportable incidents.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 19; Art. 20",
+      "level2Reference": "RTS 2025/301",
+      "evidenceArtifacts": [
+        "Deadline logs",
+        "escalation records",
+        "submitted reports"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "Incident Manager / Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/301/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-008",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Standard incident reporting templates",
+      "objective": "Use standard forms, templates and procedures for reporting major incidents and significant cyber threats.",
+      "platformRequirement": "Add exportable templates aligned to EU reporting formats and national authority channel.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 20",
+      "level2Reference": "ITS 2025/302",
+      "evidenceArtifacts": [
+        "Completed templates",
+        "validation evidence",
+        "submission receipts"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2025/302/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-009",
+      "domain": "06 Incident Management & Reporting",
+      "title": "ICT incident register",
+      "objective": "Maintain a register of ICT events and incidents, including classification and impact.",
+      "platformRequirement": "Store all incidents, classification outputs, impacts, costs/losses and follow-up actions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 17; Art. 18",
+      "level2Reference": "RTS 2024/1772",
+      "evidenceArtifacts": [
+        "Incident register",
+        "incident reports",
+        "impact assessments"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "Incident Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1772/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-010",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Client and user communication for incidents",
+      "objective": "Communicate with clients/users when an incident affects financial interests or service delivery as required.",
+      "platformRequirement": "Add customer communication templates, approval and evidence workflow.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 19",
+      "level2Reference": "RTS 2025/301",
+      "evidenceArtifacts": [
+        "Client notifications",
+        "communication approvals",
+        "logs"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "Communications / Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-011",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Competent authority communication record",
+      "objective": "Maintain a complete audit trail of communications with competent authorities on ICT incidents.",
+      "platformRequirement": "Log regulator contacts, submissions, acknowledgements and supervisory feedback.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 19; Art. 22",
+      "level2Reference": "ITS 2025/302",
+      "evidenceArtifacts": [
+        "Submission receipts",
+        "authority correspondence",
+        "feedback records"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2025/302/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-012",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Evidence preservation and forensic readiness",
+      "objective": "Preserve evidence required to analyse, report and remediate ICT incidents.",
+      "platformRequirement": "Add evidence chain-of-custody, forensic evidence checklist and retention fields.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 17; Art. 18",
+      "level2Reference": "RTS 2024/1772; RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Forensic logs",
+        "evidence inventory",
+        "chain-of-custody"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "Incident Manager / SOC",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1772/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-013",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Post-incident review and lessons learned",
+      "objective": "Analyse incidents, identify root causes and implement lessons learned.",
+      "platformRequirement": "Trigger post-incident review, control updates and remediation tasks after material incidents.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 13; Art. 17",
+      "level2Reference": "RTS 2024/1774; RTS 2025/301",
+      "evidenceArtifacts": [
+        "RCA report",
+        "lessons learned",
+        "remediation evidence"
+      ],
+      "suggestedFrequency": "After major/material incident",
+      "typicalOwner": "Incident Manager / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-014",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Aggregated annual costs and losses",
+      "objective": "Estimate and record aggregated annual costs and losses caused by major ICT-related incidents.",
+      "platformRequirement": "Add incident cost/loss fields and annual aggregation report.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 11; Art. 13",
+      "level2Reference": "Joint GLs on aggregated annual costs and losses",
+      "evidenceArtifacts": [
+        "Cost/loss register",
+        "annual loss report",
+        "finance reconciliation"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "Risk Manager / Finance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://www.eiopa.europa.eu/digital-operational-resilience-act-dora_en",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-INC-015",
+      "domain": "06 Incident Management & Reporting",
+      "title": "Operational or security payment-related incident process",
+      "objective": "Apply payment-related incident obligations where the entity is a credit institution, payment institution, account information service provider or electronic money institution.",
+      "platformRequirement": "Enable payment-related incident subtype and reporting channel for applicable entity types.",
+      "tags": [
+        "CONDITIONAL",
+        "PAYMENT_RELATED_ENTITY"
+      ],
+      "doraReference": "Art. 23",
+      "level2Reference": "RTS 2024/1772; RTS 2025/301; ITS 2025/302",
+      "evidenceArtifacts": [
+        "Payment incident records",
+        "reports",
+        "payment service impact evidence"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "Payments Operations / Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-001",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "ICT business continuity policy",
+      "objective": "Maintain an ICT business continuity policy integrated with the overall business continuity framework.",
+      "platformRequirement": "Create ICT BCP policy record with scope, owners, review and approval evidence.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 11; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "ICT BCP policy",
+        "BCM framework",
+        "approvals"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "BCM Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-002",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Business impact analysis for ICT disruption",
+      "objective": "Perform BIA to determine impacts, dependencies, recovery priorities and critical services.",
+      "platformRequirement": "Link BIA records to critical functions, assets, RTO/RPO, suppliers and plans.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 11; Art. 12; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "BIA",
+        "impact tolerances",
+        "dependency maps"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "BCM Manager / Business Owners",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-003",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "ICT response and recovery plans",
+      "objective": "Develop and maintain response and recovery plans for ICT disruptions.",
+      "platformRequirement": "Store ICT DR and recovery plans linked to assets, systems and critical functions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 11; Art. 12; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "DR plans",
+        "response plans",
+        "runbooks"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "IT Operations / BCM",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-004",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Crisis management process",
+      "objective": "Define crisis management escalation, decision-making and coordination during major ICT disruption.",
+      "platformRequirement": "Add crisis workflow, war-room log and executive decision evidence.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 11; Art. 14",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Crisis plan",
+        "activation records",
+        "decision logs"
+      ],
+      "suggestedFrequency": "Annual test + event-driven",
+      "typicalOwner": "Crisis Manager / Executive Management",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-005",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Backup policy",
+      "objective": "Maintain backup policies and procedures for ICT systems and data.",
+      "platformRequirement": "Track backup scope, frequency, retention, locations, ownership and exceptions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 12; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Backup policy",
+        "backup schedules",
+        "retention settings"
+      ],
+      "suggestedFrequency": "Annual / continuous",
+      "typicalOwner": "IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-006",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Backup restoration testing",
+      "objective": "Test restoration of backups and recovery procedures.",
+      "platformRequirement": "Schedule and evidence restoration tests with outcome, issues and remediation.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 12; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Restoration test reports",
+        "backup logs",
+        "issue remediation"
+      ],
+      "suggestedFrequency": "Quarterly / risk-based",
+      "typicalOwner": "IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-007",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Separated and resilient backup arrangements",
+      "objective": "Ensure backup arrangements reduce loss, corruption, unavailability and ransomware impact.",
+      "platformRequirement": "Track backup resilience features such as separation, encryption and immutability where applicable.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 12",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Backup architecture",
+        "immutable backup evidence",
+        "recovery validation"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "IT Operations / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-008",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Recovery time and recovery point objectives",
+      "objective": "Define and approve RTO/RPO for systems supporting critical or important functions.",
+      "platformRequirement": "Capture RTO/RPO per service/function and compare against test results.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 11; Art. 12; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "RTO/RPO register",
+        "BIA",
+        "recovery test results"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "BCM Manager / Business Owners",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-009",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Disaster recovery testing",
+      "objective": "Test ICT response, recovery and restoration plans.",
+      "platformRequirement": "Schedule DR tests, record outcomes, map gaps to corrective actions.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 11; Art. 12; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "DR test reports",
+        "exercise logs",
+        "remediation records"
+      ],
+      "suggestedFrequency": "Annual / risk-based",
+      "typicalOwner": "BCM Manager / IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-010",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Crisis and incident communication plan",
+      "objective": "Maintain communication plans for ICT disruption affecting stakeholders, clients and authorities.",
+      "platformRequirement": "Add contact lists, templates, escalation rules and communication approvals.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 14; Art. 19",
+      "level2Reference": "RTS 2024/1774; RTS 2025/301",
+      "evidenceArtifacts": [
+        "Communication plan",
+        "contact matrix",
+        "notification templates"
+      ],
+      "suggestedFrequency": "Annual + event-driven",
+      "typicalOwner": "Communications / Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-011",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Alternative operating arrangements",
+      "objective": "Define fallback arrangements for critical services during ICT disruption.",
+      "platformRequirement": "Record manual procedures, alternate sites, redundant services and runbook evidence.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 11; Art. 12",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Fallback procedures",
+        "alternate site evidence",
+        "runbooks"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "BCM Manager / Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-BCM-012",
+      "domain": "07 Business Continuity & Recovery",
+      "title": "Plan update after tests/incidents",
+      "objective": "Update continuity, backup and recovery plans based on incidents, tests and lessons learned.",
+      "platformRequirement": "Trigger plan review from incident closure or failed test records.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 11; Art. 12; Art. 13; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Updated plans",
+        "change logs",
+        "lessons learned"
+      ],
+      "suggestedFrequency": "Event-driven",
+      "typicalOwner": "BCM Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TST-001",
+      "domain": "08 Testing & Assurance",
+      "title": "Digital operational resilience testing programme",
+      "objective": "Develop, maintain and review a digital operational resilience testing programme.",
+      "platformRequirement": "Create testing programme module with test types, scope, schedule, evidence and findings.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 24",
+      "level2Reference": "RTS 2024/1774; RTS 2025/1190",
+      "evidenceArtifacts": [
+        "Testing programme",
+        "schedule",
+        "scope",
+        "reports"
+      ],
+      "suggestedFrequency": "Annual review",
+      "typicalOwner": "CISO / Testing Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TST-002",
+      "domain": "08 Testing & Assurance",
+      "title": "Annual testing of critical systems and applications",
+      "objective": "Test ICT systems and applications supporting critical or important functions at least annually.",
+      "platformRequirement": "Generate annual test calendar based on critical function mappings.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 24; Art. 25",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Test plans",
+        "test reports",
+        "scope evidence",
+        "remediation records"
+      ],
+      "suggestedFrequency": "At least annual",
+      "typicalOwner": "Testing Manager / System Owners",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://www.bankofgreece.gr/en/main-tasks/supervision/dora-digital-operational-resilience-act-for-the-financial-sector",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TST-003",
+      "domain": "08 Testing & Assurance",
+      "title": "Vulnerability assessments",
+      "objective": "Perform vulnerability assessments as part of resilience testing.",
+      "platformRequirement": "Ingest scan results and track remediation against critical assets.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 24; Art. 25; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Vulnerability assessment reports",
+        "remediation tickets"
+      ],
+      "suggestedFrequency": "Risk-based / monthly",
+      "typicalOwner": "Security Testing",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TST-004",
+      "domain": "08 Testing & Assurance",
+      "title": "Penetration testing",
+      "objective": "Perform penetration tests of relevant ICT systems and applications based on risk.",
+      "platformRequirement": "Record penetration test scope, provider, findings and closure evidence.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 24; Art. 25",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Pentest reports",
+        "remediation evidence",
+        "retest results"
+      ],
+      "suggestedFrequency": "Annual / risk-based",
+      "typicalOwner": "Security Testing / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TST-005",
+      "domain": "08 Testing & Assurance",
+      "title": "Scenario-based and tabletop exercises",
+      "objective": "Use scenario-based tests to validate resilience, response and coordination.",
+      "platformRequirement": "Maintain exercise scenarios, participants, outcomes and lessons learned.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 24; Art. 25",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Exercise plans",
+        "tabletop reports",
+        "action logs"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "BCM / Incident Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TST-006",
+      "domain": "08 Testing & Assurance",
+      "title": "Performance and capacity testing",
+      "objective": "Test performance and capacity of systems supporting critical or important functions.",
+      "platformRequirement": "Capture performance test results and link gaps to resilience risks.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 24; Art. 25",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Performance test reports",
+        "capacity analysis",
+        "remediation"
+      ],
+      "suggestedFrequency": "Annual / change-driven",
+      "typicalOwner": "IT Operations / Application Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TST-007",
+      "domain": "08 Testing & Assurance",
+      "title": "End-to-end and compatibility testing",
+      "objective": "Validate end-to-end processing and compatibility across ICT systems and dependencies.",
+      "platformRequirement": "Track test coverage for critical processes, interfaces and third-party integrations.",
+      "tags": [
+        "DORA_FULL"
+      ],
+      "doraReference": "Art. 24; Art. 25",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "E2E test reports",
+        "interface test evidence",
+        "issue logs"
+      ],
+      "suggestedFrequency": "Annual / release-driven",
+      "typicalOwner": "Application Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TST-008",
+      "domain": "08 Testing & Assurance",
+      "title": "Testing findings remediation",
+      "objective": "Track and close findings identified through digital operational resilience testing.",
+      "platformRequirement": "Create remediation tasks, due dates, risk acceptance and retest evidence.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 24; Art. 25; Art. 16",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Finding register",
+        "remediation tickets",
+        "retest results"
+      ],
+      "suggestedFrequency": "Monthly until closure",
+      "typicalOwner": "Control Owner / Testing Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TST-009",
+      "domain": "08 Testing & Assurance",
+      "title": "Independence and competence of testers",
+      "objective": "Ensure testing is performed by competent and appropriately independent internal or external testers.",
+      "platformRequirement": "Track tester qualifications, independence declarations and provider due diligence.",
+      "tags": [
+        "DORA_FULL",
+        "TLPT_SELECTED"
+      ],
+      "doraReference": "Art. 24; Art. 27",
+      "level2Reference": "RTS 2025/1190",
+      "evidenceArtifacts": [
+        "Tester CVs",
+        "certificates",
+        "independence declarations",
+        "contracts"
+      ],
+      "suggestedFrequency": "Per test",
+      "typicalOwner": "CISO / Procurement",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/1190/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TLPT-001",
+      "domain": "08 Testing & Assurance",
+      "title": "TLPT applicability assessment",
+      "objective": "Determine whether the financial entity is required by the competent/TLPT authority to perform TLPT.",
+      "platformRequirement": "Add TLPT selection field and applicability workflow based on authority decision, systemic importance and ICT risk profile.",
+      "tags": [
+        "CONDITIONAL",
+        "TLPT_SELECTED"
+      ],
+      "doraReference": "Art. 26",
+      "level2Reference": "RTS 2025/1190 Art. 2",
+      "evidenceArtifacts": [
+        "Authority notification",
+        "TLPT applicability assessment",
+        "management decision"
+      ],
+      "suggestedFrequency": "Annual / on authority request",
+      "typicalOwner": "Compliance / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/1190/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TLPT-002",
+      "domain": "08 Testing & Assurance",
+      "title": "TLPT governance and authority coordination",
+      "objective": "Establish TLPT governance, test manager role and coordination with TLPT authorities.",
+      "platformRequirement": "Create TLPT project workflow with TCT/authority communications and approvals.",
+      "tags": [
+        "TLPT_SELECTED"
+      ],
+      "doraReference": "Art. 26; Art. 27",
+      "level2Reference": "RTS 2025/1190",
+      "evidenceArtifacts": [
+        "TLPT project charter",
+        "authority correspondence",
+        "test manager appointment"
+      ],
+      "suggestedFrequency": "Per TLPT",
+      "typicalOwner": "TLPT Test Manager / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/1190/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TLPT-003",
+      "domain": "08 Testing & Assurance",
+      "title": "TLPT scope over critical or important functions",
+      "objective": "Scope TLPT over several or all critical or important functions and live production systems supporting them.",
+      "platformRequirement": "Generate TLPT scope from critical function and system dependency map.",
+      "tags": [
+        "TLPT_SELECTED"
+      ],
+      "doraReference": "Art. 26",
+      "level2Reference": "RTS 2025/1190",
+      "evidenceArtifacts": [
+        "Validated TLPT scope",
+        "system/function list",
+        "risk assessment"
+      ],
+      "suggestedFrequency": "Per TLPT",
+      "typicalOwner": "TLPT Test Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/1190/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TLPT-004",
+      "domain": "08 Testing & Assurance",
+      "title": "Threat intelligence provider selection",
+      "objective": "Select competent threat intelligence providers for TLPT preparation.",
+      "platformRequirement": "Track provider due diligence, qualifications, independence and contract evidence.",
+      "tags": [
+        "TLPT_SELECTED"
+      ],
+      "doraReference": "Art. 26; Art. 27",
+      "level2Reference": "RTS 2025/1190",
+      "evidenceArtifacts": [
+        "TI provider contract",
+        "due diligence",
+        "qualifications"
+      ],
+      "suggestedFrequency": "Per TLPT",
+      "typicalOwner": "Procurement / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/1190/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TLPT-005",
+      "domain": "08 Testing & Assurance",
+      "title": "Red team provider requirements",
+      "objective": "Select and manage qualified red team testers for TLPT execution.",
+      "platformRequirement": "Track external/internal tester requirements, competence and independence evidence.",
+      "tags": [
+        "TLPT_SELECTED"
+      ],
+      "doraReference": "Art. 27",
+      "level2Reference": "RTS 2025/1190",
+      "evidenceArtifacts": [
+        "Red team contract",
+        "CVs",
+        "certifications",
+        "independence evidence"
+      ],
+      "suggestedFrequency": "Per TLPT",
+      "typicalOwner": "TLPT Test Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/1190/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TLPT-006",
+      "domain": "08 Testing & Assurance",
+      "title": "TLPT risk management for live production testing",
+      "objective": "Manage operational and security risks arising from threat-led testing on live systems.",
+      "platformRequirement": "Add safety controls, stop criteria, escalation contacts and approval workflow.",
+      "tags": [
+        "TLPT_SELECTED"
+      ],
+      "doraReference": "Art. 26; Art. 27",
+      "level2Reference": "RTS 2025/1190",
+      "evidenceArtifacts": [
+        "TLPT risk assessment",
+        "safety plan",
+        "stop/rollback procedures"
+      ],
+      "suggestedFrequency": "Per TLPT",
+      "typicalOwner": "TLPT Test Manager / Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/1190/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TLPT-007",
+      "domain": "08 Testing & Assurance",
+      "title": "TLPT reports, closure and remediation",
+      "objective": "Document TLPT results, closure, attestation and remediation actions.",
+      "platformRequirement": "Store TLPT deliverables and connect findings to remediation and risk updates.",
+      "tags": [
+        "TLPT_SELECTED"
+      ],
+      "doraReference": "Art. 26; Art. 27",
+      "level2Reference": "RTS 2025/1190",
+      "evidenceArtifacts": [
+        "TLPT reports",
+        "closure documentation",
+        "remediation plan",
+        "retest evidence"
+      ],
+      "suggestedFrequency": "Per TLPT",
+      "typicalOwner": "CISO / TLPT Test Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/1190/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TLPT-008",
+      "domain": "08 Testing & Assurance",
+      "title": "TLPT three-year planning cycle",
+      "objective": "Maintain planning for TLPT at the frequency required for selected financial entities.",
+      "platformRequirement": "Add TLPT scheduling fields and reminders with authority validation where required.",
+      "tags": [
+        "TLPT_SELECTED"
+      ],
+      "doraReference": "Art. 26",
+      "level2Reference": "RTS 2025/1190",
+      "evidenceArtifacts": [
+        "TLPT calendar",
+        "authority decision",
+        "previous TLPT attestation"
+      ],
+      "suggestedFrequency": "Every 3 years or authority-defined",
+      "typicalOwner": "Compliance / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/1190/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-001",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "ICT third-party risk strategy",
+      "objective": "Adopt and regularly review a strategy on ICT third-party risk where applicable.",
+      "platformRequirement": "Create TPRM strategy record linked to multi-vendor strategy and concentration risk.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28(2)",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "ICT third-party risk strategy",
+        "management approval",
+        "review evidence"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-002",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Policy for ICT services supporting critical or important functions",
+      "objective": "Maintain a policy for contractual arrangements on ICT services supporting critical or important functions.",
+      "platformRequirement": "Enable policy lifecycle covering planning, approval, implementation, monitoring and termination.",
+      "tags": [
+        "CRITICAL_IMPORTANT_FUNCTION",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28(2); Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "ICT outsourcing/third-party policy",
+        "approval records"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "Third-Party Risk Manager / Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-003",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "ICT service and critical function classification",
+      "objective": "Classify ICT services by whether they support critical or important functions.",
+      "platformRequirement": "Add service classification field and link to contracts, providers, RoI and risk assessment.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "RTS 2024/1773; ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Service classification",
+        "function mapping",
+        "RoI entries"
+      ],
+      "suggestedFrequency": "Per contract + review",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2024/2956/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-004",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Pre-contract due diligence",
+      "objective": "Assess ICT third-party service providers before entering contractual arrangements.",
+      "platformRequirement": "Create due diligence questionnaire with info security, resilience, financial, legal and concentration checks.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 29",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Due diligence report",
+        "risk assessment",
+        "approvals"
+      ],
+      "suggestedFrequency": "Before contract",
+      "typicalOwner": "Procurement / Third-Party Risk",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-005",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Provider information security standards",
+      "objective": "Only enter arrangements with ICT third-party providers that meet appropriate information security standards.",
+      "platformRequirement": "Capture provider certifications, attestations, control reports and exceptions.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28(5)",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "ISO/SOC reports",
+        "security questionnaires",
+        "certification records"
+      ],
+      "suggestedFrequency": "Before contract + annual",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-006",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "ICT concentration risk assessment",
+      "objective": "Assess concentration risk for providers, critical services, subcontractors and geographic dependencies.",
+      "platformRequirement": "Add concentration dashboard by provider, service category, country, group and subcontractor.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 29",
+      "level2Reference": "RTS 2024/1773; ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Concentration risk assessment",
+        "provider dependency report"
+      ],
+      "suggestedFrequency": "Annual + before critical contract",
+      "typicalOwner": "Risk Manager / TPRM",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-007",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Risk assessment before CIF-supported ICT contracting",
+      "objective": "Assess risks before contracting ICT services supporting critical or important functions.",
+      "platformRequirement": "Add approval gate requiring risk assessment and management sign-off for CIF-supported services.",
+      "tags": [
+        "CRITICAL_IMPORTANT_FUNCTION",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 29",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Pre-contract risk assessment",
+        "approvals",
+        "due diligence evidence"
+      ],
+      "suggestedFrequency": "Before contract",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-008",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "DORA minimum contractual provisions",
+      "objective": "Ensure ICT third-party contracts include required DORA contractual provisions.",
+      "platformRequirement": "Add contract clause checklist and gap analysis for each ICT provider contract.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Contract",
+        "clause checklist",
+        "legal review",
+        "gap remediation"
+      ],
+      "suggestedFrequency": "Before contract + renewal",
+      "typicalOwner": "Legal / Procurement / TPRM",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-009",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Access, audit and inspection rights",
+      "objective": "Include and exercise access, audit and inspection rights over ICT third-party providers as required.",
+      "platformRequirement": "Track audit rights, audit calendar, reports and provider cooperation.",
+      "tags": [
+        "CRITICAL_IMPORTANT_FUNCTION",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Contract clauses",
+        "audit reports",
+        "onsite/remote audit evidence"
+      ],
+      "suggestedFrequency": "Annual / risk-based",
+      "typicalOwner": "Legal / TPRM / Internal Audit",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-010",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Service levels and provider monitoring",
+      "objective": "Define and monitor service levels, performance and resilience requirements in ICT contracts.",
+      "platformRequirement": "Add SLA/KPI monitoring and link breaches to supplier risk and incident workflow.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "SLAs",
+        "service reports",
+        "breach logs",
+        "review minutes"
+      ],
+      "suggestedFrequency": "Monthly / quarterly",
+      "typicalOwner": "Vendor Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-011",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Provider incident notification obligations",
+      "objective": "Ensure providers notify the financial entity of ICT incidents affecting services.",
+      "platformRequirement": "Track contract notification clauses and vendor incident integration workflow.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 30; Art. 17; Art. 19",
+      "level2Reference": "RTS 2024/1773; ITS 2025/302",
+      "evidenceArtifacts": [
+        "Incident notification clause",
+        "provider incident reports",
+        "escalation logs"
+      ],
+      "suggestedFrequency": "Per incident",
+      "typicalOwner": "Vendor Manager / Incident Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-012",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Data location, protection, return and deletion clauses",
+      "objective": "Address data protection, location, access, return and deletion in ICT third-party contracts.",
+      "platformRequirement": "Capture data location, processing, return/deletion and exit requirements per contract.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Contract clauses",
+        "data processing terms",
+        "exit/deletion evidence"
+      ],
+      "suggestedFrequency": "Before contract + review",
+      "typicalOwner": "Legal / Data Protection Officer",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-013",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Exit strategy for critical or important ICT services",
+      "objective": "Maintain exit strategies for ICT services supporting critical or important functions.",
+      "platformRequirement": "Add exit plan, triggers, alternative provider options and exit test evidence.",
+      "tags": [
+        "CRITICAL_IMPORTANT_FUNCTION",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Exit plan",
+        "transition plan",
+        "alternative arrangements",
+        "exit test report"
+      ],
+      "suggestedFrequency": "Annual + before contract",
+      "typicalOwner": "Vendor Manager / BCM",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-014",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Termination rights",
+      "objective": "Ensure contracts include termination rights for material circumstances and supervisory concerns.",
+      "platformRequirement": "Add clause mapping and renewal/termination decision workflow.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Termination clause",
+        "legal assessment",
+        "exit triggers"
+      ],
+      "suggestedFrequency": "Before contract + renewal",
+      "typicalOwner": "Legal / Procurement",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-015",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Ongoing provider risk monitoring",
+      "objective": "Continuously monitor ICT third-party risk throughout the contract lifecycle.",
+      "platformRequirement": "Maintain vendor risk score, due diligence renewals, SLA performance, incidents and findings.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Vendor reviews",
+        "risk scorecards",
+        "incident/SLA logs",
+        "review minutes"
+      ],
+      "suggestedFrequency": "Quarterly / annual",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-016",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Material provider/contract changes",
+      "objective": "Assess material changes affecting ICT third-party services or provider risk.",
+      "platformRequirement": "Trigger risk reassessment and approvals from contract/service change records.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "RTS 2024/1773; RTS 2025/532",
+      "evidenceArtifacts": [
+        "Change notifications",
+        "risk reassessment",
+        "approvals"
+      ],
+      "suggestedFrequency": "Per material change",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/532/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-017",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Subcontracting chain identification",
+      "objective": "Identify and assess subcontractors supporting ICT services for critical or important functions.",
+      "platformRequirement": "Capture subcontractor chain, location, service, materiality and risk details.",
+      "tags": [
+        "CRITICAL_IMPORTANT_FUNCTION",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 30",
+      "level2Reference": "RTS 2025/532; ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Subcontractor list",
+        "subcontracting assessment",
+        "RoI records"
+      ],
+      "suggestedFrequency": "Before contract + change",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/532/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-018",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Subcontractor material change notification",
+      "objective": "Ensure providers notify material changes to subcontracting arrangements in time for assessment.",
+      "platformRequirement": "Track subcontractor change notifications and require impact/risk review.",
+      "tags": [
+        "CRITICAL_IMPORTANT_FUNCTION",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 30",
+      "level2Reference": "RTS 2025/532",
+      "evidenceArtifacts": [
+        "Notification records",
+        "impact assessment",
+        "approval/objection records"
+      ],
+      "suggestedFrequency": "Per change",
+      "typicalOwner": "Vendor Manager / Legal",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/532/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-019",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Provider assurance and audits",
+      "objective": "Obtain and review assurance over providers supporting critical or important functions.",
+      "platformRequirement": "Track audit reports, SOC/ISO evidence, onsite assessments and remediation follow-up.",
+      "tags": [
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "SOC/ISO reports",
+        "audit reports",
+        "provider remediation evidence"
+      ],
+      "suggestedFrequency": "Annual / risk-based",
+      "typicalOwner": "Third-Party Risk / Internal Audit",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-020",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Intragroup ICT service oversight",
+      "objective": "Manage intragroup ICT service providers with equivalent risk management and documentation discipline.",
+      "platformRequirement": "Allow providers to be internal group entities and apply DORA TPRM controls proportionately.",
+      "tags": [
+        "DORA_FULL",
+        "INTRAGROUP",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Intragroup service agreements",
+        "risk assessments",
+        "monitoring reports"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "Group IT / TPRM",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-021",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Cloud and hosting resilience controls",
+      "objective": "Assess cloud/hosting arrangements for concentration, exit, data location, resilience and subcontracting risk.",
+      "platformRequirement": "Add cloud-specific due diligence fields and concentration dashboard.",
+      "tags": [
+        "CLOUD",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 29; Art. 30",
+      "level2Reference": "RTS 2024/1773; RTS 2025/532; ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Cloud risk assessment",
+        "architecture",
+        "resilience reports",
+        "exit plan"
+      ],
+      "suggestedFrequency": "Annual + before contract",
+      "typicalOwner": "Cloud Owner / TPRM",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-TPR-022",
+      "domain": "09 ICT Third-Party Risk & Contracts",
+      "title": "Exit testing for critical third-party ICT services",
+      "objective": "Test exit or transition arrangements for critical/important ICT third-party services where feasible.",
+      "platformRequirement": "Schedule exit test or tabletop and record issues, dependencies and corrective actions.",
+      "tags": [
+        "CRITICAL_IMPORTANT_FUNCTION",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "RTS 2024/1773",
+      "evidenceArtifacts": [
+        "Exit test reports",
+        "tabletop outcomes",
+        "corrective actions"
+      ],
+      "suggestedFrequency": "Annual / risk-based",
+      "typicalOwner": "BCM / Vendor Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ROI-001",
+      "domain": "10 Register of Information",
+      "title": "Register of Information for ICT third-party contracts",
+      "objective": "Maintain and update a register of information for all contractual arrangements with ICT third-party service providers.",
+      "platformRequirement": "Create RoI module linked to supplier, contract, service, function, data and subcontractor records.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28(3)",
+      "level2Reference": "ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Register of Information",
+        "contract inventory",
+        "supplier records"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "Third-Party Risk Manager / Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2024/2956/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ROI-002",
+      "domain": "10 Register of Information",
+      "title": "Entity, sub-consolidated and consolidated RoI levels",
+      "objective": "Maintain RoI at entity level and, where relevant, sub-consolidated/consolidated levels.",
+      "platformRequirement": "Support entity hierarchy and roll-up reporting for RoI submissions.",
+      "tags": [
+        "DORA_FULL",
+        "GROUP",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28(3)",
+      "level2Reference": "ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Entity RoI",
+        "group RoI",
+        "consolidation mapping"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "Compliance / Group Risk",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2024/2956/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ROI-003",
+      "domain": "10 Register of Information",
+      "title": "RoI template alignment",
+      "objective": "Align RoI content, structure and format to the EU standard templates.",
+      "platformRequirement": "Implement data fields, validation rules and export aligned to Implementing Regulation 2024/2956.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28(9)",
+      "level2Reference": "ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Template mapping",
+        "validation report",
+        "exported RoI"
+      ],
+      "suggestedFrequency": "Annual + on request",
+      "typicalOwner": "Compliance / Data Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2024/2956/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ROI-004",
+      "domain": "10 Register of Information",
+      "title": "RoI ownership and update process",
+      "objective": "Define ownership and procedures for maintaining complete and accurate RoI data.",
+      "platformRequirement": "Assign field-level owners, update triggers, completeness checks and approvals.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28(3)",
+      "level2Reference": "ITS 2024/2956",
+      "evidenceArtifacts": [
+        "RoI procedure",
+        "ownership matrix",
+        "update logs",
+        "quality checks"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "Compliance / Vendor Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2024/2956/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ROI-005",
+      "domain": "10 Register of Information",
+      "title": "RoI supervisory submission readiness",
+      "objective": "Ensure RoI can be submitted to competent authorities annually or upon request.",
+      "platformRequirement": "Create export, validation and submission workflow with evidence of submission.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28(3); Art. 28(9)",
+      "level2Reference": "ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Exported RoI",
+        "validation evidence",
+        "submission receipt"
+      ],
+      "suggestedFrequency": "Annual + on request",
+      "typicalOwner": "Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://www.bankofgreece.gr/en/main-tasks/supervision/dora-digital-operational-resilience-act-for-the-financial-sector",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ROI-006",
+      "domain": "10 Register of Information",
+      "title": "RoI data validation and completeness",
+      "objective": "Validate RoI data completeness, consistency and format before submission.",
+      "platformRequirement": "Implement validation rules for mandatory fields, duplicate relationships and invalid values.",
+      "tags": [
+        "DORA_FULL",
+        "DORA_SIMPLIFIED",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28(9)",
+      "level2Reference": "ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Validation report",
+        "data quality dashboard",
+        "remediation logs"
+      ],
+      "suggestedFrequency": "Quarterly + before submission",
+      "typicalOwner": "Compliance / Data Quality Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2024/2956/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ROI-007",
+      "domain": "10 Register of Information",
+      "title": "RoI linkage to critical/important functions",
+      "objective": "Link RoI records to the critical or important functions supported by each ICT service.",
+      "platformRequirement": "Require function mapping for all critical/important service records.",
+      "tags": [
+        "CRITICAL_IMPORTANT_FUNCTION",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "ITS 2024/2956",
+      "evidenceArtifacts": [
+        "RoI-function mappings",
+        "criticality classification",
+        "contract records"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_impl/2024/2956/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-ROI-008",
+      "domain": "10 Register of Information",
+      "title": "RoI subcontractor chain data",
+      "objective": "Capture subcontractor chain data required for ICT services and material subcontracting arrangements.",
+      "platformRequirement": "Link subcontractors to provider, service, function, country and data location records.",
+      "tags": [
+        "CRITICAL_IMPORTANT_FUNCTION",
+        "DORA_FULL",
+        "THIRD_PARTY"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "ITS 2024/2956; RTS 2025/532",
+      "evidenceArtifacts": [
+        "Subcontractor records",
+        "RoI entries",
+        "provider notifications"
+      ],
+      "suggestedFrequency": "Continuous",
+      "typicalOwner": "Third-Party Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2025/532/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-IS-001",
+      "domain": "11 Information Sharing",
+      "title": "Information-sharing arrangement policy",
+      "objective": "Where the entity participates in cyber threat information-sharing arrangements, ensure they support resilience and comply with confidentiality and competition requirements.",
+      "platformRequirement": "Enable optional information-sharing register with participants, scope, rules and approvals.",
+      "tags": [
+        "DORA_FULL",
+        "OPTIONAL"
+      ],
+      "doraReference": "Art. 45",
+      "level2Reference": "N/A",
+      "evidenceArtifacts": [
+        "Information sharing policy",
+        "membership records",
+        "legal review"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "CISO / Legal",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-IS-002",
+      "domain": "11 Information Sharing",
+      "title": "Confidentiality and legal safeguards",
+      "objective": "Maintain safeguards for sharing cyber threat information, including confidentiality, data protection and business secrecy.",
+      "platformRequirement": "Add legal review and confidentiality controls for shared indicators/intelligence.",
+      "tags": [
+        "DORA_FULL",
+        "OPTIONAL"
+      ],
+      "doraReference": "Art. 45",
+      "level2Reference": "N/A",
+      "evidenceArtifacts": [
+        "Legal assessment",
+        "NDA/terms",
+        "shared intelligence logs"
+      ],
+      "suggestedFrequency": "Per arrangement",
+      "typicalOwner": "Legal / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-IS-003",
+      "domain": "11 Information Sharing",
+      "title": "Threat intelligence use from sharing arrangements",
+      "objective": "Use relevant shared threat intelligence to update monitoring, controls, risk assessments and incident readiness.",
+      "platformRequirement": "Link shared intelligence items to risks, detection rules, controls and incidents.",
+      "tags": [
+        "DORA_FULL",
+        "OPTIONAL"
+      ],
+      "doraReference": "Art. 45; Art. 13",
+      "level2Reference": "RTS 2024/1774",
+      "evidenceArtifacts": [
+        "Threat intelligence logs",
+        "control updates",
+        "risk updates"
+      ],
+      "suggestedFrequency": "Monthly / event-driven",
+      "typicalOwner": "Threat Intelligence / SOC",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-001",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified framework eligibility determination",
+      "objective": "Determine whether the entity falls under the simplified ICT risk management framework.",
+      "platformRequirement": "Add onboarding question and legal eligibility evidence for Article 16 profile.",
+      "tags": [
+        "CONDITIONAL",
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16(1)",
+      "level2Reference": "RTS 2024/1774 Title III",
+      "evidenceArtifacts": [
+        "Eligibility assessment",
+        "regulated entity profile",
+        "legal confirmation"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-002",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified governance and organisation",
+      "objective": "Maintain governance and control arrangements for effective ICT risk management under the simplified framework.",
+      "platformRequirement": "Enable simplified governance controls and evidence requirements.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 28",
+      "evidenceArtifacts": [
+        "Simplified governance framework",
+        "audit plan",
+        "remediation records"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "CISO / Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-003",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified information security policy",
+      "objective": "Develop and implement an information security policy protecting confidentiality, integrity, availability and authenticity.",
+      "platformRequirement": "Load simplified policy evidence fields and core control mapping.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 29",
+      "evidenceArtifacts": [
+        "Information security policy",
+        "management approval",
+        "control mapping"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-004",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified classification of functions and assets",
+      "objective": "Identify, classify and document critical or important functions, information assets, ICT assets and dependencies.",
+      "platformRequirement": "Enable simplified asset/function inventory with third-party dependencies.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 30",
+      "evidenceArtifacts": [
+        "Asset and function inventory",
+        "classifications",
+        "dependency map"
+      ],
+      "suggestedFrequency": "Annual + change",
+      "typicalOwner": "IT Operations / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-005",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified ICT risk management process",
+      "objective": "Determine ICT risk tolerance, identify/assess ICT risks, define mitigation and monitor effectiveness.",
+      "platformRequirement": "Use simplified risk register with tolerance, risk assessment and mitigation fields.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 31",
+      "evidenceArtifacts": [
+        "Simplified risk register",
+        "risk tolerance",
+        "mitigation plans"
+      ],
+      "suggestedFrequency": "Annual / risk-based",
+      "typicalOwner": "Risk Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-006",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified threat, vulnerability and alert thresholds",
+      "objective": "Monitor threats/vulnerabilities and set alert thresholds for incident response.",
+      "platformRequirement": "Add simplified threat/vulnerability review and incident trigger rules.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 31",
+      "evidenceArtifacts": [
+        "Threat/vulnerability records",
+        "alert thresholds",
+        "incident criteria"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "CISO / IT Security",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-007",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified physical and environmental security",
+      "objective": "Implement physical and environmental security measures proportionate to risk and asset criticality.",
+      "platformRequirement": "Enable core facilities/data centre evidence collection.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 32",
+      "evidenceArtifacts": [
+        "Access logs",
+        "facility controls",
+        "data centre attestations"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "Facilities / IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-008",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified access control",
+      "objective": "Develop and maintain access control measures for users, administrators and systems.",
+      "platformRequirement": "Load simplified IAM controls for provisioning, MFA, privileged access and review.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 33",
+      "evidenceArtifacts": [
+        "Access control policy",
+        "access reviews",
+        "MFA evidence"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "IAM Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-009",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified ICT operations security",
+      "objective": "Maintain ICT operations security controls to minimise ICT risk impact.",
+      "platformRequirement": "Track core operational security runbooks, monitoring and capacity controls.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 34",
+      "evidenceArtifacts": [
+        "Operations procedures",
+        "monitoring evidence",
+        "capacity reports"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "IT Operations",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-010",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified data, system and network security",
+      "objective": "Protect data, systems and networks through proportionate technical controls.",
+      "platformRequirement": "Enable simplified evidence for network, endpoint, encryption and data security controls.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 35",
+      "evidenceArtifacts": [
+        "Network controls",
+        "endpoint reports",
+        "encryption evidence"
+      ],
+      "suggestedFrequency": "Quarterly",
+      "typicalOwner": "IT Security",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-011",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified ICT security testing",
+      "objective": "Perform ICT security testing proportionate to the ICT risk profile.",
+      "platformRequirement": "Schedule simplified testing activities and track findings/remediation.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 36",
+      "evidenceArtifacts": [
+        "Test reports",
+        "vulnerability scans",
+        "remediation evidence"
+      ],
+      "suggestedFrequency": "Annual / risk-based",
+      "typicalOwner": "CISO / Testing Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-012",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified acquisition, development and maintenance",
+      "objective": "Apply security controls to ICT system acquisition, development and maintenance.",
+      "platformRequirement": "Track simplified secure change, procurement and development evidence.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 37",
+      "evidenceArtifacts": [
+        "Security requirements",
+        "change tickets",
+        "test evidence"
+      ],
+      "suggestedFrequency": "Per project/change",
+      "typicalOwner": "Application Owner",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-013",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified ICT project and change management",
+      "objective": "Manage ICT projects and changes with appropriate risk and security assessment.",
+      "platformRequirement": "Enable simplified project/change risk gate and approval evidence.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 38",
+      "evidenceArtifacts": [
+        "Project risk assessments",
+        "change approvals",
+        "implementation records"
+      ],
+      "suggestedFrequency": "Per project/change",
+      "typicalOwner": "Project Manager / Change Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-014",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified business continuity planning",
+      "objective": "Maintain ICT business continuity plans and test them proportionately.",
+      "platformRequirement": "Enable simplified BCP plan, test schedule and remediation tracking.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 39-40",
+      "evidenceArtifacts": [
+        "BCP",
+        "test reports",
+        "remediation actions"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "BCM Manager",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-SIM-015",
+      "domain": "12 Simplified ICT RMF",
+      "title": "Simplified RMF review report",
+      "objective": "Review the simplified ICT risk management framework and document outcomes.",
+      "platformRequirement": "Generate a simplified RMF review report with gaps, remediation and approvals.",
+      "tags": [
+        "DORA_SIMPLIFIED"
+      ],
+      "doraReference": "Art. 16",
+      "level2Reference": "RTS 2024/1774 Art. 41",
+      "evidenceArtifacts": [
+        "Simplified RMF review report",
+        "action plan",
+        "approvals"
+      ],
+      "suggestedFrequency": "Annual",
+      "typicalOwner": "Compliance / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1774/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-CTPP-001",
+      "domain": "13 ICT Provider / CTPP Readiness",
+      "title": "ICT provider DORA customer contract readiness",
+      "objective": "For ICT service providers serving DORA financial entities, maintain contract and assurance readiness for customer DORA obligations.",
+      "platformRequirement": "Enable provider-side profile with customer evidence pack, DORA clause support and incident notification capability.",
+      "tags": [
+        "ICT_TPP",
+        "OPTIONAL",
+        "PROVIDER_SIDE"
+      ],
+      "doraReference": "Art. 28; Art. 30",
+      "level2Reference": "RTS 2024/1773; RTS 2025/532; ITS 2024/2956",
+      "evidenceArtifacts": [
+        "Customer DORA pack",
+        "template clauses",
+        "assurance reports"
+      ],
+      "suggestedFrequency": "Annual / customer request",
+      "typicalOwner": "Provider Compliance / Legal",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg_del/2024/1773/oj/eng",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-CTPP-002",
+      "domain": "13 ICT Provider / CTPP Readiness",
+      "title": "Critical ICT third-party provider designation monitoring",
+      "objective": "For ICT third-party providers, monitor whether they are designated as critical ICT third-party service providers.",
+      "platformRequirement": "Add CTPP designation status and oversight obligations tracker.",
+      "tags": [
+        "CONDITIONAL",
+        "CTPP",
+        "ICT_TPP"
+      ],
+      "doraReference": "Art. 31-44",
+      "level2Reference": "Delegated Regulations on CTPP oversight",
+      "evidenceArtifacts": [
+        "Designation notice",
+        "oversight correspondence",
+        "compliance plan"
+      ],
+      "suggestedFrequency": "Annual / event-driven",
+      "typicalOwner": "Provider Compliance",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://www.eiopa.europa.eu/digital-operational-resilience-act-dora_en",
+      "implementationNotes": ""
+    },
+    {
+      "controlId": "DORA-CTPP-003",
+      "domain": "13 ICT Provider / CTPP Readiness",
+      "title": "Lead overseer cooperation readiness",
+      "objective": "If designated critical, support oversight requests, inspections and information submissions.",
+      "platformRequirement": "Create oversight request register and evidence workflow for CTPP profile.",
+      "tags": [
+        "CONDITIONAL",
+        "CTPP",
+        "ICT_TPP"
+      ],
+      "doraReference": "Art. 31-44",
+      "level2Reference": "RTS 2025/295; RTS 2025/420; Delegated Regulation 2024/1505",
+      "evidenceArtifacts": [
+        "Oversight request log",
+        "submitted evidence",
+        "audit/inspection records"
+      ],
+      "suggestedFrequency": "On request",
+      "typicalOwner": "Provider Compliance / CISO",
+      "defaultStatus": "Not Assessed",
+      "priority": "High",
+      "sourceUrl": "https://www.eiopa.europa.eu/digital-operational-resilience-act-dora_en",
+      "implementationNotes": ""
+    }
+  ]
+}

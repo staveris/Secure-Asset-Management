@@ -1,0 +1,281 @@
+You are working on the already deployed CyberResilience360 by Tools of Tech application.
+
+Goal:
+Add a new DORA compliance module and import the full DORA control set from the attached Excel file:
+CyberResilience360_DORA_Control_Set.xlsx
+
+Important:
+This must be implemented safely without breaking or modifying existing NIS2, NIST CSF 2.0, ISO, or any other existing control libraries, assessments, evidence records, statuses, mappings, users, organizations, or dashboards.
+
+Before making changes:
+1. Inspect the current app architecture, database schema, ORM, seed/import logic, routing, authentication, tenant/organization model, and existing control-library structure.
+2. Identify how existing frameworks and controls are stored.
+3. Create a safe implementation plan before coding.
+4. Use non-destructive migrations only.
+5. Do not rename, overwrite, delete, or re-key existing controls.
+6. Add DORA as a separate framework/library with framework code: DORA.
+7. Make all migrations idempotent and safe to run multiple times.
+8. If the Excel file is not present in the Replit attached assets or project files, stop and tell me exactly where to upload it. Do not generate a partial or fake DORA control set.
+
+DORA file structure:
+The Excel workbook contains:
+- Summary
+- DORA Control Library
+- Applicability Logic
+- References
+- Platform Fields
+- Lists
+- Control Tags
+
+The DORA Control Library sheet contains 155 controls with these columns:
+- Control_ID
+- Domain
+- Control_Title
+- Control_Objective
+- Platform_Requirement
+- Applicability_Tags
+- DORA_Reference
+- Level_2_Reference
+- Evidence_Artifacts
+- Suggested_Frequency
+- Typical_Owner
+- Default_Status
+- Priority
+- Source_URL
+- Implementation_Notes
+
+Import requirements:
+1. Import all DORA controls from the Excel sheet “DORA Control Library”.
+2. Preserve the original Control_ID values exactly, for example DORA-GOV-001.
+3. Store DORA controls under a separate framework record:
+   - framework_code: DORA
+   - framework_name: Digital Operational Resilience Act
+   - display_name: DORA Compliance & Digital Operational Resilience
+   - platform_module: DORA
+   - enabled_by_default: false
+4. Do not merge DORA controls into NIS2 or NIST control lists.
+5. Do not overwrite existing control IDs even if similar titles exist.
+6. Use upsert logic based on framework_code + control_id.
+7. Add import validation:
+   - reject empty Control_ID
+   - reject duplicate DORA Control_ID
+   - reject controls without Domain or Control_Title
+   - log imported, skipped, updated, and failed rows
+8. Add a migration/seed script that can be safely re-run.
+
+DORA applicability:
+DORA must be enabled only for organizations that are required to comply with DORA or that are ICT providers serving DORA-regulated financial entities.
+
+Add or extend an organization regulatory profile with these fields where missing:
+- dora_enabled: boolean, default false
+- dora_scope_confirmed: boolean, default false
+- dora_entity_type: enum/string nullable
+- dora_article2_in_scope: boolean, default false
+- dora_article2_exclusion: boolean, default false
+- dora_article16_simplified: boolean, default false
+- dora_microenterprise: boolean, default false
+- eu_eea_financial_entity: boolean, default false
+- competent_authority: string nullable
+- country: string nullable
+- uses_ict_third_party_services: boolean, default false
+- has_critical_or_important_functions: boolean, default false
+- ict_services_support_critical_or_important_functions: boolean, default false
+- payment_related_entity: boolean, default false
+- tlpt_selected_or_required: boolean, default false
+- participates_in_information_sharing: boolean, default false
+- ict_third_party_provider_profile: boolean, default false
+- critical_ict_third_party_provider_designated: boolean, default false
+- dora_applicability_notes: text nullable
+- dora_last_scope_review_date: date nullable
+- dora_scope_reviewed_by: user reference nullable
+
+DORA entity type options:
+Use the following options in the organization onboarding/profile UI:
+- Credit institution
+- Payment institution
+- Account information service provider
+- Electronic money institution
+- Investment firm
+- Crypto-asset service provider / issuer of asset-referenced tokens
+- Central securities depository
+- Central counterparty
+- Trading venue
+- Trade repository
+- Manager of alternative investment funds
+- Management company
+- Data reporting service provider
+- Insurance or reinsurance undertaking
+- Insurance / reinsurance / ancillary insurance intermediary
+- Institution for occupational retirement provision
+- Credit rating agency
+- Administrator of critical benchmarks
+- Crowdfunding service provider
+- Securitisation repository
+- ICT third-party service provider
+- Other / not sure
+
+Applicability logic:
+Implement a deterministic DORA applicability engine.
+
+Core rule:
+DORA controls must not appear in an organization’s active assessment unless dora_enabled = true.
+
+Set dora_enabled = true only when:
+1. dora_scope_confirmed = true, and
+2. dora_article2_in_scope = true or ict_third_party_provider_profile = true, and
+3. dora_article2_exclusion = false.
+
+If dora_article2_exclusion = true:
+- keep dora_enabled = false
+- show the organization as “DORA not applicable / excluded”
+- do not create active DORA assessment controls
+- do not remove or affect any NIS2/NIST controls
+
+If dora_article16_simplified = true:
+- assign controls tagged DORA_SIMPLIFIED
+- do not assign controls tagged only DORA_FULL
+- still allow additional relevant controls based on other tags where applicable, such as THIRD_PARTY, ROI, PAYMENT_RELATED_ENTITY, OPTIONAL, ICT_TPP, or CTPP, only if their corresponding applicability flags are true
+
+If dora_article16_simplified = false and dora_enabled = true:
+- assign controls tagged DORA_FULL
+
+Additional tag rules:
+- Assign TLPT_SELECTED controls only when tlpt_selected_or_required = true
+- Assign THIRD_PARTY controls only when uses_ict_third_party_services = true
+- Assign ROI / Register of Information controls when uses_ict_third_party_services = true
+- Assign CRITICAL_IMPORTANT_FUNCTION controls only when has_critical_or_important_functions = true or ict_services_support_critical_or_important_functions = true
+- Assign PAYMENT_RELATED_ENTITY controls only when payment_related_entity = true
+- Assign OPTIONAL information-sharing controls only when participates_in_information_sharing = true
+- Assign ICT_TPP controls only when ict_third_party_provider_profile = true
+- Assign CTPP controls only when critical_ict_third_party_provider_designated = true
+
+Do not treat every NIS2 entity as DORA applicable.
+Do not treat every organization in the financial sector as automatically DORA applicable unless scope has been confirmed.
+Provide an admin override, but require a reason/note when manually enabling or disabling DORA.
+
+UI requirements:
+1. Add a DORA module/card named:
+   “DORA Compliance & Digital Operational Resilience”
+2. Add an applicability wizard before showing the DORA assessment.
+3. The wizard should ask:
+   - Is the organization regulated in the EU/EEA financial sector?
+   - What is the DORA entity type?
+   - Has DORA scope been confirmed by legal/compliance?
+   - Does a DORA exclusion apply?
+   - Is the organization under the Article 16 simplified ICT risk management framework?
+   - Is it a microenterprise?
+   - Does it use ICT third-party service providers?
+   - Does it have critical or important functions?
+   - Do third-party ICT services support critical or important functions?
+   - Is it a payment-related entity?
+   - Has it been selected or required for TLPT?
+   - Does it participate in threat-information sharing arrangements?
+   - Is it an ICT third-party provider serving DORA financial entities?
+   - Has it been designated as a critical ICT third-party provider?
+4. Show DORA controls only after the wizard confirms applicability.
+5. For non-DORA organizations, show:
+   “DORA is currently not applicable to this organization based on the selected scope profile.”
+6. Existing NIS2/NIST dashboards must continue working unchanged.
+7. If the app already has framework filters, add DORA as another filter option.
+8. If the app already has control status dashboards, include DORA only when enabled for the organization.
+
+Assessment requirements:
+For each applicable DORA control, create an organization-specific assessment record with:
+- organization_id
+- framework_code = DORA
+- control_id
+- applicability = Applicable / Not Applicable / Conditional
+- status = Not Assessed by default
+- owner nullable
+- due_date nullable
+- evidence nullable
+- gap nullable
+- remediation_task nullable
+- last_review_date nullable
+- next_review_date based on Suggested_Frequency where possible
+- notes nullable
+
+Do not create duplicate assessment records if the import or applicability process is run again.
+
+Evidence requirements:
+Use the Evidence_Artifacts column to pre-populate suggested evidence guidance only.
+Do not create fake evidence records.
+Evidence must be user-uploaded or user-linked.
+
+Recommended DORA domains:
+Ensure the imported domains are visible in the UI:
+- Governance & Strategy
+- ICT Risk Management Framework
+- Identification & Asset Management
+- Protection & Prevention
+- Detection & Monitoring
+- Incident Management & Reporting
+- Business Continuity & Recovery
+- Testing & Assurance
+- ICT Third-Party Risk & Contracts
+- Register of Information
+- Information Sharing
+- Simplified ICT RMF
+- ICT Provider / CTPP Readiness
+
+Data safety:
+1. Do not delete existing data.
+2. Do not change existing framework codes.
+3. Do not change existing control IDs.
+4. Do not alter existing assessment statuses.
+5. Do not globally enable DORA for all organizations.
+6. Do not show DORA controls in organizations where dora_enabled = false.
+7. Do not change NIS2/NIST applicability logic.
+8. Add tests before deployment.
+
+Testing:
+Create or update tests for the following scenarios:
+1. Existing NIS2/NIST controls still load after migration.
+2. Existing organization assessments remain unchanged.
+3. DORA controls are imported successfully from the Excel file.
+4. Duplicate DORA controls are not created when import is re-run.
+5. Organization with dora_enabled = false sees no active DORA controls.
+6. Organization with confirmed full DORA scope receives DORA_FULL controls.
+7. Organization with Article 16 simplified profile receives DORA_SIMPLIFIED controls and not full-only controls.
+8. Organization not using ICT third-party providers does not receive third-party-only and Register of Information-only controls.
+9. Organization using ICT third-party providers receives third-party and Register of Information controls.
+10. TLPT controls are hidden unless tlpt_selected_or_required = true.
+11. Payment-related incident controls are assigned only to payment-related entities.
+12. ICT provider-side controls are assigned only to ICT third-party provider profiles.
+13. CTPP controls are assigned only when critical_ict_third_party_provider_designated = true.
+14. Admin override requires a note/reason.
+15. DORA dashboard appears only for organizations where DORA is enabled.
+
+Implementation details:
+- Use the current app’s existing database/ORM style.
+- If the app uses Prisma, create a Prisma migration and seed/import script.
+- If the app uses Drizzle, create a Drizzle migration and seed/import script.
+- If the app uses Supabase, create SQL migrations and a safe import function.
+- If the app uses another persistence layer, follow the existing project pattern.
+- Keep the import script in a clear location such as scripts/import-dora-controls.*
+- Keep DORA applicability logic in a reusable service/helper, not scattered across UI components.
+- Add clear logging and error handling.
+- Update the admin/settings area so DORA can be enabled only after applicability confirmation.
+- Update documentation or README with:
+  - how to upload/import the DORA control file
+  - how to run the import
+  - how DORA applicability works
+  - how to safely re-run the import
+
+Official reference URLs to keep in comments or documentation:
+- https://www.eiopa.europa.eu/digital-operational-resilience-act-dora_en
+- https://www.esma.europa.eu/press-news/esma-news/esas-publish-first-set-rules-under-dora-ict-and-third-party-risk-management
+- https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng
+
+Deliverables:
+1. Safe database migration.
+2. DORA control import script.
+3. DORA applicability engine.
+4. DORA onboarding/applicability UI.
+5. DORA assessment view.
+6. Updated filters/dashboard integration.
+7. Tests for import, applicability, and non-regression.
+8. Documentation.
+9. Final summary of exactly what changed and confirmation that existing controls were not modified.
+
+Do not deploy until tests pass.

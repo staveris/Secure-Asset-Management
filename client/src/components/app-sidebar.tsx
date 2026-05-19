@@ -47,6 +47,7 @@ import {
   Atom,
   ArrowDownToLine,
   AlertTriangle,
+  Banknote,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -86,6 +87,12 @@ export function AppSidebar() {
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [clickedFeature, setClickedFeature] = useState("");
 
+  const { data: doraModule } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/dora/module-enabled"],
+    enabled: !!user && !isPlatformAdmin,
+  });
+  const doraEnabled = !!doraModule?.enabled;
+
   const initials = user?.fullName
     ?.split(" ")
     .map((n) => n[0])
@@ -117,7 +124,13 @@ export function AppSidebar() {
             <SidebarGroupLabel>Compliance</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {tenantMenuItems.map((item) => {
+                {[
+                  ...tenantMenuItems.slice(0, 2),
+                  ...(doraEnabled
+                    ? [{ title: "DORA", url: "/dora", icon: Banknote, requiresFullAccess: false }]
+                    : []),
+                  ...tenantMenuItems.slice(2),
+                ].map((item) => {
                   const isLocked = item.requiresFullAccess && !hasFullAccess;
                   return (
                     <SidebarMenuItem key={item.title}>

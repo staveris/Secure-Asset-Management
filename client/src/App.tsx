@@ -33,6 +33,9 @@ import AdminAtomicLibrary from "@/pages/admin-atomic-library";
 import AdminAtomicImport from "@/pages/admin-atomic-import";
 import AtomicAssessments from "@/pages/atomic-assessments";
 import AtomicAssessmentDetail from "@/pages/atomic-assessment-detail";
+import DoraDashboard from "@/pages/dora-dashboard";
+import DoraWizard from "@/pages/dora-wizard";
+import DoraControls from "@/pages/dora-controls";
 import Onboarding from "@/pages/onboarding";
 import VerifyEmail from "@/pages/verify-email";
 import VerificationPending from "@/pages/verification-pending";
@@ -45,6 +48,11 @@ import { Button } from "@/components/ui/button";
 import { Lock, Mail } from "lucide-react";
 import { CookieConsent } from "@/components/cookie-consent";
 import { DemoBanner } from "@/components/demo-banner";
+import { useQuery } from "@tanstack/react-query";
+
+function useDoraEnabled() {
+  return useQuery<{ enabled: boolean }>({ queryKey: ["/api/dora/module-enabled"] });
+}
 
 function RestrictedPage() {
   return (
@@ -86,6 +94,13 @@ function WithFullAccessId({ component: Component, id }: { component: React.Compo
   return <Component id={id} />;
 }
 
+function WithDoraModule({ component: Component }: { component: React.ComponentType }) {
+  const { data, isLoading } = useDoraEnabled();
+  if (isLoading) return null;
+  if (!data?.enabled) return <RestrictedPage />;
+  return <Component />;
+}
+
 function AdminRouter() {
   return (
     <Switch>
@@ -122,6 +137,9 @@ function TenantRouter() {
       <Route path="/atomic-assessments/:id">
         {(params) => <AtomicAssessmentDetail id={params.id} />}
       </Route>
+      <Route path="/dora">{() => <WithDoraModule component={DoraDashboard} />}</Route>
+      <Route path="/dora/wizard">{() => <WithDoraModule component={DoraWizard} />}</Route>
+      <Route path="/dora/controls">{() => <WithDoraModule component={DoraControls} />}</Route>
       <Route path="/tasks">{() => <WithFullAccess component={Tasks} />}</Route>
       <Route path="/evidence">{() => <WithFullAccess component={Evidence} />}</Route>
       <Route path="/incidents">{() => <WithFullAccess component={Incidents} />}</Route>

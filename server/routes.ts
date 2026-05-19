@@ -3831,6 +3831,18 @@ export async function registerRoutes(
     const domain = req.query.domain as string | undefined;
     const search = req.query.search as string | undefined;
 
+    // DORA controls live in atomic_controls but must NEVER leak into the generic
+    // NIS2/CIR atomic flows. Only allow sourceKey=DORA when the tenant has the
+    // DORA module flag enabled, and otherwise strip DORA out of the result set.
+    const { DORA_SOURCE_KEY } = await import("./dora-applicability");
+    let doraAllowed = user.role === "PLATFORM_ADMIN";
+    if (!doraAllowed && user.tenantId) {
+      doraAllowed = await storage.isFeatureEnabled(user.tenantId, DORA_MODULE_FLAG);
+    }
+    if (sourceKey === DORA_SOURCE_KEY && !doraAllowed) {
+      return res.status(403).json({ message: "DORA module not enabled" });
+    }
+
     let tenantSubsector: string | null | undefined = undefined;
     if (user.role !== "PLATFORM_ADMIN" && user.tenantId) {
       const tenant = await storage.getTenant(user.tenantId);
@@ -3838,6 +3850,12 @@ export async function registerRoutes(
     }
 
     const result = await storage.getAtomicControlsPaginated(offset, limit, sourceKey, domain, search, tenantSubsector);
+    if (!doraAllowed && sourceKey !== DORA_SOURCE_KEY) {
+      const filtered = (result.controls || []).filter((c: any) => c.sourceKey !== DORA_SOURCE_KEY);
+      const removed = (result.controls?.length || 0) - filtered.length;
+      res.json({ ...result, controls: filtered, total: Math.max(0, (result.total || 0) - removed), page, limit });
+      return;
+    }
     res.json({ ...result, page, limit });
   });
 
@@ -4161,6 +4179,204 @@ export async function registerRoutes(
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
+  });
+
+  // ==================== DORA MODULE ====================
+  // Refs: https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng
+  //       https://www.eiopa.europa.eu/digital-operational-resilience-act-dora_en
+  //       https://www.esma.europa.eu/press-news/esma-news/esas-publish-first-set-rules-under-dora-ict-and-third-party-risk-management
+
+  const DORA_MODULE_FLAG = "DORA_MODULE";
+
+  // Server-side enforcement of the per-tenant DORA module feature flag.
+  // PLATFORM_ADMINs bypass. Tenants without the flag get a 403 — no DORA
+  // routes are reachable without the flag, even via direct API calls.
+  async function requireDoraModule(req: Request, res: Response, next: NextFunction) {
+    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    if (user.role === "PLATFORM_ADMIN") return next();
+    if (!user.tenantId) return res.status(403).json({ message: "DORA module not enabled" });
+    const enabled = await storage.isFeatureEnabled(user.tenantId, DORA_MODULE_FLAG);
+    if (!enabled) return res.status(403).json({ message: "DORA module not enabled for this organisation" });
+    next();
+  }
+
+  function emptyDoraProfile(tenantId: number) {
+    return {
+      tenantId,
+      doraEnabled: false,
+      doraScopeConfirmed: false,
+      doraEntityType: null,
+      doraArticle2InScope: false,
+      doraArticle2Exclusion: false,
+      doraArticle16Simplified: false,
+      doraMicroenterprise: false,
+      euEeaFinancialEntity: false,
+      competentAuthority: null,
+      country: null,
+      usesIctThirdPartyServices: false,
+      hasCriticalOrImportantFunctions: false,
+      ictServicesSupportCriticalOrImportantFunctions: false,
+      paymentRelatedEntity: false,
+      tlptSelectedOrRequired: false,
+      participatesInInformationSharing: false,
+      ictThirdPartyProviderProfile: false,
+      criticalIctThirdPartyProviderDesignated: false,
+      doraApplicabilityNotes: null,
+      doraLastScopeReviewDate: null,
+      doraScopeReviewedBy: null,
+      adminOverrideEnabled: false,
+      adminOverrideReason: null,
+    };
+  }
+
+  async function loadDoraProfile(tenantId: number) {
+    const { db } = await import("./db");
+    const { doraRegulatoryProfile } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    const [row] = await db.select().from(doraRegulatoryProfile).where(eq(doraRegulatoryProfile.tenantId, tenantId));
+    return row || null;
+  }
+
+  // GET /api/dora/profile — get this tenant's DORA regulatory profile (defaults if absent)
+  app.get("/api/dora/profile", requireAuth, requireDoraModule, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+    const profile = (await loadDoraProfile(user.tenantId)) || emptyDoraProfile(user.tenantId);
+    res.json(profile);
+  });
+
+  // PUT /api/dora/profile — upsert wizard answers; auto-computes doraEnabled
+  app.put("/api/dora/profile", requireAuth, requireDoraModule, requireWriteAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+    const { db } = await import("./db");
+    const { doraRegulatoryProfile } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    const { decideDoraApplicability } = await import("./dora-applicability");
+
+    const allowedFields = new Set([
+      "doraScopeConfirmed",
+      "doraEntityType",
+      "doraArticle2InScope",
+      "doraArticle2Exclusion",
+      "doraArticle16Simplified",
+      "doraMicroenterprise",
+      "euEeaFinancialEntity",
+      "competentAuthority",
+      "country",
+      "usesIctThirdPartyServices",
+      "hasCriticalOrImportantFunctions",
+      "ictServicesSupportCriticalOrImportantFunctions",
+      "paymentRelatedEntity",
+      "tlptSelectedOrRequired",
+      "participatesInInformationSharing",
+      "ictThirdPartyProviderProfile",
+      "criticalIctThirdPartyProviderDesignated",
+      "doraApplicabilityNotes",
+    ]);
+    const patch: Record<string, any> = {};
+    for (const k of Object.keys(req.body || {})) {
+      if (allowedFields.has(k)) patch[k] = (req.body as any)[k];
+    }
+
+    const existing = await loadDoraProfile(user.tenantId);
+    const merged: any = { ...(existing || emptyDoraProfile(user.tenantId)), ...patch };
+
+    // Admin override: only PLATFORM_ADMIN or TENANT_ADMIN can flip override flags
+    const isAdmin = user.role === "PLATFORM_ADMIN" || user.role === "TENANT_ADMIN";
+    if (typeof req.body?.adminOverrideEnabled === "boolean") {
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Only admins can set the override flag" });
+      }
+      if (req.body.adminOverrideEnabled && !req.body?.adminOverrideReason?.trim()) {
+        return res.status(400).json({ message: "adminOverrideReason is required when adminOverrideEnabled=true" });
+      }
+      merged.adminOverrideEnabled = req.body.adminOverrideEnabled;
+      merged.adminOverrideReason = req.body.adminOverrideEnabled ? (req.body.adminOverrideReason || null) : null;
+    }
+
+    // Compute final decision AFTER applying every mutation (incl. override) so what
+    // we persist, log, and return all reflect the same authoritative outcome.
+    const finalDecision = decideDoraApplicability(merged);
+    merged.doraEnabled = finalDecision.doraApplicable;
+
+    merged.doraLastScopeReviewDate = new Date();
+    merged.doraScopeReviewedBy = user.id;
+
+    if (existing) {
+      await db
+        .update(doraRegulatoryProfile)
+        .set({ ...merged, updatedAt: new Date() } as any)
+        .where(eq(doraRegulatoryProfile.tenantId, user.tenantId));
+    } else {
+      await db.insert(doraRegulatoryProfile).values(merged as any);
+    }
+
+    await storage.createAuditLog({
+      actorUserId: user.id,
+      tenantId: user.tenantId,
+      action: "UPDATE",
+      entityType: "DoraRegulatoryProfile",
+      entityId: String(user.tenantId),
+      details: {
+        doraEnabled: merged.doraEnabled,
+        reason: finalDecision.reason,
+        overridden: !!merged.adminOverrideEnabled,
+        simplifiedMode: finalDecision.simplifiedMode,
+      },
+    });
+
+    const fresh = await loadDoraProfile(user.tenantId);
+    res.json({ profile: fresh, decision: finalDecision });
+  });
+
+  // GET /api/dora/controls — DORA controls applicable to this tenant
+  app.get("/api/dora/controls", requireAuth, requireDoraModule, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+    const { db } = await import("./db");
+    const { atomicControls } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+    const { DORA_SOURCE_KEY, computeApplicableDoraControls, decideDoraApplicability, isControlApplicable } =
+      await import("./dora-applicability");
+
+    const profile = (await loadDoraProfile(user.tenantId)) || emptyDoraProfile(user.tenantId);
+    const decision = decideDoraApplicability(profile);
+    const all = await db
+      .select()
+      .from(atomicControls)
+      .where(and(eq(atomicControls.sourceKey, DORA_SOURCE_KEY), eq(atomicControls.isActive, true)));
+
+    if (!decision.doraApplicable) {
+      return res.json({ applicable: false, decision, controls: [], totalControls: all.length });
+    }
+
+    const applicable = computeApplicableDoraControls(profile, all);
+    // Optional: include the reason for each NON-applicable one when ?debug=1
+    const debug = req.query.debug === "1";
+    const debugInfo = debug
+      ? all.map((c) => ({ controlId: c.controlId, ...isControlApplicable(profile, c) }))
+      : undefined;
+    res.json({
+      applicable: true,
+      decision,
+      controls: applicable,
+      totalControls: all.length,
+      applicableCount: applicable.length,
+      ...(debug ? { debug: debugInfo } : {}),
+    });
+  });
+
+  // GET /api/dora/module-enabled — whether tenant can see the DORA module at all
+  app.get("/api/dora/module-enabled", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    if (user.role === "PLATFORM_ADMIN") return res.json({ enabled: true });
+    if (!user.tenantId) return res.json({ enabled: false });
+    const enabled = await storage.isFeatureEnabled(user.tenantId, DORA_MODULE_FLAG);
+    res.json({ enabled });
   });
 
   app.get("/api/admin/atomic-import/repo-file", requireAuth, async (req, res) => {

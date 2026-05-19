@@ -986,6 +986,43 @@ export const insertTenantDailyAtomicSnapshotSchema = createInsertSchema(tenantDa
 export type TenantDailyAtomicSnapshot = typeof tenantDailyAtomicSnapshots.$inferSelect;
 export type InsertTenantDailyAtomicSnapshot = z.infer<typeof insertTenantDailyAtomicSnapshotSchema>;
 
+// ----- DORA module -----
+export const doraRegulatoryProfile = pgTable("dora_regulatory_profile", {
+  tenantId: integer("tenant_id").primaryKey().references(() => tenants.id, { onDelete: "cascade" }),
+  doraEnabled: boolean("dora_enabled").notNull().default(false),
+  doraScopeConfirmed: boolean("dora_scope_confirmed").notNull().default(false),
+  doraEntityType: text("dora_entity_type"),
+  doraArticle2InScope: boolean("dora_article2_in_scope").notNull().default(false),
+  doraArticle2Exclusion: boolean("dora_article2_exclusion").notNull().default(false),
+  doraArticle16Simplified: boolean("dora_article16_simplified").notNull().default(false),
+  doraMicroenterprise: boolean("dora_microenterprise").notNull().default(false),
+  euEeaFinancialEntity: boolean("eu_eea_financial_entity").notNull().default(false),
+  competentAuthority: text("competent_authority"),
+  country: text("country"),
+  usesIctThirdPartyServices: boolean("uses_ict_third_party_services").notNull().default(false),
+  hasCriticalOrImportantFunctions: boolean("has_critical_or_important_functions").notNull().default(false),
+  ictServicesSupportCriticalOrImportantFunctions: boolean("ict_services_support_critical_or_important_functions").notNull().default(false),
+  paymentRelatedEntity: boolean("payment_related_entity").notNull().default(false),
+  tlptSelectedOrRequired: boolean("tlpt_selected_or_required").notNull().default(false),
+  participatesInInformationSharing: boolean("participates_in_information_sharing").notNull().default(false),
+  ictThirdPartyProviderProfile: boolean("ict_third_party_provider_profile").notNull().default(false),
+  criticalIctThirdPartyProviderDesignated: boolean("critical_ict_third_party_provider_designated").notNull().default(false),
+  doraApplicabilityNotes: text("dora_applicability_notes"),
+  doraLastScopeReviewDate: timestamp("dora_last_scope_review_date"),
+  doraScopeReviewedBy: integer("dora_scope_reviewed_by").references(() => users.id),
+  adminOverrideEnabled: boolean("admin_override_enabled").notNull().default(false),
+  adminOverrideReason: text("admin_override_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertDoraRegulatoryProfileSchema = createInsertSchema(doraRegulatoryProfile).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+export type DoraRegulatoryProfile = typeof doraRegulatoryProfile.$inferSelect;
+export type InsertDoraRegulatoryProfile = z.infer<typeof insertDoraRegulatoryProfileSchema>;
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
