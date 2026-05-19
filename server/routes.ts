@@ -2856,6 +2856,154 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  // ==================== NIS2 ART.21 CYBER RISK REGISTER ====================
+  const NIS2_ART21_LIBRARY_CODE = "NIS2_ART21_CYBER_RISKS";
+  const NIS2_ART21_FLAG = "NIS2_ART21_RISK_REGISTER";
+
+  async function requireNis2Art21(req: Request, res: Response, next: NextFunction) {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+    const enabled = await storage.isFeatureEnabled(user.tenantId, NIS2_ART21_FLAG);
+    if (!enabled) return res.status(403).json({ message: "NIS2 Art.21 risk register is not enabled for this tenant" });
+    next();
+  }
+
+  app.get("/api/risk-library/nis2-art21", requireAuth, requireFullAccess, requireNis2Art21, async (_req, res) => {
+    const entries = await storage.getRiskLibrary(NIS2_ART21_LIBRARY_CODE);
+    res.json(entries);
+  });
+
+  app.get("/api/tenant-risk-register", requireAuth, requireFullAccess, requireNis2Art21, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+    const libraryCode = (req.query.libraryCode as string) || NIS2_ART21_LIBRARY_CODE;
+    if (libraryCode !== NIS2_ART21_LIBRARY_CODE) return res.status(400).json({ message: "Unsupported libraryCode" });
+    const items = await storage.getTenantRiskRegister(user.tenantId, libraryCode);
+    res.json(items);
+  });
+
+  app.get("/api/tenant-risk-register/summary", requireAuth, requireFullAccess, requireNis2Art21, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+    const libraryCode = (req.query.libraryCode as string) || NIS2_ART21_LIBRARY_CODE;
+    if (libraryCode !== NIS2_ART21_LIBRARY_CODE) return res.status(400).json({ message: "Unsupported libraryCode" });
+    const items = await storage.getTenantRiskRegister(user.tenantId, libraryCode);
+    const byRating: Record<string, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Unrated: 0 };
+    const byStatus: Record<string, number> = {};
+    const byCategory: Record<string, number> = {};
+    for (const it of items) {
+      const r = it.residualRiskRating || it.inherentRiskRating || "Unrated";
+      byRating[r] = (byRating[r] || 0) + 1;
+      byStatus[it.status] = (byStatus[it.status] || 0) + 1;
+      byCategory[it.category] = (byCategory[it.category] || 0) + 1;
+    }
+    res.json({
+      total: items.length,
+      libraryTotal: (await storage.getRiskLibrary(libraryCode)).length,
+      byRating,
+      byStatus,
+      byCategory,
+    });
+  });
+
+  app.post("/api/tenant-risk-register/generate", requireAuth, requireWriteAccess, requireFullAccess, requireNis2Art21, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+    const { libraryCode: rawCode, reason } = req.body || {};
+    const libraryCode = rawCode || NIS2_ART21_LIBRARY_CODE;
+    if (libraryCode !== NIS2_ART21_LIBRARY_CODE) return res.status(400).json({ message: "Unsupported libraryCode" });
+    if (!reason || typeof reason !== "string" || reason.trim().length < 3) {
+      return res.status(400).json({ message: "A reason (min 3 chars) is required to generate the register" });
+    }
+    const result = await storage.generateTenantRiskRegister(user.tenantId, libraryCode);
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "GENERATE",
+      entityType: "TENANT_RISK_REGISTER",
+      entityId: libraryCode,
+      details: { reason: reason.trim(), created: result.created, alreadyExisting: result.existing },
+    });
+    res.json(result);
+  });
+
+  app.patch("/api/tenant-risk-register/:id", requireAuth, requireWriteAccess, requireFullAccess, requireNis2Art21, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+    const id = parseInt(req.params.id);
+    const existing = await storage.getTenantRiskRegisterItem(id);
+    if (!existing || existing.tenantId !== user.tenantId) {
+      return res.status(404).json({ message: "Not found" });
+    }
+    if (existing.libraryCode !== NIS2_ART21_LIBRARY_CODE) {
+      return res.status(403).json({ message: "Item belongs to a different risk library" });
+    }
+    const allowedRating = new Set(["Low", "Medium", "High", "Critical"]);
+    const allowedLI = new Set(["Low", "Medium", "High"]);
+    const allowedStatus = new Set(["Not Assessed", "Identified", "In Treatment", "Mitigated", "Accepted", "Transferred", "Avoided", "Closed"]);
+    const allowedTreatment = new Set(["Mitigate", "Accept", "Transfer", "Avoid"]);
+    const allowedAcceptance = new Set(["", "Pending", "Approved", "Rejected"]);
+    const b = req.body || {};
+    const patch: Partial<InsertTenantRiskRegisterItem> = {};
+    if (b.status !== undefined) {
+      if (!allowedStatus.has(b.status)) return res.status(400).json({ message: `Invalid status '${b.status}'` });
+      patch.status = b.status;
+    }
+    if (b.ownerUserId !== undefined) {
+      if (b.ownerUserId === null || b.ownerUserId === "") {
+        patch.ownerUserId = null;
+      } else {
+        const ownerId = Number(b.ownerUserId);
+        if (!Number.isFinite(ownerId) || ownerId <= 0) return res.status(400).json({ message: "Invalid ownerUserId" });
+        const ownerCandidate = await storage.getUser(ownerId);
+        if (!ownerCandidate || ownerCandidate.tenantId !== user.tenantId) {
+          return res.status(400).json({ message: "ownerUserId must reference a user in your tenant" });
+        }
+        patch.ownerUserId = ownerId;
+      }
+    }
+    if (b.treatmentPlan !== undefined) patch.treatmentPlan = String(b.treatmentPlan || "");
+    if (b.treatmentOption !== undefined) {
+      if (b.treatmentOption && !allowedTreatment.has(b.treatmentOption)) return res.status(400).json({ message: "Invalid treatmentOption" });
+      patch.treatmentOption = b.treatmentOption || null;
+    }
+    if (b.residualLikelihood !== undefined) {
+      if (b.residualLikelihood && !allowedLI.has(b.residualLikelihood)) return res.status(400).json({ message: "Invalid residualLikelihood" });
+      patch.residualLikelihood = b.residualLikelihood || null;
+    }
+    if (b.residualImpact !== undefined) {
+      if (b.residualImpact && !allowedLI.has(b.residualImpact)) return res.status(400).json({ message: "Invalid residualImpact" });
+      patch.residualImpact = b.residualImpact || null;
+    }
+    if (b.residualRiskRating !== undefined) {
+      if (b.residualRiskRating && !allowedRating.has(b.residualRiskRating)) return res.status(400).json({ message: "Invalid residualRiskRating" });
+      patch.residualRiskRating = b.residualRiskRating || null;
+    }
+    if (b.dueDate !== undefined) patch.dueDate = b.dueDate ? new Date(b.dueDate) : null;
+    if (b.lastReviewDate !== undefined) patch.lastReviewDate = b.lastReviewDate ? new Date(b.lastReviewDate) : null;
+    if (b.nextReviewDate !== undefined) patch.nextReviewDate = b.nextReviewDate ? new Date(b.nextReviewDate) : null;
+    if (b.notes !== undefined) patch.notes = String(b.notes || "");
+    if (b.evidenceLinks !== undefined) {
+      if (!Array.isArray(b.evidenceLinks)) return res.status(400).json({ message: "evidenceLinks must be array" });
+      patch.evidenceLinks = b.evidenceLinks.map((x: any) => String(x)).filter((x: string) => x.length > 0 && x.length < 2048);
+    }
+    if (b.acceptanceDecision !== undefined) {
+      if (!allowedAcceptance.has(b.acceptanceDecision || "")) return res.status(400).json({ message: "Invalid acceptanceDecision" });
+      patch.acceptanceDecision = b.acceptanceDecision || null;
+    }
+
+    const updated = await storage.updateTenantRiskRegisterItem(id, patch);
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "UPDATE",
+      entityType: "TENANT_RISK_REGISTER_ITEM",
+      entityId: String(id),
+      details: { riskId: existing.riskId, fields: Object.keys(patch) },
+    });
+    res.json(updated);
+  });
+
   app.delete("/api/risks/:id", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });

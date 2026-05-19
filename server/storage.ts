@@ -129,6 +129,11 @@ import {
   type InsertSupplierException,
   type SupplierIncident,
   type InsertSupplierIncident,
+  riskLibraryEntries,
+  tenantRiskRegisterItems,
+  type RiskLibraryEntry,
+  type TenantRiskRegisterItem,
+  type InsertTenantRiskRegisterItem,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -277,6 +282,12 @@ export interface IStorage {
   getRiskItem(id: number): Promise<RiskItem | undefined>;
   updateRiskItem(id: number, data: Partial<InsertRiskItem>): Promise<RiskItem | undefined>;
   deleteRiskItem(id: number): Promise<void>;
+
+  getRiskLibrary(libraryCode: string): Promise<RiskLibraryEntry[]>;
+  getTenantRiskRegister(tenantId: number, libraryCode: string): Promise<TenantRiskRegisterItem[]>;
+  getTenantRiskRegisterItem(id: number): Promise<TenantRiskRegisterItem | undefined>;
+  generateTenantRiskRegister(tenantId: number, libraryCode: string): Promise<{ created: number; existing: number }>;
+  updateTenantRiskRegisterItem(id: number, data: Partial<InsertTenantRiskRegisterItem>): Promise<TenantRiskRegisterItem | undefined>;
 
   createAuditLog(data: { tenantId?: number | null; actorUserId?: number | null; action: string; entityType: string; entityId?: string; details?: any }): Promise<AuditLog>;
   getAuditLogs(limit?: number): Promise<AuditLog[]>;
@@ -1778,6 +1789,68 @@ export class DatabaseStorage implements IStorage {
   async getImportRun(id: number): Promise<ImportRun | undefined> {
     const [run] = await db.select().from(importRuns).where(eq(importRuns.id, id));
     return run;
+  }
+
+  async getRiskLibrary(libraryCode: string): Promise<RiskLibraryEntry[]> {
+    return db.select().from(riskLibraryEntries)
+      .where(eq(riskLibraryEntries.libraryCode, libraryCode))
+      .orderBy(asc(riskLibraryEntries.riskId));
+  }
+
+  async getTenantRiskRegister(tenantId: number, libraryCode: string): Promise<TenantRiskRegisterItem[]> {
+    return db.select().from(tenantRiskRegisterItems)
+      .where(and(
+        eq(tenantRiskRegisterItems.tenantId, tenantId),
+        eq(tenantRiskRegisterItems.libraryCode, libraryCode),
+      ))
+      .orderBy(asc(tenantRiskRegisterItems.riskId));
+  }
+
+  async getTenantRiskRegisterItem(id: number): Promise<TenantRiskRegisterItem | undefined> {
+    const [item] = await db.select().from(tenantRiskRegisterItems)
+      .where(eq(tenantRiskRegisterItems.id, id));
+    return item;
+  }
+
+  async generateTenantRiskRegister(tenantId: number, libraryCode: string): Promise<{ created: number; existing: number }> {
+    const library = await this.getRiskLibrary(libraryCode);
+    const existing = await this.getTenantRiskRegister(tenantId, libraryCode);
+    const existingByRiskId = new Set(existing.map(e => e.riskId));
+    let created = 0;
+    for (const lib of library) {
+      if (existingByRiskId.has(lib.riskId)) continue;
+      await db.insert(tenantRiskRegisterItems).values({
+        tenantId,
+        libraryCode,
+        riskId: lib.riskId,
+        libraryEntryId: lib.id,
+        category: lib.category,
+        title: lib.title,
+        riskStatement: lib.riskStatement,
+        typicalImpact: lib.typicalImpact,
+        regulatoryMapping: lib.regulatoryMapping,
+        affectedAssetsOrServices: lib.affectedAssetsOrServices,
+        inherentLikelihood: lib.defaultLikelihood,
+        inherentImpact: lib.defaultImpact,
+        inherentRiskRating: lib.defaultRiskRating,
+        treatmentOption: lib.defaultTreatmentOption,
+        treatmentDirection: lib.treatmentDirection,
+        suggestedControls: lib.suggestedControls || [],
+        suggestedEvidence: lib.suggestedEvidence || [],
+        status: lib.defaultStatus || "Not Assessed",
+        evidenceLinks: [],
+      });
+      created++;
+    }
+    return { created, existing: existing.length };
+  }
+
+  async updateTenantRiskRegisterItem(id: number, data: Partial<InsertTenantRiskRegisterItem>): Promise<TenantRiskRegisterItem | undefined> {
+    const [updated] = await db.update(tenantRiskRegisterItems)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tenantRiskRegisterItems.id, id))
+      .returning();
+    return updated;
   }
 }
 

@@ -32,6 +32,8 @@ import {
   TrendingUp, Target, ShieldX,
 } from "lucide-react";
 import type { RiskItem } from "@shared/schema";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Nis2Art21Register } from "@/components/nis2-art21-register";
 
 const RISK_COLORS = {
   critical: { color: "#dc2626", bg: "#dc262612", label: "Critical" },
@@ -241,6 +243,38 @@ function RiskCard({ risk, onEdit, onDelete }: {
 }
 
 export default function Risks() {
+  const { data: flagData } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/feature-flags/check", "NIS2_ART21_RISK_REGISTER"],
+  });
+  const registerEnabled = !!flagData?.enabled;
+
+  if (!registerEnabled) {
+    return <AdhocRisks />;
+  }
+
+  return (
+    <div className="p-6 space-y-5" data-testid="risks-page-with-tabs">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-risks-heading">Risk Register</h1>
+        <p className="text-sm text-muted-foreground mt-1">Cybersecurity risk identification and treatment per NIS2 Art. 21</p>
+      </div>
+      <Tabs defaultValue="nis2-art21" className="space-y-4">
+        <TabsList data-testid="tabs-risks">
+          <TabsTrigger value="nis2-art21" data-testid="tab-nis2-art21">NIS2 Art.21 Register</TabsTrigger>
+          <TabsTrigger value="adhoc" data-testid="tab-adhoc-risks">Ad-hoc Risks</TabsTrigger>
+        </TabsList>
+        <TabsContent value="nis2-art21">
+          <Nis2Art21Register />
+        </TabsContent>
+        <TabsContent value="adhoc">
+          <AdhocRisks embedded />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function AdhocRisks({ embedded = false }: { embedded?: boolean }) {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
   const [likelihood, setLikelihood] = useState(3);
@@ -377,11 +411,18 @@ export default function Risks() {
   const editConf = RISK_COLORS[editLevel];
 
   return (
-    <div className="p-6 space-y-5" data-testid="risks-page">
+    <div className={embedded ? "space-y-5" : "p-6 space-y-5"} data-testid="risks-page">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-risks-heading">Risk Register</h1>
-          <p className="text-sm text-muted-foreground mt-1">Cybersecurity risk identification and treatment per NIS2 Art. 21</p>
+          {!embedded && (
+            <>
+              <h1 className="text-2xl font-bold tracking-tight" data-testid="text-risks-heading">Risk Register</h1>
+              <p className="text-sm text-muted-foreground mt-1">Cybersecurity risk identification and treatment per NIS2 Art. 21</p>
+            </>
+          )}
+          {embedded && (
+            <p className="text-sm text-muted-foreground">Free-form risks recorded outside the NIS2 Art.21 reference library.</p>
+          )}
         </div>
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogTrigger asChild>
