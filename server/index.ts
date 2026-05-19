@@ -13,20 +13,33 @@ declare module "http" {
   }
 }
 
-const ALLOWED_HOST = (process.env.ALLOWED_HOST || "nis2compliance.toolsoftech.eu")
+const PRIMARY_HOST = (process.env.ALLOWED_HOST || "cyres360.toolsoftech.eu")
   .toLowerCase()
   .replace(/\.$/, "")
   .split(":")[0];
+
+// Legacy domain that should permanently redirect to PRIMARY_HOST
+const LEGACY_HOST = "nis2compliance.toolsoftech.eu";
 
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     const rawHost = (req.headers.host || "").toLowerCase().replace(/\.$/, "").split(":")[0];
-    if (rawHost !== ALLOWED_HOST) {
+
+    // Redirect legacy domain to primary domain
+    if (rawHost === LEGACY_HOST) {
+      const redirectUrl = `https://${PRIMARY_HOST}${req.originalUrl}`;
+      res.redirect(301, redirectUrl);
+      return;
+    }
+
+    // Block any other host
+    if (rawHost !== PRIMARY_HOST) {
       res.status(403).send("Forbidden");
       return;
     }
+
     next();
   });
 }
