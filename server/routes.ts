@@ -2088,7 +2088,8 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Not found" });
     }
 
-    const updated = await storage.updateIncidentCase(id, req.body);
+    const { tenantId: _t, createdBy: _c, linkedPlatformIncidentId: _l, ...safeIncidentBody } = req.body;
+    const updated = await storage.updateIncidentCase(id, safeIncidentBody);
     if (!updated) return res.status(404).json({ message: "Not found" });
 
     await storage.createAuditLog({
@@ -2506,7 +2507,8 @@ export async function registerRoutes(
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const existing = await storage.getSupplierContractById(parseInt(req.params.id));
     if (!existing || existing.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
-    const updated = await storage.updateSupplierContract(existing.id, req.body);
+    const { tenantId: _t, supplierId: _s, ...safeContractBody } = req.body;
+    const updated = await storage.updateSupplierContract(existing.id, safeContractBody);
     await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "UPDATE", entityType: "SUPPLIER_CONTRACT", entityId: req.params.id });
     res.json(updated);
   });
@@ -2529,16 +2531,20 @@ export async function registerRoutes(
   app.get("/api/supplier-contracts/:id/clauses", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
-    const instances = await storage.getContractClauseInstances(parseInt(req.params.id));
+    const contract = await storage.getSupplierContractById(parseInt(req.params.id));
+    if (!contract || contract.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
+    const instances = await storage.getContractClauseInstances(contract.id);
     res.json(instances);
   });
 
   app.post("/api/supplier-contracts/:id/clauses", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    const contract = await storage.getSupplierContractById(parseInt(req.params.id));
+    if (!contract || contract.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
     const { clauseLibraryId, isIncluded, notes } = req.body;
     const instance = await storage.createContractClauseInstance({
-      contractId: parseInt(req.params.id), clauseLibraryId, isIncluded: isIncluded ?? false, notes: notes || null,
+      contractId: contract.id, clauseLibraryId, isIncluded: isIncluded ?? false, notes: notes || null,
     });
     await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "CREATE", entityType: "CONTRACT_CLAUSE_INSTANCE", entityId: String(instance.id) });
     res.json(instance);
@@ -2631,7 +2637,8 @@ export async function registerRoutes(
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const existing = await storage.getSupplierIncidentById(parseInt(req.params.id));
     if (!existing || existing.tenantId !== user.tenantId) return res.status(404).json({ message: "Not found" });
-    const updated = await storage.updateSupplierIncident(existing.id, req.body);
+    const { tenantId: _t, supplierId: _s, ...safeSupplierIncidentBody } = req.body;
+    const updated = await storage.updateSupplierIncident(existing.id, safeSupplierIncidentBody);
     await storage.createAuditLog({ tenantId: user.tenantId, actorUserId: user.id, action: "UPDATE", entityType: "SUPPLIER_INCIDENT", entityId: req.params.id });
     res.json(updated);
   });
@@ -3309,7 +3316,13 @@ export async function registerRoutes(
 
       const { role, isActive, fullName, fullAccessEnabled } = req.body;
       const updates: any = {};
-      if (role !== undefined) updates.role = role;
+      if (role !== undefined) {
+        const tenantAssignableRoles = ["TENANT_ADMIN", "TENANT_MANAGER", "TENANT_USER", "READONLY_AUDITOR"];
+        if (user.role === "TENANT_ADMIN" && !tenantAssignableRoles.includes(role)) {
+          return res.status(403).json({ message: "Tenant admins cannot assign this role" });
+        }
+        updates.role = role;
+      }
       if (isActive !== undefined) updates.isActive = isActive;
       if (fullName !== undefined) updates.fullName = fullName;
       if (fullAccessEnabled !== undefined) updates.fullAccessEnabled = fullAccessEnabled;
@@ -3449,6 +3462,11 @@ export async function registerRoutes(
       const { reason } = req.body;
       if (!reason) return res.status(400).json({ message: "Reason required" });
 
+      const evidence = await storage.getEvidenceItem(id);
+      if (!evidence || evidence.tenantId !== user.tenantId) {
+        return res.status(404).json({ message: "Evidence not found" });
+      }
+
       const request = await storage.createEvidenceUnlockRequest({
         evidenceId: id,
         tenantId: user.tenantId,
@@ -3481,13 +3499,24 @@ export async function registerRoutes(
       }
 
       const requestId = parseInt(req.params.id);
+      const unlockRequest = await storage.getEvidenceUnlockRequest(requestId);
+      if (!unlockRequest || (unlockRequest.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
+        return res.status(404).json({ message: "Unlock request not found" });
+      }
+
+      const evidenceForRequest = await storage.getEvidenceItem(unlockRequest.evidenceId);
+      const effectiveTenantId = user.role === "PLATFORM_ADMIN" ? unlockRequest.tenantId : user.tenantId;
+      if (!evidenceForRequest || evidenceForRequest.tenantId !== effectiveTenantId) {
+        return res.status(404).json({ message: "Evidence not found" });
+      }
+
       const updated = await storage.updateEvidenceUnlockRequest(requestId, {
         status: "APPROVED",
         approvedBy: user.id,
       });
 
       if (updated) {
-        await storage.unlockEvidence(updated.evidenceId);
+        await storage.unlockEvidenceForTenant(updated.evidenceId, effectiveTenantId);
         await storage.createEvidenceAccessLog({
           evidenceId: updated.evidenceId,
           actorUserId: user.id,
@@ -3815,7 +3844,8 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Access denied" });
     }
     if (user.role === "READONLY_AUDITOR") return res.status(403).json({ message: "Auditors cannot modify assessments" });
-    const updated = await storage.updateAtomicAssessment(assessment.id, req.body);
+    const { tenantId: _t, createdBy: _c, ...safeAtomicBody } = req.body;
+    const updated = await storage.updateAtomicAssessment(assessment.id, safeAtomicBody);
     res.json(updated);
   });
 

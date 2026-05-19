@@ -196,8 +196,10 @@ export interface IStorage {
   createEvidenceAccessLog(data: InsertEvidenceAccessLog): Promise<EvidenceAccessLog>;
   getEvidenceAccessLogs(evidenceId: number): Promise<EvidenceAccessLog[]>;
   createEvidenceUnlockRequest(data: InsertEvidenceUnlockRequest): Promise<EvidenceUnlockRequest>;
+  getEvidenceUnlockRequest(id: number): Promise<EvidenceUnlockRequest | undefined>;
   getEvidenceUnlockRequests(tenantId: number): Promise<EvidenceUnlockRequest[]>;
   updateEvidenceUnlockRequest(id: number, data: {status: string, approvedBy: number}): Promise<EvidenceUnlockRequest | undefined>;
+  unlockEvidenceForTenant(evidenceId: number, tenantId: number): Promise<EvidenceItem | undefined>;
 
   createIncidentCase(data: InsertIncidentCase): Promise<IncidentCase>;
   getIncidentCase(id: number): Promise<IncidentCase | undefined>;
@@ -683,6 +685,14 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
+  async unlockEvidenceForTenant(evidenceId: number, tenantId: number): Promise<EvidenceItem | undefined> {
+    const [item] = await db.update(evidenceItems)
+      .set({ lockedAt: null, lockedBy: null, lockReason: null })
+      .where(and(eq(evidenceItems.id, evidenceId), eq(evidenceItems.tenantId, tenantId)))
+      .returning();
+    return item;
+  }
+
   async createEvidenceAccessLog(data: InsertEvidenceAccessLog): Promise<EvidenceAccessLog> {
     const [log] = await db.insert(evidenceAccessLogs).values(data).returning();
     return log;
@@ -696,6 +706,11 @@ export class DatabaseStorage implements IStorage {
 
   async createEvidenceUnlockRequest(data: InsertEvidenceUnlockRequest): Promise<EvidenceUnlockRequest> {
     const [request] = await db.insert(evidenceUnlockRequests).values(data).returning();
+    return request;
+  }
+
+  async getEvidenceUnlockRequest(id: number): Promise<EvidenceUnlockRequest | undefined> {
+    const [request] = await db.select().from(evidenceUnlockRequests).where(eq(evidenceUnlockRequests.id, id));
     return request;
   }
 
