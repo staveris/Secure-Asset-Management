@@ -37,7 +37,8 @@ import {
 import { Switch as SwitchUI } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom, Pencil, Shield, UserPlus, Send, X, Clock, AlertCircle } from "lucide-react";
+import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom, Pencil, Shield, UserPlus, Send, X, Clock, AlertCircle, Flag } from "lucide-react";
+import { FEATURE_FLAG_REGISTRY, getFeatureFlagDefinition, type FeatureFlagDefinition } from "@shared/feature-flags";
 
 interface TenantInfo {
   id: number;
@@ -620,34 +621,54 @@ export default function AdminTenants() {
                     </Button>
                   </div>
                 </div>
-                {expandedTenant === tenant.id && (
+                {expandedTenant === tenant.id && (() => {
+                  const flagsForTenant = (tenantFeatureFlags || []).filter(
+                    (f: any) => f.tenantId === tenant.id || f.tenantId === null
+                  );
+                  const flagIndex = new Map<string, any>();
+                  for (const f of flagsForTenant) {
+                    const existing = flagIndex.get(f.key);
+                    if (!existing || (f.tenantId === tenant.id && existing.tenantId === null)) {
+                      flagIndex.set(f.key, f);
+                    }
+                  }
+                  const knownKeys = new Set(FEATURE_FLAG_REGISTRY.map(f => f.key));
+                  const unknownDefs: FeatureFlagDefinition[] = Array.from(flagIndex.keys())
+                    .filter(k => !knownKeys.has(k))
+                    .map(k => ({ key: k, label: k, description: "Custom feature flag" }));
+                  const allDefs = [...FEATURE_FLAG_REGISTRY, ...unknownDefs];
+                  const flagSlug = (k: string) => k.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+                  const iconFor = (def: FeatureFlagDefinition) => {
+                    if (def.icon === "atom") return <Atom className="w-4 h-4 text-primary shrink-0" />;
+                    if (def.icon === "shield") return <Shield className="w-4 h-4 text-primary shrink-0" />;
+                    return <Flag className="w-4 h-4 text-primary shrink-0" />;
+                  };
+                  return (
                   <div className="mt-4 pt-4 border-t space-y-2">
-                    <div className="flex items-center gap-3 p-2 rounded-md bg-muted/30 mb-2" data-testid={`atomic-flag-row-${tenant.id}`}>
-                      <Atom className="w-4 h-4 text-primary shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">Atomic Assessments Add-on</p>
-                        <p className="text-xs text-muted-foreground">Granular NIS2/CIR control-level compliance</p>
-                      </div>
-                      <SwitchUI
-                        checked={tenantFeatureFlags?.some((f: any) => f.key === "ATOMIC_ASSESSMENTS" && f.enabled) ?? false}
-                        onCheckedChange={(checked) => featureFlagMutation.mutate({ tenantId: tenant.id, key: "ATOMIC_ASSESSMENTS", enabled: checked })}
-                        disabled={featureFlagMutation.isPending}
-                        data-testid={`switch-atomic-flag-${tenant.id}`}
-                      />
-                    </div>
-                    <div className="flex items-center gap-3 p-2 rounded-md bg-muted/30 mb-3" data-testid={`dora-flag-row-${tenant.id}`}>
-                      <Shield className="w-4 h-4 text-primary shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">DORA Module</p>
-                        <p className="text-xs text-muted-foreground">Enables the DORA dashboard, wizard, and controls for this tenant.</p>
-                      </div>
-                      <SwitchUI
-                        checked={tenantFeatureFlags?.some((f: any) => f.key === "DORA_MODULE" && f.enabled) ?? false}
-                        onCheckedChange={(checked) => featureFlagMutation.mutate({ tenantId: tenant.id, key: "DORA_MODULE", enabled: checked })}
-                        disabled={featureFlagMutation.isPending}
-                        data-testid={`switch-dora-flag-${tenant.id}`}
-                      />
-                    </div>
+                    {allDefs.map((def, idx) => {
+                      const flag = flagIndex.get(def.key);
+                      const checked = !!flag?.enabled;
+                      const isLast = idx === allDefs.length - 1;
+                      return (
+                        <div
+                          key={def.key}
+                          className={`flex items-center gap-3 p-2 rounded-md bg-muted/30 ${isLast ? "mb-3" : "mb-2"}`}
+                          data-testid={`feature-flag-row-${flagSlug(def.key)}-${tenant.id}`}
+                        >
+                          {iconFor(def)}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{def.label}</p>
+                            <p className="text-xs text-muted-foreground">{def.description}</p>
+                          </div>
+                          <SwitchUI
+                            checked={checked}
+                            onCheckedChange={(c) => featureFlagMutation.mutate({ tenantId: tenant.id, key: def.key, enabled: c })}
+                            disabled={featureFlagMutation.isPending}
+                            data-testid={`switch-feature-flag-${flagSlug(def.key)}-${tenant.id}`}
+                          />
+                        </div>
+                      );
+                    })}
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-medium text-muted-foreground">User Access Management</p>
                       <Button
@@ -791,7 +812,8 @@ export default function AdminTenants() {
                       )}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </CardContent>
             </Card>
           ))}
