@@ -151,6 +151,9 @@ export interface IStorage {
   updateUserVerificationToken(id: number, token: string, expires: Date): Promise<void>;
   createInviteToken(data: InsertInviteToken): Promise<InviteToken>;
   getInviteTokenByHash(tokenHash: string): Promise<InviteToken | undefined>;
+  getInviteToken(id: number): Promise<InviteToken | undefined>;
+  getInviteTokensByTenant(tenantId: number): Promise<InviteToken[]>;
+  updateInviteToken(id: number, data: Partial<{ tokenHash: string; expiresAt: Date; usedAt: Date | null }>): Promise<InviteToken | undefined>;
   markInviteTokenUsed(id: number): Promise<void>;
 
   createRequirement(data: InsertRequirement): Promise<Requirement>;
@@ -489,6 +492,20 @@ export class DatabaseStorage implements IStorage {
 
   async markInviteTokenUsed(id: number): Promise<void> {
     await db.update(inviteTokens).set({ usedAt: new Date() }).where(eq(inviteTokens.id, id));
+  }
+
+  async getInviteToken(id: number): Promise<InviteToken | undefined> {
+    const [token] = await db.select().from(inviteTokens).where(eq(inviteTokens.id, id));
+    return token;
+  }
+
+  async getInviteTokensByTenant(tenantId: number): Promise<InviteToken[]> {
+    return db.select().from(inviteTokens).where(eq(inviteTokens.tenantId, tenantId)).orderBy(desc(inviteTokens.createdAt));
+  }
+
+  async updateInviteToken(id: number, data: Partial<{ tokenHash: string; expiresAt: Date; usedAt: Date | null }>): Promise<InviteToken | undefined> {
+    const [token] = await db.update(inviteTokens).set(data as any).where(eq(inviteTokens.id, id)).returning();
+    return token;
   }
 
   async createRequirement(data: InsertRequirement): Promise<Requirement> {

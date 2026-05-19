@@ -37,7 +37,7 @@ import {
 import { Switch as SwitchUI } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom, Pencil, Shield, UserPlus } from "lucide-react";
+import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom, Pencil, Shield, UserPlus, Send, X, Clock, AlertCircle } from "lucide-react";
 
 interface TenantInfo {
   id: number;
@@ -116,6 +116,7 @@ export default function AdminTenants() {
   const [editTenantForm, setEditTenantForm] = useState<{ name: string; sector: string; subsector: string; entityType: string; country: string }>({ name: "", sector: "", subsector: "", entityType: "", country: "" });
   const [inviteTenant, setInviteTenant] = useState<TenantInfo | null>(null);
   const [inviteForm, setInviteForm] = useState<{ email: string; fullName: string; role: string }>({ email: "", fullName: "", role: "TENANT_USER" });
+  const [revokeInvite, setRevokeInvite] = useState<{ tenantId: number; inviteId: number; email: string } | null>(null);
 
   const { data: tenants, isLoading } = useQuery<TenantInfo[]>({
     queryKey: ["/api/admin/tenants"],
@@ -129,6 +130,42 @@ export default function AdminTenants() {
   const { data: tenantFeatureFlags } = useQuery<any[]>({
     queryKey: ["/api/admin/feature-flags", expandedTenant],
     enabled: !!expandedTenant,
+  });
+
+  const { data: pendingInvites, isLoading: invitesLoading } = useQuery<Array<{ id: number; email: string; role: string; createdAt: string; expiresAt: string; invitedBy: string; expired: boolean }>>({
+    queryKey: ["/api/admin/tenants", expandedTenant, "invites"],
+    enabled: !!expandedTenant,
+  });
+
+  const resendInviteMutation = useMutation({
+    mutationFn: async ({ tenantId, inviteId }: { tenantId: number; inviteId: number }) => {
+      const res = await apiRequest("POST", `/api/admin/tenants/${tenantId}/invites/${inviteId}/resend`, {});
+      return await res.json();
+    },
+    onSuccess: (data: any, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants", vars.tenantId, "invites"] });
+      toast({
+        title: "Invitation resent",
+        description: data?.emailSent ? "A new invitation email has been sent." : "The invitation token has been refreshed (email delivery failed — check email settings).",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const revokeInviteMutation = useMutation({
+    mutationFn: async ({ tenantId, inviteId }: { tenantId: number; inviteId: number }) => {
+      await apiRequest("DELETE", `/api/admin/tenants/${tenantId}/invites/${inviteId}`);
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants", vars.tenantId, "invites"] });
+      toast({ title: "Invitation revoked", description: "The invitation can no longer be accepted." });
+      setRevokeInvite(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   const featureFlagMutation = useMutation({
@@ -182,6 +219,7 @@ export default function AdminTenants() {
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/tenants/${vars.tenantId}/users`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants", vars.tenantId, "invites"] });
       toast({ title: "Invitation sent", description: "The user will appear in the tenant list once they accept and verify." });
       setInviteTenant(null);
       setInviteForm({ email: "", fullName: "", role: "TENANT_USER" });
@@ -686,6 +724,72 @@ export default function AdminTenants() {
                     ) : (
                       <p className="text-sm text-muted-foreground py-2">No users in this tenant</p>
                     )}
+
+                    <div className="mt-4 pt-3 border-t">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Pending Invitations {pendingInvites && pendingInvites.length > 0 ? `(${pendingInvites.length})` : ""}
+                        </p>
+                      </div>
+                      {invitesLoading ? (
+                        <Skeleton className="h-10" />
+                      ) : pendingInvites && pendingInvites.length > 0 ? (
+                        <div className="space-y-2">
+                          {pendingInvites.map(inv => (
+                            <div key={inv.id} className="flex items-center gap-3 p-2 rounded-md bg-muted/30" data-testid={`admin-invite-row-${inv.id}`}>
+                              <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-medium truncate" data-testid={`admin-text-invite-email-${inv.id}`}>{inv.email}</p>
+                                  <Badge variant="secondary" className="text-xs">{inv.role.replace(/_/g, " ")}</Badge>
+                                  {inv.expired ? (
+                                    <Badge variant="destructive" className="text-xs gap-1">
+                                      <AlertCircle className="w-3 h-3" /> Expired
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs gap-1">
+                                      <Clock className="w-3 h-3" /> Pending
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  Invited by {inv.invitedBy} · sent {new Date(inv.createdAt).toLocaleDateString()} · {inv.expired ? "expired" : "expires"} {new Date(inv.expiresAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => resendInviteMutation.mutate({ tenantId: tenant.id, inviteId: inv.id })}
+                                    disabled={resendInviteMutation.isPending}
+                                    data-testid={`button-resend-invite-${inv.id}`}
+                                  >
+                                    <Send className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Resend invitation (new token + email)</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => setRevokeInvite({ tenantId: tenant.id, inviteId: inv.id, email: inv.email })}
+                                    data-testid={`button-revoke-invite-${inv.id}`}
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Revoke invitation</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground py-1">No pending invitations</p>
+                      )}
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -705,6 +809,27 @@ export default function AdminTenants() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={!!revokeInvite} onOpenChange={(open) => !open && setRevokeInvite(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke Invitation</AlertDialogTitle>
+            <AlertDialogDescription>
+              The invitation sent to <strong>{revokeInvite?.email}</strong> will be cancelled and the link can no longer be used.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-revoke-invite">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => revokeInvite && revokeInviteMutation.mutate({ tenantId: revokeInvite.tenantId, inviteId: revokeInvite.inviteId })}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-revoke-invite"
+            >
+              {revokeInviteMutation.isPending ? "Revoking..." : "Revoke Invitation"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

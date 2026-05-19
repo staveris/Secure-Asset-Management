@@ -3262,6 +3262,133 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/tenants/:tenantId/invites", requirePlatformAdmin, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const tenant = await storage.getTenant(tenantId);
+      if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+
+      const invites = await storage.getInviteTokensByTenant(tenantId);
+      const pending = invites.filter(i => !i.usedAt);
+      const creatorIds = Array.from(new Set(pending.map(i => i.createdBy)));
+      const creators = await Promise.all(creatorIds.map(id => storage.getUser(id)));
+      const creatorMap = new Map<number, string>();
+      for (const c of creators) {
+        if (c) creatorMap.set(c.id, c.fullName || c.email);
+      }
+      const now = new Date();
+      const enriched = pending.map(i => ({
+        id: i.id,
+        email: i.email,
+        role: i.role,
+        createdAt: i.createdAt,
+        expiresAt: i.expiresAt,
+        invitedBy: creatorMap.get(i.createdBy) || "Unknown",
+        invitedById: i.createdBy,
+        expired: new Date(i.expiresAt) <= now,
+      }));
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/admin/tenants/:tenantId/invites/:inviteId/resend", requirePlatformAdmin, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const inviteId = parseInt(req.params.inviteId);
+      const tenant = await storage.getTenant(tenantId);
+      if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+
+      const invite = await storage.getInviteToken(inviteId);
+      if (!invite || invite.tenantId !== tenantId) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      if (invite.usedAt) {
+        return res.status(400).json({ message: "Invitation has already been used or revoked" });
+      }
+
+      const adminUser = await getAuthUser(req);
+      if (!adminUser) return res.status(401).json({ message: "Unauthorized" });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      const updated = await storage.updateInviteToken(inviteId, { tokenHash, expiresAt });
+
+      await storage.createAuditLog({
+        tenantId,
+        actorUserId: adminUser.id,
+        action: "INVITE_RESEND",
+        entityType: "INVITE",
+        entityId: String(inviteId),
+        details: { email: invite.email, role: invite.role, viaPlatformAdmin: true },
+      });
+
+      const baseUrl = getAppBaseUrl();
+      const inviteLink = `${baseUrl}/invite/${token}`;
+      const tenantName = tenant.name || "your organization";
+      const inviterName = adminUser.fullName || adminUser.email;
+
+      const htmlBody = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #1a1a1a;">Reminder: You've been invited to join ${tenantName}</h2>
+          <p>Hi there,</p>
+          <p>${inviterName} (Platform Admin) is re-sending your invitation to join <strong>${tenantName}</strong> on the NIS2 Readiness Platform as a <strong>${invite.role.replace("_", " ")}</strong>.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${inviteLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Accept Invitation
+            </a>
+          </div>
+          <p style="color: #666; font-size: 14px;">This invitation expires in 7 days.</p>
+          <p style="color: #666; font-size: 12px;">If the button doesn't work, copy and paste this URL into your browser:<br/>${inviteLink}</p>
+        </div>
+      `;
+
+      const emailSent = await sendGenericEmail(invite.email, `Reminder: You're invited to join ${tenantName} - NIS2 Platform`, htmlBody);
+
+      res.json({ invite: updated, inviteLink: `/invite/${token}`, emailSent });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/admin/tenants/:tenantId/invites/:inviteId", requirePlatformAdmin, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const inviteId = parseInt(req.params.inviteId);
+      const tenant = await storage.getTenant(tenantId);
+      if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+
+      const invite = await storage.getInviteToken(inviteId);
+      if (!invite || invite.tenantId !== tenantId) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      if (invite.usedAt) {
+        return res.status(400).json({ message: "Invitation has already been used or revoked" });
+      }
+
+      const adminUser = await getAuthUser(req);
+      if (!adminUser) return res.status(401).json({ message: "Unauthorized" });
+
+      await storage.markInviteTokenUsed(inviteId);
+
+      await storage.createAuditLog({
+        tenantId,
+        actorUserId: adminUser.id,
+        action: "INVITE_REVOKE",
+        entityType: "INVITE",
+        entityId: String(inviteId),
+        details: { email: invite.email, role: invite.role, viaPlatformAdmin: true },
+      });
+
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/admin/requirements", requirePlatformAdmin, async (req, res) => {
     const data = await storage.getRequirementsWithControls();
     res.json(data);
