@@ -2918,12 +2918,19 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/csv-export", requirePlatformAdmin, async (req, res) => {
+    const sanitizeCsvCell = (value: unknown): string => {
+      const str = value === null || value === undefined ? "" : String(value);
+      const escaped = str.replace(/"/g, '""');
+      const neutralized = /^[=+\-@\t\r\n]/.test(escaped) ? `'${escaped}` : escaped;
+      return `"${neutralized}"`;
+    };
+
     const data = await storage.getAdminDashboardData();
     const rows = [
       ["Tenant", "Sector", "Compliance Score %", "Tasks", "Users"],
       ...data.tenantSummaries.map((t: any) => [t.name, t.sector, t.complianceScore, t.taskCount, t.userCount]),
     ];
-    const csv = rows.map((r: any[]) => r.join(",")).join("\n");
+    const csv = rows.map((r: any[]) => r.map(sanitizeCsvCell).join(",")).join("\n");
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", "attachment; filename=nis2-platform-export.csv");
     res.send(csv);
