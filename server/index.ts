@@ -19,6 +19,8 @@ const ALLOWED_HOST = (process.env.ALLOWED_HOST || "nis2compliance.toolsoftech.eu
   .split(":")[0];
 
 if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+
   app.use((req: Request, res: Response, next: NextFunction) => {
     const rawHost = (req.headers.host || "").toLowerCase().replace(/\.$/, "").split(":")[0];
     if (rawHost !== ALLOWED_HOST) {
