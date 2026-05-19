@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Printer, Shield, ClipboardCheck, Target, FileText, AlertTriangle, CheckCircle2, TrendingUp, Building2, Calendar, Hash, BarChart3, Users, Lightbulb, Activity, Truck, ShieldAlert, FileCheck } from "lucide-react";
+import { Printer, Shield, ClipboardCheck, Target, FileText, AlertTriangle, CheckCircle2, TrendingUp, Building2, Calendar, Hash, BarChart3, Users, Lightbulb, Activity, Truck, ShieldAlert, FileCheck, AlertOctagon, FileSignature, Database, ListChecks, Gauge, ShieldCheck, Layers, ScrollText, BookOpen, Network } from "lucide-react";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
 
 interface StatusItem {
@@ -252,6 +252,26 @@ export default function Reports() {
     }[];
   }>({ queryKey: ["/api/supplier-risk-summary"] });
 
+  const { data: incidents } = useQuery<any[]>({ queryKey: ["/api/incidents"] });
+  const { data: art21Flag } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/feature-flags/check", "NIS2_ART21_RISK_REGISTER"],
+  });
+  const art21Enabled = !!art21Flag?.enabled;
+  const { data: art21Summary } = useQuery<{
+    total: number;
+    libraryTotal: number;
+    byRating: Record<string, number>;
+    byStatus: Record<string, number>;
+    byCategory: Record<string, number>;
+  }>({
+    queryKey: ["/api/tenant-risk-register/summary"],
+    enabled: art21Enabled,
+  });
+  const { data: art21Items } = useQuery<any[]>({
+    queryKey: ["/api/tenant-risk-register"],
+    enabled: art21Enabled,
+  });
+
   const isLoading = dashLoading || assessLoading;
 
   if (isLoading) {
@@ -308,6 +328,109 @@ export default function Reports() {
   const hasCirControls = cirTotal > 0;
   const hasDoraControls = doraTotal > 0;
   const hasMultipleControlSets = hasAtomicControls || hasCirControls || hasDoraControls;
+
+  // ── Enterprise computations ───────────────────────────────────────────────
+  const incidentList = Array.isArray(incidents) ? incidents : [];
+  const openIncidents = incidentList.filter((i: any) => !["CLOSED", "RECOVERED"].includes(i?.status));
+  const incidentBySeverity: Record<string, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  const incidentByStatus: Record<string, number> = {};
+  let significantCount = 0;
+  let earlyWarningOverdue = 0;
+  let notificationOverdue = 0;
+  let finalReportOverdue = 0;
+  const now = new Date();
+  for (const inc of incidentList) {
+    const sev = String(inc?.severity || "MEDIUM").toUpperCase();
+    incidentBySeverity[sev] = (incidentBySeverity[sev] || 0) + 1;
+    incidentByStatus[inc?.status || "UNKNOWN"] = (incidentByStatus[inc?.status || "UNKNOWN"] || 0) + 1;
+    if (inc?.isSignificant) significantCount += 1;
+    const isOpen = !["CLOSED", "RECOVERED"].includes(inc?.status);
+    if (isOpen) {
+      if (inc?.earlyWarningDueAt && new Date(inc.earlyWarningDueAt) < now) earlyWarningOverdue += 1;
+      if (inc?.notificationDueAt && new Date(inc.notificationDueAt) < now) notificationOverdue += 1;
+      if (inc?.finalReportDueAt && new Date(inc.finalReportDueAt) < now) finalReportOverdue += 1;
+    }
+  }
+  const incidentDeadlineBreaches = earlyWarningOverdue + notificationOverdue + finalReportOverdue;
+
+  // NIS2 Article 21(2) statutory measures and keyword mapping to existing domain categories.
+  const art21Measures: { id: string; ref: string; title: string; keywords: RegExp[] }[] = [
+    { id: "a", ref: "Art.21(2)(a)", title: "Risk analysis & information system security policies", keywords: [/risk/i, /policy|policies/i, /governance/i, /information security/i] },
+    { id: "b", ref: "Art.21(2)(b)", title: "Incident handling", keywords: [/incident/i, /detection/i, /response/i] },
+    { id: "c", ref: "Art.21(2)(c)", title: "Business continuity, backups & crisis management", keywords: [/continuity|bcp|business continuity/i, /backup/i, /crisis|disaster|drp/i, /recovery/i] },
+    { id: "d", ref: "Art.21(2)(d)", title: "Supply chain security", keywords: [/supply|supplier|third[- ]party|vendor/i] },
+    { id: "e", ref: "Art.21(2)(e)", title: "Security in acquisition, development & maintenance; vulnerability handling", keywords: [/acquisition|procurement/i, /develop|sdlc|secure development/i, /vulnerab|patch/i, /change/i] },
+    { id: "f", ref: "Art.21(2)(f)", title: "Policies to assess effectiveness of risk-management measures", keywords: [/assess|audit|measur|effective|review|kpi|metric/i] },
+    { id: "g", ref: "Art.21(2)(g)", title: "Cyber hygiene & training", keywords: [/hygiene/i, /aware|training|education/i] },
+    { id: "h", ref: "Art.21(2)(h)", title: "Cryptography & encryption policies", keywords: [/crypto|encrypt|key management|tls|ssl/i] },
+    { id: "i", ref: "Art.21(2)(i)", title: "HR security, access control & asset management", keywords: [/human resource|hr |personnel/i, /access control|identity|iam|authoris|authoriz/i, /asset/i] },
+    { id: "j", ref: "Art.21(2)(j)", title: "MFA, secured communications & emergency communications", keywords: [/mfa|multi[- ]factor|2fa/i, /communicat/i, /emergency|continuous authent/i] },
+  ];
+  const art21Coverage = art21Measures.map((m) => {
+    const matches = categories.filter((c: any) => m.keywords.some((rx) => rx.test(String(c.category || ""))));
+    if (matches.length === 0) return { ...m, pct: null as number | null, domains: [] as string[] };
+    const sum = matches.reduce((acc: number, c: any) => acc + (c.pct ?? c.score ?? 0), 0);
+    return { ...m, pct: Math.round(sum / matches.length), domains: matches.map((c: any) => c.category) };
+  });
+  const art21Mapped = art21Coverage.filter((m) => m.pct !== null).length;
+
+  // Audit-readiness composite score (0-100), weighted, bounded.
+  const evidenceTargetDenom = Math.max(totalControls, 1);
+  const evidenceRatio = Math.min(1, (dashboard.evidenceCount || 0) / Math.max(1, Math.floor(evidenceTargetDenom * 0.5)));
+  const taskHealth = (() => {
+    const total = tasks?.length ?? 0;
+    if (total === 0) return 1;
+    const open = openTasks;
+    const over = overdueTasks;
+    const okRatio = (total - open) / total;
+    const penalty = Math.min(0.5, over * 0.05);
+    return Math.max(0, okRatio - penalty);
+  })();
+  const incidentHealth = (() => {
+    if (incidentList.length === 0) return 1;
+    const breachPenalty = Math.min(0.8, incidentDeadlineBreaches * 0.15);
+    const openPenalty = Math.min(0.3, openIncidents.length * 0.03);
+    return Math.max(0, 1 - breachPenalty - openPenalty);
+  })();
+  const supplierHealth = (() => {
+    if (!supplierRisk || supplierRisk.totalSuppliers === 0) return 1;
+    const highRiskRatio = supplierRisk.highRiskSuppliers / Math.max(1, supplierRisk.totalSuppliers);
+    const overdueRatio = supplierRisk.overdueReviews / Math.max(1, supplierRisk.totalSuppliers);
+    return Math.max(0, 1 - highRiskRatio * 0.6 - overdueRatio * 0.4);
+  })();
+  const riskRegisterHealth = (() => {
+    if (!art21Summary || art21Summary.total === 0) return null as number | null;
+    const crit = art21Summary.byRating?.Critical || 0;
+    const high = art21Summary.byRating?.High || 0;
+    const ratio = (crit * 2 + high) / Math.max(1, art21Summary.total * 2);
+    return Math.max(0, 1 - ratio);
+  })();
+  const auditReadinessParts = [
+    { key: "Compliance", weight: 0.40, value: dashboard.complianceScore / 100 },
+    { key: "Maturity", weight: 0.20, value: Math.min(1, maturity / 5) },
+    { key: "Evidence coverage", weight: 0.10, value: evidenceRatio },
+    { key: "Task hygiene", weight: 0.10, value: taskHealth },
+    { key: "Incident posture", weight: 0.10, value: incidentHealth },
+    { key: "Supplier posture", weight: 0.05, value: supplierHealth },
+    ...(riskRegisterHealth !== null ? [{ key: "Risk register", weight: 0.05, value: riskRegisterHealth }] : []),
+  ];
+  const auditReadiness = Math.round(
+    auditReadinessParts.reduce((acc, p) => acc + p.weight * Math.max(0, Math.min(1, p.value)), 0) * 100
+  );
+  const auditReadinessLabel = auditReadiness >= 80 ? "Audit-Ready" : auditReadiness >= 60 ? "Substantially Ready" : auditReadiness >= 40 ? "Material Gaps" : "Not Ready";
+
+  // Period covered = current reporting quarter.
+  const quarter = Math.floor(now.getMonth() / 3) + 1;
+  const periodStart = new Date(now.getFullYear(), (quarter - 1) * 3, 1);
+  const reportPeriod = `${periodStart.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} – ${reportDate} (Q${quarter} ${now.getFullYear()})`;
+  const nextReviewDate = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  // Top residual risks from the Art.21 register (when enabled).
+  const ratingRank: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1, Unrated: 0 };
+  const topResidualRisks = (art21Items || [])
+    .slice()
+    .sort((a: any, b: any) => (ratingRank[b?.residualRiskRating || "Unrated"] || 0) - (ratingRank[a?.residualRiskRating || "Unrated"] || 0))
+    .slice(0, 10);
 
   let sectionNum = 0;
   const nextSection = () => String(++sectionNum);
@@ -417,6 +540,27 @@ export default function Reports() {
                       <p className="font-semibold text-white font-mono text-xs" data-testid="text-report-id">{reportId}</p>
                     </div>
                   </div>
+                  <div className="flex items-start gap-2">
+                    <Calendar className="w-3.5 h-3.5 text-blue-300 mt-0.5 shrink-0" />
+                    <div>
+                      <span className="text-blue-300 text-[10px] uppercase tracking-wider block">Reporting Period</span>
+                      <p className="font-semibold text-white text-xs" data-testid="text-report-period">{reportPeriod}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <FileSignature className="w-3.5 h-3.5 text-blue-300 mt-0.5 shrink-0" />
+                    <div>
+                      <span className="text-blue-300 text-[10px] uppercase tracking-wider block">Document Owner</span>
+                      <p className="font-semibold text-white text-xs" data-testid="text-report-owner">{user?.fullName || user?.email || "Compliance Lead"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Calendar className="w-3.5 h-3.5 text-blue-300 mt-0.5 shrink-0" />
+                    <div>
+                      <span className="text-blue-300 text-[10px] uppercase tracking-wider block">Next Review Due</span>
+                      <p className="font-semibold text-white text-xs" data-testid="text-report-next-review">{nextReviewDate}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="shrink-0 hidden sm:block">
@@ -453,16 +597,23 @@ export default function Reports() {
                   let tocNum = 0;
                   const tocItems = [
                     "Executive Summary",
+                    "Audit Readiness Scorecard",
                     ...(hasMultipleControlSets ? ["Control Set Compliance"] : []),
                     "Compliance by Domain",
+                    "NIS2 Article 21 Measure Coverage",
                     "Implementation Status",
                     "Maturity Assessment",
                     "Operational Summary",
+                    "Incidents & Regulatory Notification Posture",
                     ...(risks && risks.length > 0 ? ["Risk Exposure Analysis"] : []),
+                    ...(art21Enabled && art21Summary && art21Summary.total > 0 ? ["NIS2 Art.21 Risk Register Highlights"] : []),
                     ...(tasks && tasks.length > 0 ? ["Task Completion Metrics"] : []),
                     ...(supplierRisk && supplierRisk.totalSuppliers > 0 ? ["Supply Chain Risk Profile"] : []),
                     "Compliance Insights & Trend Analysis",
                     "Recommendations & Next Steps",
+                    "Applicable Legal Framework",
+                    "Methodology, Scope & Data Lineage",
+                    "Document Control & Sign-Off",
                   ];
                   return tocItems.map((item) => (
                     <div key={item} className="flex items-center gap-2">
@@ -529,6 +680,66 @@ export default function Reports() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            {/* ── AUDIT READINESS SCORECARD ── */}
+            <section className="print-section" data-testid="section-audit-readiness">
+              <SectionHeader number={nextSection()} title="Audit Readiness Scorecard" testId="heading-audit-readiness" />
+              <p className="text-sm text-muted-foreground mb-4 print:text-gray-600 leading-relaxed">
+                Composite indicator of regulatory audit-readiness, derived from weighted compliance, maturity, evidence,
+                task hygiene, incident posture{supplierRisk && supplierRisk.totalSuppliers > 0 ? ", supplier oversight" : ""}
+                {art21Enabled && art21Summary && art21Summary.total > 0 ? ", and residual risk register state" : ""}.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch">
+                <div className="border rounded-md p-5 flex flex-col items-center justify-center print:border-gray-300">
+                  <ScoreGauge score={auditReadiness} label={auditReadinessLabel} max={100} suffix="%" size={130} />
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-2 print:text-gray-500">
+                    Composite Audit Readiness
+                  </p>
+                </div>
+                <div className="sm:col-span-2 border rounded-md p-4 print:border-gray-300">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3 print:text-gray-500">Component Breakdown</p>
+                  <div className="space-y-2.5">
+                    {auditReadinessParts.map((p) => {
+                      const pct = Math.round(Math.max(0, Math.min(1, p.value)) * 100);
+                      return (
+                        <div key={p.key} className="text-xs" data-testid={`audit-readiness-${p.key.toLowerCase().replace(/[^a-z]+/g, "-")}`}>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-medium">{p.key}</span>
+                            <span className="text-muted-foreground print:text-gray-500">
+                              <span className="font-semibold text-foreground print:text-gray-900">{pct}%</span>
+                              <span className="ml-2 text-[10px]">(weight {Math.round(p.weight * 100)}%)</span>
+                            </span>
+                          </div>
+                          <MiniBar value={pct} max={100} color={getStatusColor(pct)} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="border rounded-md p-3 print:border-gray-300" data-testid="readiness-kpi-incidents">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Open Incidents</div>
+                  <div className="text-xl font-bold mt-1" style={openIncidents.length > 0 ? { color: "#ca8a04" } : { color: "#16a34a" }}>{openIncidents.length}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 print:text-gray-400">{significantCount} significant</div>
+                </div>
+                <div className="border rounded-md p-3 print:border-gray-300" data-testid="readiness-kpi-deadlines">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">EU Deadline Breaches</div>
+                  <div className="text-xl font-bold mt-1" style={incidentDeadlineBreaches > 0 ? { color: "#dc2626" } : { color: "#16a34a" }}>{incidentDeadlineBreaches}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 print:text-gray-400">across open cases</div>
+                </div>
+                <div className="border rounded-md p-3 print:border-gray-300" data-testid="readiness-kpi-art21">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Art.21 Measures Covered</div>
+                  <div className="text-xl font-bold mt-1">{art21Mapped}<span className="text-sm text-muted-foreground font-normal"> / 10</span></div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 print:text-gray-400">mapped to domains</div>
+                </div>
+                <div className="border rounded-md p-3 print:border-gray-300" data-testid="readiness-kpi-evidence">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Evidence Coverage</div>
+                  <div className="text-xl font-bold mt-1">{Math.round(evidenceRatio * 100)}%</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 print:text-gray-400">of expected baseline</div>
+                </div>
               </div>
             </section>
 
@@ -698,6 +909,72 @@ export default function Reports() {
                   </tbody>
                 </table>
               )}
+            </section>
+
+            {/* ── NIS2 ARTICLE 21 MEASURE COVERAGE (a–j) ── */}
+            <section className="print-section print-page-break" data-testid="section-art21-measures">
+              <SectionHeader number={nextSection()} title="NIS2 Article 21 Measure Coverage" testId="heading-art21-measures" />
+              <p className="text-sm text-muted-foreground mb-4 print:text-gray-600 leading-relaxed">
+                Mapping of the ten statutory risk-management measures required by Article 21(2) of Directive (EU) 2022/2555
+                against the organisation's assessed compliance domains. Per-measure coverage is computed as the average
+                implementation of the domains aligned to that measure. Measures without a matching assessed domain are flagged
+                as <span className="font-semibold">Not Mapped</span> and require attention.
+              </p>
+              <table className="w-full text-sm border-collapse" data-testid="table-art21-coverage">
+                <thead>
+                  <tr className="border-b-2 border-gray-200 dark:border-neutral-700 print:border-gray-300 bg-muted/30 print:bg-gray-50">
+                    <th className="text-center py-2 px-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-12">Ref</th>
+                    <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Statutory Measure</th>
+                    <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 hidden sm:table-cell">Mapped Domain(s)</th>
+                    <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-20">Coverage</th>
+                    <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-24">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {art21Coverage.map((m) => {
+                    const isMapped = m.pct !== null;
+                    const pct = m.pct ?? 0;
+                    const status = !isMapped ? "Not Mapped" : pct >= 80 ? "Compliant" : pct >= 50 ? "Partial" : "Gap";
+                    const statusColor = !isMapped ? "#6b7280" : pct >= 80 ? "#16a34a" : pct >= 50 ? "#ca8a04" : "#dc2626";
+                    return (
+                      <tr key={m.id} className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid={`row-art21-${m.id}`}>
+                        <td className="py-2 px-2 text-center text-[10px] font-mono text-muted-foreground print:text-gray-500">{m.id})</td>
+                        <td className="py-2 px-3">
+                          <div className="text-xs font-medium leading-snug">{m.title}</div>
+                          <div className="text-[10px] text-muted-foreground print:text-gray-500 mt-0.5">{m.ref}</div>
+                        </td>
+                        <td className="py-2 px-3 text-[11px] text-muted-foreground print:text-gray-600 hidden sm:table-cell">
+                          {m.domains.length > 0 ? m.domains.slice(0, 3).join(", ") + (m.domains.length > 3 ? ` +${m.domains.length - 3}` : "") : <span className="italic">—</span>}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {isMapped ? (
+                            <span className="text-xs font-bold" style={{ color: getStatusColor(pct) }}>{pct}%</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground print:text-gray-500">—</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm inline-block"
+                            style={{ backgroundColor: statusColor + "18", color: statusColor }}
+                          >
+                            {status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-200 dark:border-neutral-700 print:border-gray-300">
+                    <td colSpan={3} className="py-2 px-3 text-xs font-bold">Measures with mapped coverage</td>
+                    <td className="py-2 px-3 text-center text-xs font-bold">{art21Mapped}/10</td>
+                    <td className="py-2 px-3 text-center text-[10px] text-muted-foreground print:text-gray-500">
+                      {art21Mapped === 10 ? "Full statutory coverage" : `${10 - art21Mapped} unmapped`}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </section>
 
             <div className="print-page-break" />
@@ -913,6 +1190,131 @@ export default function Reports() {
                   </div>
                 </div>
               </div>
+            </section>
+
+            {/* ── INCIDENTS & REGULATORY NOTIFICATION POSTURE ── */}
+            <section className="print-section" data-testid="section-incidents">
+              <SectionHeader number={nextSection()} title="Incidents & Regulatory Notification Posture" testId="heading-incidents" />
+              <p className="text-sm text-muted-foreground mb-4 print:text-gray-600 leading-relaxed">
+                Status of cyber incident handling and Article 23 reporting obligations: 24-hour early warning, 72-hour incident
+                notification, and one-month final report. Open cases with breached statutory deadlines indicate immediate
+                regulator-facing exposure.
+              </p>
+              {incidentList.length === 0 ? (
+                <div className="border rounded-md p-6 text-center print:border-gray-300">
+                  <CheckCircle2 className="w-6 h-6 mx-auto mb-2" style={{ color: "#16a34a" }} />
+                  <p className="text-sm font-medium" style={{ color: "#16a34a" }}>No incidents recorded in the platform.</p>
+                  <p className="text-xs text-muted-foreground mt-1 print:text-gray-500">Ensure incident detection and intake processes are routing events here.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    {[
+                      { label: "Total Incidents", value: incidentList.length, tid: "kpi-incidents-total", color: undefined },
+                      { label: "Open", value: openIncidents.length, tid: "kpi-incidents-open", color: openIncidents.length > 0 ? "#ca8a04" : undefined },
+                      { label: "Significant (NIS2)", value: significantCount, tid: "kpi-incidents-significant", color: significantCount > 0 ? "#dc2626" : undefined },
+                      { label: "Deadline Breaches", value: incidentDeadlineBreaches, tid: "kpi-incidents-breaches", color: incidentDeadlineBreaches > 0 ? "#dc2626" : "#16a34a" },
+                    ].map((k) => (
+                      <div key={k.label} className="border rounded-md p-3 text-center print:border-gray-300" data-testid={k.tid}>
+                        <div className="text-xl font-bold" style={k.color ? { color: k.color } : {}}>{k.value}</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5 print:text-gray-500">{k.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="border rounded-md p-4 print:border-gray-300">
+                      <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
+                        <AlertOctagon className="w-3 h-3" /> Severity Distribution
+                      </h4>
+                      <div className="space-y-2">
+                        {[
+                          { k: "CRITICAL", color: "#dc2626" },
+                          { k: "HIGH", color: "#ea580c" },
+                          { k: "MEDIUM", color: "#ca8a04" },
+                          { k: "LOW", color: "#16a34a" },
+                        ].map((s) => {
+                          const v = incidentBySeverity[s.k] || 0;
+                          const pct = incidentList.length > 0 ? Math.round((v / incidentList.length) * 100) : 0;
+                          return (
+                            <div key={s.k} className="text-xs" data-testid={`incident-sev-${s.k.toLowerCase()}`}>
+                              <div className="flex items-center justify-between mb-1">
+                                <span>{s.k}</span>
+                                <span className="font-semibold">{v} <span className="text-muted-foreground font-normal">({pct}%)</span></span>
+                              </div>
+                              <MiniBar value={pct} max={100} color={s.color} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="border rounded-md p-4 print:border-gray-300">
+                      <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
+                        <Calendar className="w-3 h-3" /> EU Reporting Timeline (open cases)
+                      </h4>
+                      <div className="space-y-2.5 text-xs">
+                        <div className="flex items-center justify-between gap-2" data-testid="deadline-early-warning">
+                          <div>
+                            <div className="font-medium">Early Warning (24h)</div>
+                            <div className="text-[10px] text-muted-foreground print:text-gray-500">NIS2 Art. 23(4)(a)</div>
+                          </div>
+                          <span className="text-sm font-bold" style={{ color: earlyWarningOverdue > 0 ? "#dc2626" : "#16a34a" }}>{earlyWarningOverdue} overdue</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid="deadline-notification">
+                          <div>
+                            <div className="font-medium">Incident Notification (72h)</div>
+                            <div className="text-[10px] text-muted-foreground print:text-gray-500">NIS2 Art. 23(4)(b)</div>
+                          </div>
+                          <span className="text-sm font-bold" style={{ color: notificationOverdue > 0 ? "#dc2626" : "#16a34a" }}>{notificationOverdue} overdue</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid="deadline-final-report">
+                          <div>
+                            <div className="font-medium">Final Report (1 month)</div>
+                            <div className="text-[10px] text-muted-foreground print:text-gray-500">NIS2 Art. 23(4)(d)</div>
+                          </div>
+                          <span className="text-sm font-bold" style={{ color: finalReportOverdue > 0 ? "#dc2626" : "#16a34a" }}>{finalReportOverdue} overdue</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {openIncidents.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider text-muted-foreground print:text-gray-500">Open Cases (most recent {Math.min(5, openIncidents.length)})</h4>
+                      <table className="w-full text-sm border-collapse" data-testid="table-open-incidents">
+                        <thead>
+                          <tr className="border-b-2 border-gray-200 dark:border-neutral-700 print:border-gray-300">
+                            <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Title</th>
+                            <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-20">Severity</th>
+                            <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-24">Status</th>
+                            <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-28">Detected</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {openIncidents
+                            .slice()
+                            .sort((a: any, b: any) => new Date(b?.detectedAt || 0).getTime() - new Date(a?.detectedAt || 0).getTime())
+                            .slice(0, 5)
+                            .map((inc: any, idx: number) => {
+                              const sevColor = inc.severity === "CRITICAL" ? "#dc2626" : inc.severity === "HIGH" ? "#ea580c" : inc.severity === "MEDIUM" ? "#ca8a04" : "#16a34a";
+                              return (
+                                <tr key={inc.id ?? idx} className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid={`row-incident-${inc.id ?? idx}`}>
+                                  <td className="py-2 px-3 text-xs font-medium truncate max-w-xs">{inc.title || "Untitled incident"}</td>
+                                  <td className="py-2 px-3 text-center">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm inline-block" style={{ backgroundColor: sevColor + "18", color: sevColor }}>{inc.severity}</span>
+                                  </td>
+                                  <td className="py-2 px-3 text-center text-[11px] text-muted-foreground print:text-gray-600">{inc.status}</td>
+                                  <td className="py-2 px-3 text-center text-[11px] text-muted-foreground print:text-gray-600">{inc.detectedAt ? new Date(inc.detectedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
             </section>
 
             {/* ── RISK EXPOSURE ANALYSIS ── */}
@@ -1591,6 +1993,106 @@ export default function Reports() {
               </section>
             )}
 
+            {/* ── NIS2 ART.21 RISK REGISTER HIGHLIGHTS (when enabled & populated) ── */}
+            {art21Enabled && art21Summary && art21Summary.total > 0 && (
+              <section className="print-section print-page-break" data-testid="section-art21-register">
+                <SectionHeader number={nextSection()} title="NIS2 Art.21 Risk Register Highlights" testId="heading-art21-register" />
+                <p className="text-sm text-muted-foreground mb-4 print:text-gray-600 leading-relaxed">
+                  Snapshot of the tenant cyber-risk register seeded from the curated NIS2 Article 21 library
+                  ({art21Summary.total} of {art21Summary.libraryTotal} reference risks instantiated). Residual
+                  ratings reflect treatment progress and remaining exposure after controls.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                  <div className="border rounded-md p-4 print:border-gray-300">
+                    <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
+                      <ShieldAlert className="w-3 h-3" /> Residual Rating
+                    </h4>
+                    <div className="space-y-2">
+                      {[
+                        { k: "Critical", color: "#dc2626" },
+                        { k: "High", color: "#ea580c" },
+                        { k: "Medium", color: "#ca8a04" },
+                        { k: "Low", color: "#16a34a" },
+                        { k: "Unrated", color: "#6b7280" },
+                      ].map((r) => {
+                        const v = art21Summary.byRating?.[r.k] || 0;
+                        const pct = art21Summary.total > 0 ? Math.round((v / art21Summary.total) * 100) : 0;
+                        return (
+                          <div key={r.k} className="text-xs" data-testid={`art21-rating-${r.k.toLowerCase()}`}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span>{r.k}</span>
+                              <span className="font-semibold">{v} <span className="text-muted-foreground font-normal">({pct}%)</span></span>
+                            </div>
+                            <MiniBar value={pct} max={100} color={r.color} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="border rounded-md p-4 print:border-gray-300 sm:col-span-2">
+                    <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
+                      <ListChecks className="w-3 h-3" /> Treatment Status
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(art21Summary.byStatus || {})
+                        .sort((a, b) => (b[1] as number) - (a[1] as number))
+                        .map(([status, count]) => {
+                          const pct = art21Summary.total > 0 ? Math.round(((count as number) / art21Summary.total) * 100) : 0;
+                          const positive = ["Mitigated", "Closed", "Accepted", "Transferred", "Avoided"].includes(status);
+                          const inProgress = ["In Treatment", "Identified"].includes(status);
+                          const color = positive ? "#16a34a" : inProgress ? "#ca8a04" : "#6b7280";
+                          return (
+                            <div key={status} className="border rounded-md p-2 print:border-gray-300" data-testid={`art21-status-${status.toLowerCase().replace(/\s+/g, "-")}`}>
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="truncate">{status}</span>
+                                <span className="font-bold" style={{ color }}>{count as number}</span>
+                              </div>
+                              <div className="mt-1"><MiniBar value={pct} max={100} color={color} /></div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </div>
+
+                {topResidualRisks.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider text-muted-foreground print:text-gray-500">Top {topResidualRisks.length} Residual Exposures</h4>
+                    <table className="w-full text-sm border-collapse" data-testid="table-top-residual-risks">
+                      <thead>
+                        <tr className="border-b-2 border-gray-200 dark:border-neutral-700 print:border-gray-300">
+                          <th className="text-center py-2 px-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-8">#</th>
+                          <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Risk</th>
+                          <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-32 hidden sm:table-cell">Category</th>
+                          <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-24">Residual</th>
+                          <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-28">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topResidualRisks.map((r: any, idx: number) => {
+                          const rating = r?.residualRiskRating || r?.inherentRiskRating || "Unrated";
+                          const color = rating === "Critical" ? "#dc2626" : rating === "High" ? "#ea580c" : rating === "Medium" ? "#ca8a04" : rating === "Low" ? "#16a34a" : "#6b7280";
+                          return (
+                            <tr key={r.id ?? idx} className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid={`row-residual-risk-${r.id ?? idx}`}>
+                              <td className="py-2 px-2 text-center text-xs text-muted-foreground print:text-gray-500">{idx + 1}</td>
+                              <td className="py-2 px-3 text-xs font-medium leading-snug">{r?.title || r?.riskTitle || "Untitled risk"}</td>
+                              <td className="py-2 px-3 text-[11px] text-muted-foreground print:text-gray-600 hidden sm:table-cell">{r?.category || "—"}</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm inline-block" style={{ backgroundColor: color + "18", color }}>{rating}</span>
+                              </td>
+                              <td className="py-2 px-3 text-center text-[11px] text-muted-foreground print:text-gray-600">{r?.status || "—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* ── LEGAL FRAMEWORK ── */}
             <section className="print-section" data-testid="section-legal-framework">
               <SectionHeader number={nextSection()} title="Applicable Legal Framework" testId="heading-legal-framework" />
@@ -1619,6 +2121,141 @@ export default function Reports() {
                     </div>
                   </div>
                 )}
+              </div>
+            </section>
+
+            {/* ── METHODOLOGY, SCOPE & DATA LINEAGE ── */}
+            <section className="print-section print-page-break" data-testid="section-methodology">
+              <SectionHeader number={nextSection()} title="Methodology, Scope & Data Lineage" testId="heading-methodology" />
+              <p className="text-sm text-muted-foreground mb-4 print:text-gray-600 leading-relaxed">
+                This report aggregates structured assessment data, evidence, incidents, supplier records, tasks, and risk
+                register entries captured in the platform. Compliance percentages are derived from per-control
+                implementation status; maturity follows a 5-level capability maturity scale; the composite audit-readiness
+                score is a transparent weighted average of the components listed in §2.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="border rounded-md p-4 print:border-gray-300">
+                  <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
+                    <Layers className="w-3 h-3" /> Control Sets in Scope
+                  </h4>
+                  <table className="w-full text-xs">
+                    <tbody>
+                      <tr className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200">
+                        <td className="py-1.5 pr-2">NIS2 Objectives</td>
+                        <td className="py-1.5 text-right text-muted-foreground print:text-gray-600">Directive (EU) 2022/2555</td>
+                        <td className="py-1.5 pl-2 text-right font-semibold w-12">{objTotal}</td>
+                      </tr>
+                      {hasAtomicControls && (
+                        <tr className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200">
+                          <td className="py-1.5 pr-2">NIS2 Atomic Controls</td>
+                          <td className="py-1.5 text-right text-muted-foreground print:text-gray-600">Atomic ruleset</td>
+                          <td className="py-1.5 pl-2 text-right font-semibold w-12">{atomicTotal}</td>
+                        </tr>
+                      )}
+                      {hasCirControls && (
+                        <tr className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200">
+                          <td className="py-1.5 pr-2">CIR Implementing Controls</td>
+                          <td className="py-1.5 text-right text-muted-foreground print:text-gray-600">CIR (EU) 2024/2690</td>
+                          <td className="py-1.5 pl-2 text-right font-semibold w-12">{cirTotal}</td>
+                        </tr>
+                      )}
+                      {hasDoraControls && (
+                        <tr className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200">
+                          <td className="py-1.5 pr-2">DORA Controls</td>
+                          <td className="py-1.5 text-right text-muted-foreground print:text-gray-600">Reg. (EU) 2022/2554</td>
+                          <td className="py-1.5 pl-2 text-right font-semibold w-12">{doraTotal}</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td className="py-1.5 pr-2 font-bold">Total Controls</td>
+                        <td />
+                        <td className="py-1.5 pl-2 text-right font-bold w-12">{totalControls}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="border rounded-md p-4 print:border-gray-300">
+                  <h4 className="text-xs font-semibold mb-3 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
+                    <Database className="w-3 h-3" /> Data Sources & Freshness
+                  </h4>
+                  <ul className="text-xs space-y-1.5">
+                    <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-muted-foreground mt-1.5 shrink-0" /><span><span className="font-medium">Assessments:</span> {assessments?.length ?? 0} record(s)</span></li>
+                    <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-muted-foreground mt-1.5 shrink-0" /><span><span className="font-medium">Tasks:</span> {tasks?.length ?? 0} record(s)</span></li>
+                    <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-muted-foreground mt-1.5 shrink-0" /><span><span className="font-medium">Evidence items:</span> {dashboard.evidenceCount}</span></li>
+                    <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-muted-foreground mt-1.5 shrink-0" /><span><span className="font-medium">Incidents:</span> {incidentList.length}</span></li>
+                    <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-muted-foreground mt-1.5 shrink-0" /><span><span className="font-medium">Suppliers:</span> {supplierRisk?.totalSuppliers ?? suppliers?.length ?? 0}</span></li>
+                    <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-muted-foreground mt-1.5 shrink-0" /><span><span className="font-medium">Ad-hoc risks:</span> {risks?.length ?? 0}</span></li>
+                    {art21Enabled && (
+                      <li className="flex items-start gap-2"><span className="w-1 h-1 rounded-full bg-muted-foreground mt-1.5 shrink-0" /><span><span className="font-medium">Art.21 register:</span> {art21Summary?.total ?? 0} of {art21Summary?.libraryTotal ?? 0}</span></li>
+                    )}
+                    <li className="flex items-start gap-2 pt-1 mt-1 border-t border-gray-100 dark:border-neutral-800 print:border-gray-200"><span className="w-1 h-1 rounded-full bg-muted-foreground mt-1.5 shrink-0" /><span><span className="font-medium">Snapshot taken:</span> {reportDate} {reportTime}</span></li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="border rounded-md p-4 print:border-gray-300 mt-4">
+                <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider text-muted-foreground print:text-gray-500 flex items-center gap-1.5">
+                  <BookOpen className="w-3 h-3" /> Scoring Methodology
+                </h4>
+                <ul className="text-xs text-muted-foreground print:text-gray-600 space-y-1 leading-relaxed">
+                  <li><span className="font-semibold text-foreground print:text-gray-900">Compliance %</span> = implemented controls ÷ total assessed controls, per control set and aggregated.</li>
+                  <li><span className="font-semibold text-foreground print:text-gray-900">Maturity</span> follows a 0–5 capability maturity scale: 1 Initial · 2 Developing · 3 Defined · 4 Managed · 5 Optimized.</li>
+                  <li><span className="font-semibold text-foreground print:text-gray-900">Article 21 coverage</span> aligns assessed compliance domains to each of the ten statutory measures via keyword mapping; non-matching measures are flagged as <em>Not Mapped</em>.</li>
+                  <li><span className="font-semibold text-foreground print:text-gray-900">Audit readiness</span> is a weighted composite (Compliance 40%, Maturity 20%, Evidence 10%, Tasks 10%, Incidents 10%, Suppliers 5%{art21Enabled ? ", Risk Register 5%" : ""}).</li>
+                  <li><span className="font-semibold text-foreground print:text-gray-900">Limitations</span>: figures reflect data entered in the platform at snapshot time and do not constitute a legal compliance opinion.</li>
+                </ul>
+              </div>
+            </section>
+
+            {/* ── DOCUMENT CONTROL & SIGN-OFF ── */}
+            <section className="print-section" data-testid="section-sign-off">
+              <SectionHeader number={nextSection()} title="Document Control & Sign-Off" testId="heading-sign-off" />
+              <p className="text-sm text-muted-foreground mb-4 print:text-gray-600 leading-relaxed">
+                Approval block for this readiness report. Signatures should be obtained prior to distribution to executive
+                management, the management body, or competent authorities.
+              </p>
+
+              <table className="w-full text-sm border-collapse" data-testid="table-sign-off">
+                <thead>
+                  <tr className="border-b-2 border-gray-200 dark:border-neutral-700 print:border-gray-300 bg-muted/30 print:bg-gray-50">
+                    <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-32">Role</th>
+                    <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Name / Title</th>
+                    <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-40">Signature</th>
+                    <th className="text-left py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 w-28">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { role: "Prepared by", default: user?.fullName || user?.email || "—", testId: "signoff-prepared" },
+                    { role: "Reviewed by", default: "Compliance / Risk Officer", testId: "signoff-reviewed" },
+                    { role: "Approved by", default: "Chief Information Security Officer", testId: "signoff-approved-ciso" },
+                    { role: "Endorsed by", default: "Management Body (NIS2 Art. 20)", testId: "signoff-endorsed" },
+                  ].map((row) => (
+                    <tr key={row.role} className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid={`row-${row.testId}`}>
+                      <td className="py-3 px-3 text-xs font-semibold">{row.role}</td>
+                      <td className="py-3 px-3 text-xs text-muted-foreground print:text-gray-700">{row.default}</td>
+                      <td className="py-3 px-3 border-b border-dashed border-gray-300 dark:border-neutral-700 print:border-gray-400" />
+                      <td className="py-3 px-3 border-b border-dashed border-gray-300 dark:border-neutral-700 print:border-gray-400" />
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 text-xs">
+                <div className="border rounded-md p-3 print:border-gray-300" data-testid="docctl-version">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Document Version</div>
+                  <div className="font-semibold mt-1">1.0 — Auto-generated</div>
+                </div>
+                <div className="border rounded-md p-3 print:border-gray-300" data-testid="docctl-classification">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Classification</div>
+                  <div className="font-semibold mt-1">Confidential — Internal Use</div>
+                </div>
+                <div className="border rounded-md p-3 print:border-gray-300" data-testid="docctl-retention">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider print:text-gray-500">Retention</div>
+                  <div className="font-semibold mt-1">Minimum 5 years (audit trail)</div>
+                </div>
               </div>
             </section>
 
