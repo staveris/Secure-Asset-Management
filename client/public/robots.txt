@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nis2compliance.toolsoftech.eu/sitemap.xml
