@@ -56,7 +56,7 @@ function RestrictedPage() {
           </div>
           <h2 className="text-lg font-semibold" data-testid="text-restricted-title">Feature Not Available in Demo</h2>
           <p className="text-sm text-muted-foreground" data-testid="text-restricted-message">
-            This feature is not included in the demo version. To unlock the full NIS2 compliance platform with all modules, please contact us.
+            This feature is not included in the demo version. To unlock the full CyberResilience360 platform with all modules, please contact us.
           </p>
           <div className="rounded-md bg-muted p-4 space-y-2 text-left">
             <p className="text-sm font-semibold" data-testid="text-restricted-company">Tools of Tech P.C.</p>

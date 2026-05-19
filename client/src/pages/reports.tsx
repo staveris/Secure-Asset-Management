@@ -1606,7 +1606,7 @@ export default function Reports() {
               </div>
               <div className="text-center mt-4 pt-3 border-t border-gray-100 dark:border-neutral-800 print:border-gray-200" data-testid="text-report-footer">
                 <p className="text-[10px] text-muted-foreground print:text-gray-400 leading-relaxed">
-                  This report is generated automatically by the NIS2 Compliance Platform. It reflects the compliance posture
+                  This report is generated automatically by CyberResilience360. It reflects the compliance posture
                   at the time of generation and should be reviewed alongside organizational policies and procedures.
                   Assessment based on Directive (EU) 2022/2555 of the European Parliament and of the Council
                   {hasCirControls ? " and Commission Implementing Regulation (EU) 2024/2690" : ""}.

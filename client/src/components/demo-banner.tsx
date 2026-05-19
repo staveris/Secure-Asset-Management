@@ -13,7 +13,7 @@ export function DemoBanner() {
     >
       <Info className="w-3.5 h-3.5 shrink-0" />
       <span>
-        You are using the <span className="font-semibold">Demo Version</span> of the NIS2 Platform. Some features are restricted. Contact{" "}
+        You are using the <span className="font-semibold">Demo Version</span> of CyberResilience360. Some features are restricted. Contact{" "}
         <a href="mailto:info@toolsoftech.eu" className="underline font-semibold" data-testid="link-demo-contact">
           Tools of Tech P.C.
         </a>{" "}

@@ -104,7 +104,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <img src={companyLogo} alt="Tools of Tech" className="h-9 w-9 rounded-md object-cover" data-testid="img-company-logo" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate" data-testid="text-app-name">NIS2 Platform</p>
+            <p className="text-sm font-semibold truncate" data-testid="text-app-name">CyberResilience360</p>
             <p className="text-xs text-muted-foreground truncate" data-testid="text-tenant-name">
               {user?.tenantName || "Compliance"}
             </p>
@@ -205,7 +205,7 @@ export function AppSidebar() {
             </DialogTitle>
             <DialogDescription data-testid="text-contact-dialog-description">
               The <span className="font-medium text-foreground">{clickedFeature}</span> module is not available in the demo version.
-              To unlock the full NIS2 compliance platform, please contact us.
+              To unlock the full CyberResilience360 platform, please contact us.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">

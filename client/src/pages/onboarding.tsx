@@ -186,7 +186,7 @@ export default function Onboarding() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <p className="text-muted-foreground">
-                  Welcome to the NIS2 Compliance Platform. This wizard will help you configure your organization's NIS2 profile
+                  Welcome to CyberResilience360. This wizard will help you configure your organization's NIS2 profile
                   and create your first compliance assessment.
                 </p>
 
