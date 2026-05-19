@@ -37,9 +37,13 @@ interface DashboardData {
   nis2AtomicImplemented?: number;
   cirControls?: number;
   cirImplemented?: number;
+  doraControls?: number;
+  doraImplemented?: number;
+  doraStatusDistribution?: StatusItem[];
   nis2ObjectiveMaturity?: number;
   nis2AtomicMaturity?: number;
   cirMaturity?: number;
+  doraMaturity?: number;
 }
 
 function getMaturityLabel(score: number): string {
@@ -296,10 +300,14 @@ export default function Reports() {
   const cirTotal = dashboard.cirControls ?? 0;
   const cirImpl = dashboard.cirImplemented ?? 0;
   const cirMaturity = dashboard.cirMaturity ?? 0;
+  const doraTotal = dashboard.doraControls ?? 0;
+  const doraImpl = dashboard.doraImplemented ?? 0;
+  const doraMaturity = dashboard.doraMaturity ?? 0;
 
   const hasAtomicControls = atomicTotal > 0;
   const hasCirControls = cirTotal > 0;
-  const hasMultipleControlSets = hasAtomicControls || hasCirControls;
+  const hasDoraControls = doraTotal > 0;
+  const hasMultipleControlSets = hasAtomicControls || hasCirControls || hasDoraControls;
 
   let sectionNum = 0;
   const nextSection = () => String(++sectionNum);
@@ -356,7 +364,9 @@ export default function Reports() {
             <h1 className="text-2xl font-bold tracking-tight" data-testid="text-report-title">
               Compliance Report
             </h1>
-            <p className="text-muted-foreground mt-1">NIS2 Directive & CIR 2024/2690 readiness assessment</p>
+            <p className="text-muted-foreground mt-1">
+              NIS2 Directive{hasCirControls ? " & CIR 2024/2690" : ""}{hasDoraControls ? " & DORA 2022/2554" : ""} readiness assessment
+            </p>
           </div>
           <Button onClick={() => window.print()} data-testid="button-print-report">
             <Printer className="w-4 h-4 mr-2" />
@@ -372,7 +382,9 @@ export default function Reports() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <Shield className="w-7 h-7 text-blue-300" />
-                  <h1 className="text-xl font-bold tracking-tight text-white">NIS2 & CIR Compliance</h1>
+                  <h1 className="text-xl font-bold tracking-tight text-white">
+                    NIS2{hasCirControls ? " & CIR" : ""}{hasDoraControls ? " & DORA" : ""} Compliance
+                  </h1>
                 </div>
                 <p className="text-blue-200 text-sm ml-10">Readiness Assessment Report</p>
 
@@ -469,11 +481,11 @@ export default function Reports() {
 
               <div className="border rounded-md p-4 mb-5 bg-muted/20 print:bg-gray-50 print:border-gray-300">
                 <p className="text-sm text-muted-foreground print:text-gray-600 leading-relaxed">
-                  This report presents the NIS2 Directive (EU 2022/2555){hasCirControls ? " and Commission Implementing Regulation (CIR 2024/2690)" : ""} compliance
+                  This report presents the NIS2 Directive (EU 2022/2555){hasCirControls ? ", Commission Implementing Regulation (CIR 2024/2690)" : ""}{hasDoraControls ? ", Digital Operational Resilience Act (Regulation EU 2022/2554)" : ""} compliance
                   readiness status for <span className="font-semibold text-foreground print:text-gray-900">{user?.tenantName || "the organization"}</span> as
                   of {reportDate}. The assessment evaluates governance, risk management, business continuity, supply chain security,
                   and technical cybersecurity controls across {categories.length} compliance domains
-                  {hasMultipleControlSets ? `, spanning ${hasAtomicControls && hasCirControls ? "three" : "two"} independent control sets` : ""}.
+                  {hasMultipleControlSets ? `, spanning ${1 + Number(hasAtomicControls) + Number(hasCirControls) + Number(hasDoraControls)} independent control sets` : ""}.
                 </p>
               </div>
 
@@ -528,7 +540,7 @@ export default function Reports() {
                   The platform evaluates compliance across independent control sets derived from distinct EU legal instruments. Each set is assessed separately to provide granular visibility into regulatory obligations.
                 </p>
 
-                <div className={`grid gap-4 ${hasCirControls && hasAtomicControls ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"}`}>
+                <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 ${(Number(hasAtomicControls) + Number(hasCirControls) + Number(hasDoraControls)) >= 2 ? "lg:grid-cols-4" : ""}`}>
                   <ControlSetCard
                     title="NIS2 Objectives"
                     subtitle="Directive (EU) 2022/2555"
@@ -566,6 +578,19 @@ export default function Reports() {
                       statusDist={dashboard.cirStatusDistribution}
                     />
                   )}
+                  {hasDoraControls && (
+                    <ControlSetCard
+                      title="DORA Controls"
+                      subtitle="Regulation (EU) 2022/2554"
+                      icon={Shield}
+                      accentColor="#6366f1"
+                      borderColor="#6366f1"
+                      total={doraTotal}
+                      implemented={doraImpl}
+                      maturity={doraMaturity}
+                      statusDist={dashboard.doraStatusDistribution}
+                    />
+                  )}
                 </div>
 
                 {/* Cross-set comparison table */}
@@ -576,20 +601,22 @@ export default function Reports() {
                       <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider print:text-gray-500" style={{ color: "#3b82f6" }}>NIS2 Objectives</th>
                       {hasAtomicControls && <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider print:text-gray-500" style={{ color: "#10b981" }}>NIS2 Atomic</th>}
                       {hasCirControls && <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider print:text-gray-500" style={{ color: "#8b5cf6" }}>CIR</th>}
+                      {hasDoraControls && <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider print:text-gray-500" style={{ color: "#6366f1" }}>DORA</th>}
                       <th className="text-center py-2 px-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500">Combined</th>
                     </tr>
                   </thead>
                   <tbody>
                     {[
-                      { label: "Total Controls", values: [objTotal, atomicTotal, cirTotal, totalControls] },
-                      { label: "Implemented", values: [objImpl, atomicImpl, cirImpl, implementedControls] },
+                      { label: "Total Controls", values: [objTotal, atomicTotal, cirTotal, doraTotal, totalControls] },
+                      { label: "Implemented", values: [objImpl, atomicImpl, cirImpl, doraImpl, implementedControls] },
                       { label: "Compliance %", values: [
                         objTotal > 0 ? Math.round((objImpl / objTotal) * 100) : 0,
                         atomicTotal > 0 ? Math.round((atomicImpl / atomicTotal) * 100) : 0,
                         cirTotal > 0 ? Math.round((cirImpl / cirTotal) * 100) : 0,
+                        doraTotal > 0 ? Math.round((doraImpl / doraTotal) * 100) : 0,
                         dashboard.complianceScore
                       ], isSuffix: "%" },
-                      { label: "Maturity", values: [objMaturity, atomicMaturity, cirMaturity, maturity], isDecimal: true, suffix: "/5" },
+                      { label: "Maturity", values: [objMaturity, atomicMaturity, cirMaturity, doraMaturity, maturity], isDecimal: true, suffix: "/5" },
                     ].map((row, idx) => (
                       <tr key={idx} className="border-b border-gray-100 dark:border-neutral-800 print:border-gray-200">
                         <td className="py-2 px-3 text-xs font-medium">{row.label}</td>
@@ -606,8 +633,13 @@ export default function Reports() {
                             {row.isDecimal ? row.values[2].toFixed(1) : row.values[2]}{row.isSuffix || ""}{row.suffix || ""}
                           </td>
                         )}
+                        {hasDoraControls && (
+                          <td className="py-2 px-3 text-center text-xs font-semibold">
+                            {row.isDecimal ? row.values[3].toFixed(1) : row.values[3]}{row.isSuffix || ""}{row.suffix || ""}
+                          </td>
+                        )}
                         <td className="py-2 px-3 text-center text-xs font-bold">
-                          {row.isDecimal ? row.values[3].toFixed(1) : row.values[3]}{row.isSuffix || ""}{row.suffix || ""}
+                          {row.isDecimal ? row.values[4].toFixed(1) : row.values[4]}{row.isSuffix || ""}{row.suffix || ""}
                         </td>
                       </tr>
                     ))}
@@ -1594,7 +1626,9 @@ export default function Reports() {
             <div className="border-t-2 border-gray-200 dark:border-neutral-700 pt-5 mt-8 print:border-gray-300">
               <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground print:text-gray-500">
                 <div className="space-y-1">
-                  <p className="font-semibold text-foreground print:text-gray-700">NIS2 & CIR Compliance Readiness Report</p>
+                  <p className="font-semibold text-foreground print:text-gray-700">
+                    NIS2{hasCirControls ? " & CIR" : ""}{hasDoraControls ? " & DORA" : ""} Compliance Readiness Report
+                  </p>
                   <p>{user?.tenantName || "Organization"}</p>
                   <p>Report Ref: {reportId}</p>
                 </div>

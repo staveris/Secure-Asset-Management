@@ -115,6 +115,7 @@ type SortOption = "priority" | "dueDate" | "status" | "title";
 
 function getTaskCategory(task: EnrichedTask): string {
   if (task.atomicControlId && task.sourceKey === "CIR_2024_2690") return "CIR";
+  if (task.atomicControlId && task.sourceKey === "DORA_2022_2554") return "DORA";
   if (task.atomicControlId) return "NIS2 Atomic";
   if (task.category) return task.category;
   return "NIS2 Objective";
@@ -122,6 +123,7 @@ function getTaskCategory(task: EnrichedTask): string {
 
 function getCategoryVariant(category: string): "default" | "secondary" | "outline" {
   if (category === "CIR") return "default";
+  if (category === "DORA") return "default";
   if (category === "NIS2 Atomic") return "secondary";
   return "outline";
 }

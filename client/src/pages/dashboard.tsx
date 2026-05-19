@@ -67,6 +67,8 @@ interface DashboardData {
   nis2AtomicImplemented?: number;
   cirControls?: number;
   cirImplemented?: number;
+  doraControls?: number;
+  doraImplemented?: number;
   activeTasks: number;
   overdueTasks: number;
   evidenceCount: number;
@@ -74,9 +76,11 @@ interface DashboardData {
   objectiveStatusDistribution?: StatusItem[];
   nis2AtomicStatusDistribution?: StatusItem[];
   cirStatusDistribution?: StatusItem[];
+  doraStatusDistribution?: StatusItem[];
   nis2ObjectiveMaturity?: number;
   nis2AtomicMaturity?: number;
   cirMaturity?: number;
+  doraMaturity?: number;
   categoryScores: { category: string; score: number }[];
   recentTasks: { id: number; title: string; status: string; priority: string; dueDate: string | null }[];
 }
@@ -280,6 +284,7 @@ export default function Dashboard() {
 
   const hasAtomicControls = (data.nis2AtomicControls ?? 0) > 0;
   const hasCir = (data.cirControls ?? 0) > 0;
+  const hasDora = (data.doraControls ?? 0) > 0;
 
   const objCompletionPct = (data.nis2ObjectiveControls ?? 0) > 0
     ? Math.round(((data.nis2ObjectiveImplemented ?? 0) / (data.nis2ObjectiveControls ?? 1)) * 100)
@@ -290,12 +295,15 @@ export default function Dashboard() {
   const cirCompletionPct = (data.cirControls ?? 0) > 0
     ? Math.round(((data.cirImplemented ?? 0) / (data.cirControls ?? 1)) * 100)
     : 0;
+  const doraCompletionPct = (data.doraControls ?? 0) > 0
+    ? Math.round(((data.doraImplemented ?? 0) / (data.doraControls ?? 1)) * 100)
+    : 0;
 
   return (
     <div className="p-6 space-y-6" data-testid="dashboard-page">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-dashboard-title">Compliance Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Overview of your NIS2 + CIR readiness status</p>
+        <p className="text-muted-foreground mt-1">Overview of your NIS2{hasCir ? " + CIR" : ""}{hasDora ? " + DORA" : ""} readiness status</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -315,7 +323,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {(hasAtomicControls || hasCir) && (
+      {(hasAtomicControls || hasCir || hasDora) && (
         <div data-testid="nis2-cir-breakdown">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
@@ -444,12 +452,53 @@ export default function Dashboard() {
                 </Card>
               )}
 
+              {hasDora && (
+                <Card className="border-indigo-200 dark:border-indigo-800/50">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="p-2 rounded-md bg-indigo-500/10 shrink-0">
+                          <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-semibold text-sm" data-testid="text-dora-title">DORA Controls</h4>
+                            <Badge variant="outline" className="text-[10px]">EU 2022/2554</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Digital Operational Resilience Act controls for financial-sector entities, scoped to your DORA regulatory profile (simplified vs full, ICT third-party use, TLPT, etc.).
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-bold" data-testid="text-dora-pct">{doraCompletionPct}%</div>
+                        <div className="text-[10px] text-muted-foreground">{data.doraImplemented ?? 0}/{data.doraControls ?? 0}</div>
+                      </div>
+                    </div>
+                    <Progress value={doraCompletionPct} className="h-2" />
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <BarChart3 className="w-3 h-3" />
+                        Maturity: {(data.doraMaturity ?? 0).toFixed(1)}/5.0
+                      </div>
+                    </div>
+                    {data.doraStatusDistribution && (
+                      <MiniStatusBar
+                        distribution={data.doraStatusDistribution}
+                        total={data.doraControls ?? 0}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               <div className="p-3 rounded-md bg-muted/40 flex items-start gap-2">
                 <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p><strong>Objectives</strong> are 41 high-level compliance goals from the NIS2 Directive. They define <em>what</em> you need to achieve.</p>
                   <p><strong>Atomic Controls</strong> are granular requirements that break objectives into specific, verifiable items. They define <em>how</em> to achieve compliance and vary based on your entity type and sector.</p>
                   {hasCir && <p><strong>CIR Controls</strong> are sector-specific requirements from the Implementing Regulation, adding detailed technical controls for digital infrastructure and ICT services.</p>}
+                  {hasDora && <p><strong>DORA Controls</strong> implement EU 2022/2554 for financial-sector resilience and ICT third-party risk management, scoped via the per-tenant DORA profile.</p>}
                 </div>
               </div>
             </CardContent>

@@ -1447,7 +1447,9 @@ export async function registerRoutes(
 
       if (atomicCtrl && atomicResponseInfo) {
         navResponseId = atomicResponseInfo.responseId;
-        navSource = atomicCtrl.sourceKey === "CIR_2024_2690" ? "CIR" : "NIS2";
+        navSource = atomicCtrl.sourceKey === "CIR_2024_2690" ? "CIR"
+          : atomicCtrl.sourceKey === "DORA_2022_2554" ? "DORA"
+          : "NIS2";
       } else if (control && t.assessmentId) {
         const objRespId = objectiveResponseMap.get(`${t.assessmentId}-${control.id}`);
         if (objRespId) {
@@ -1460,7 +1462,11 @@ export async function registerRoutes(
         ...t,
         controlTitle: atomicCtrl ? `${atomicCtrl.controlId} - ${atomicCtrl.shortTitle}` : (control?.title || null),
         requirementCode: atomicCtrl ? atomicCtrl.controlId : (req?.code || null),
-        category: atomicCtrl ? (atomicCtrl.sourceKey === "CIR_2024_2690" ? "CIR 2024/2690" : "NIS2 Atomic") : (req?.category || null),
+        category: atomicCtrl
+          ? (atomicCtrl.sourceKey === "CIR_2024_2690" ? "CIR 2024/2690"
+            : atomicCtrl.sourceKey === "DORA_2022_2554" ? "DORA 2022/2554"
+            : "NIS2 Atomic")
+          : (req?.category || null),
         assessmentName: assessment?.name || null,
         ownerName: owner?.fullName || null,
         atomicControlId: atomicControlId || null,
@@ -4063,11 +4069,13 @@ export async function registerRoutes(
       const ctrl = controlMap.get(gap.atomicControlId);
       if (!ctrl) continue;
       if (existingAtomicLinks.has(ctrl.id)) { skipped++; continue; }
-      const isCir = ctrl.sourceKey === "CIR_2024_2690";
+      const prefix = ctrl.sourceKey === "CIR_2024_2690" ? "CIR"
+        : ctrl.sourceKey === "DORA_2022_2554" ? "DORA"
+        : "Atomic";
       const task = await storage.createTask({
         tenantId: user.tenantId,
         assessmentId: parentAssessmentId,
-        title: `[${isCir ? "CIR" : "Atomic"}] ${ctrl.shortTitle}`,
+        title: `[${prefix}] ${ctrl.shortTitle}`,
         description: `Address gap: ${ctrl.obligationText}\n\nControl: ${ctrl.controlId}\nCurrent status: ${gap.implementationStatus}`,
         priority: ctrl.weight >= 3 ? "HIGH" : ctrl.weight >= 2 ? "MEDIUM" : "LOW",
         status: "TODO",
