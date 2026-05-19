@@ -23,6 +23,7 @@ Production-scope assumptions for this repo:
 
 - **Browser to API** — all client input is untrusted. The server must enforce authentication, authorization, tenant scoping, and business rules without relying on frontend checks.
 - **Authenticated user to privileged role boundary** — regular tenant users, tenant managers, tenant admins, readonly auditors, and platform admins have materially different authority. Role checks must be enforced server-side.
+- **Restricted-user to full-access boundary** — within a tenant, `fullAccessEnabled` is a separate authorization control used to confine some users to assessments-only workflows while withholding access to tasks, evidence, incidents, suppliers, risks, and reports. Server-side routes must enforce this boundary consistently rather than relying on frontend wrappers.
 - **Tenant to tenant boundary** — the service is multi-tenant, so all object fetches and mutations must be scoped by tenant ownership unless a route is intentionally platform-global.
 - **API to PostgreSQL** — the server has broad database rights. Broken authorization or injection at the API layer can become full data compromise.
 - **API to external email/storage services** — verification, password reset, and invitation flows cross into third-party providers and must not leak secrets or trust user-controlled targets.
@@ -31,7 +32,7 @@ Production-scope assumptions for this repo:
 ## Scan Anchors
 
 - **Primary production entry points:** `server/routes.ts`, `server/storage.ts`, `server/replitAuth.ts`, `client/src/App.tsx`, `client/src/lib/auth.ts`.
-- **Highest-risk areas:** auth/session flows, tenant user-management routes, evidence lock/unlock workflows, admin-only endpoints, file-upload and report/export code.
+- **Highest-risk areas:** auth/session flows, tenant user-management routes, restricted-vs-full-access enforcement, evidence lock/unlock workflows, admin-only endpoints, file-upload and report/export code.
 - **Surface split:** public auth endpoints under `/api/auth/*`; authenticated tenant endpoints under `/api/*`; privileged platform endpoints under `/api/admin/*` and `requirePlatformAdmin` checks.
 - **Usually dev-only:** `artifacts/mockup-sandbox/**` unless production reachability is shown.
 
@@ -59,4 +60,4 @@ Publicly reachable auth and onboarding endpoints can be abused for resource exha
 
 ### Elevation of Privilege
 
-This project has a strong privileged-role hierarchy and strict tenant isolation requirements, so broken access control is the dominant risk. Every route that reads or mutates tenant objects must enforce both authentication and tenant ownership server-side, and role-bearing inputs from the client must never be accepted as authoritative without validation against the caller’s maximum allowed privilege.
+This project has a strong privileged-role hierarchy, a separate restricted-vs-full-access boundary, and strict tenant isolation requirements, so broken access control is the dominant risk. Every route that reads or mutates tenant objects must enforce authentication, tenant ownership, and any required full-access/admin policy server-side, and role-bearing inputs from the client must never be accepted as authoritative without validation against the caller’s maximum allowed privilege.
