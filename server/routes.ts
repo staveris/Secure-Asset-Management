@@ -3314,7 +3314,9 @@ export async function registerRoutes(
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
-
+      if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "Only tenant administrators can update organization settings." });
+      }
 
       const { sectorGroup, sector, subsector, entityType, country, applicabilityProfile } = req.body;
       if (country !== undefined && (!country || typeof country !== "string" || country.trim().length === 0)) {
@@ -3933,11 +3935,10 @@ export async function registerRoutes(
     res.json(response);
   });
 
-  app.post("/api/atomic-assessments/:id/generate-tasks", requireAuth, async (req, res) => {
+  app.post("/api/atomic-assessments/:id/generate-tasks", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     if (!(await requireAtomicFlag(req, res))) return;
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
-    if (user.role === "READONLY_AUDITOR") return res.status(403).json({ message: "Auditors cannot create tasks" });
     const assessmentId = parseInt(req.params.id);
     const assessment = await storage.getAtomicAssessment(assessmentId);
     if (!assessment) return res.status(404).json({ message: "Not found" });
