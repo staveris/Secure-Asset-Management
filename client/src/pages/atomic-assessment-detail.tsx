@@ -281,7 +281,9 @@ function ControlResponseCard({
     prevValsRef.current = { implStatus, maturity, confidence, notes };
 
     if (!hasChanges || saveMutation.isPending) return;
-    if (saveState === "error" && !hasNewEditsAfterError) return;
+    // Suppress re-fires while waiting for the invalidated query to refetch
+    // (existingResponse is briefly stale right after a successful save).
+    if (!hasNewEditsAfterError) return;
 
     const isNotesOnly =
       implStatus === prev.implStatus &&
@@ -722,7 +724,8 @@ function AtomicFocusModeView({
     const prev = prevValsRef.current;
     prevValsRef.current = { implStatus, maturity, confidence, notes };
     if (!hasChanges || saveMutation.isPending) return;
-    if (saveState === "error" && !hasNewEditsAfterError) return;
+    // Suppress re-fires while waiting for the invalidated query to refetch.
+    if (!hasNewEditsAfterError) return;
     const isNotesOnly = implStatus === prev.implStatus && maturity === prev.maturity && confidence === prev.confidence && notes !== prev.notes;
     const delay = isNotesOnly ? 2000 : 800;
     if (timerRef.current) clearTimeout(timerRef.current);
