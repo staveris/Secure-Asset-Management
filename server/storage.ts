@@ -189,6 +189,7 @@ export interface IStorage {
   createTaskComment(data: InsertTaskComment): Promise<TaskComment>;
 
   getEvidenceByTenant(tenantId: number): Promise<EvidenceItem[]>;
+  getEvidenceItem(id: number): Promise<EvidenceItem | undefined>;
   createEvidenceItem(data: InsertEvidenceItem): Promise<EvidenceItem>;
   deleteEvidenceItem(id: number): Promise<EvidenceItem | undefined>;
   lockEvidence(id: number, lockedBy: number, reason: string): Promise<EvidenceItem | undefined>;
@@ -654,6 +655,11 @@ export class DatabaseStorage implements IStorage {
 
   async getEvidenceByTenant(tenantId: number): Promise<EvidenceItem[]> {
     return db.select().from(evidenceItems).where(eq(evidenceItems.tenantId, tenantId)).orderBy(desc(evidenceItems.uploadedAt));
+  }
+
+  async getEvidenceItem(id: number): Promise<EvidenceItem | undefined> {
+    const [item] = await db.select().from(evidenceItems).where(eq(evidenceItems.id, id));
+    return item;
   }
 
   async createEvidenceItem(data: InsertEvidenceItem): Promise<EvidenceItem> {

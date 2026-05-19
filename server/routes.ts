@@ -3477,7 +3477,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/evidence/:id/lock", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/evidence/:id/lock", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
