@@ -267,9 +267,8 @@ export default function AuthPage() {
             </div>
 
             <h1 className="text-4xl xl:text-5xl font-bold text-white leading-[1.1] mb-5 tracking-tight">
-              NIS2 Readiness<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-violet-400">
-                Compliance Platform
+                CyberResilience360
               </span>
             </h1>
             <p className="text-slate-400 text-base xl:text-[17px] leading-relaxed mb-10 max-w-md">
@@ -338,7 +337,7 @@ export default function AuthPage() {
               <img src={faviconLogo} alt="Tools of Tech" className="h-5 w-5 dark:invert-0 invert" data-testid="img-mobile-icon" />
             </div>
             <div>
-              <span className="font-semibold text-sm">NIS2 Platform</span>
+              <span className="font-semibold text-sm">CyberResilience360</span>
               <span className="block text-[10px] text-muted-foreground">by Tools of Tech</span>
             </div>
           </div>
@@ -352,7 +351,7 @@ export default function AuthPage() {
                 <div className="w-8 h-8 rounded-md bg-slate-900 dark:bg-white/10 flex items-center justify-center">
                   <img src={faviconLogo} alt="" className="h-5 w-5" style={{ filter: "invert(1)" }} />
                 </div>
-                <span className="text-[11px] text-muted-foreground font-medium tracking-[0.12em] uppercase">NIS2 Readiness Platform</span>
+                <span className="text-[11px] text-muted-foreground font-medium tracking-[0.12em] uppercase">CyberResilience360</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight" data-testid="text-form-title">
                 {showTotpStep ? "Two-Factor Authentication" : showForgotPassword ? "Reset your password" : isLogin ? "Welcome back" : "Get started"}

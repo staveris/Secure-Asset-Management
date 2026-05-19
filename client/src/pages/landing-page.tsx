@@ -513,7 +513,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-lg sm:text-xl text-slate-400 leading-relaxed mb-10 max-w-2xl mx-auto" data-testid="text-hero-description">
-              The cyber resilience platform for NIS2, DORA, and NIST CSF 2.0 compliance.
+              The cyber resilience platform for NIS2 and CIR compliance.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
