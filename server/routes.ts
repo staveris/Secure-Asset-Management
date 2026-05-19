@@ -20,7 +20,7 @@ import { getAppBaseUrl } from "./email";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
 import { platformSettings, users, passwordHistory, controlObjectives, assessments as assessmentsTable, assessmentResponses, evidenceItems as evidenceItemsTable, atomicControls, atomicAssessments, atomicAssessmentResponses } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, inArray, sql } from "drizzle-orm";
 
 const PgSession = connectPgSimple(session);
 
@@ -4454,74 +4454,77 @@ export async function registerRoutes(
   // tenant's applicable DORA controls. Returns the new assessment id so the
   // client can navigate to the standard /atomic-assessments/:id UI.
   app.post("/api/dora/assessments", requireAuth, requireDoraModule, requireWriteAccess, async (req, res) => {
-    const user = await getAuthUser(req);
-    if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
-    const { db } = await import("./db");
-    const { atomicControls } = await import("@shared/schema");
-    const { eq, and } = await import("drizzle-orm");
-    const { DORA_SOURCE_KEY, decideDoraApplicability, computeApplicableDoraControls } =
-      await import("./dora-applicability");
+    try {
+      const user = await getAuthUser(req);
+      if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+      const { DORA_SOURCE_KEY, decideDoraApplicability, computeApplicableDoraControls } =
+        await import("./dora-applicability");
 
-    const profile = (await loadDoraProfile(user.tenantId)) || emptyDoraProfile(user.tenantId);
-    const decision = decideDoraApplicability(profile);
-    if (!decision.doraApplicable) {
-      return res.status(400).json({
-        message: "DORA is not currently applicable to this organisation. Complete the scope wizard first.",
-        reason: decision.reason,
-      });
-    }
+      const profile = (await loadDoraProfile(user.tenantId)) || emptyDoraProfile(user.tenantId);
+      const decision = decideDoraApplicability(profile);
+      if (!decision.doraApplicable) {
+        return res.status(400).json({
+          message: "DORA is not currently applicable to this organisation. Complete the scope wizard first.",
+          reason: decision.reason,
+        });
+      }
 
-    const allDora = await db
-      .select()
-      .from(atomicControls)
-      .where(and(eq(atomicControls.sourceKey, DORA_SOURCE_KEY), eq(atomicControls.isActive, true)));
-    const applicable = computeApplicableDoraControls(profile, allDora);
-    if (applicable.length === 0) {
-      return res.status(400).json({ message: "No DORA controls are applicable to this organisation's profile." });
-    }
+      const allDora = await db
+        .select()
+        .from(atomicControls)
+        .where(and(eq(atomicControls.sourceKey, DORA_SOURCE_KEY), eq(atomicControls.isActive, true)));
+      const applicable = computeApplicableDoraControls(profile, allDora);
+      if (applicable.length === 0) {
+        return res.status(400).json({ message: "No DORA controls are applicable to this organisation's profile." });
+      }
 
-    const rawName = (req.body?.name || "").toString().trim();
-    const name = rawName || `DORA Assessment — ${new Date().toISOString().slice(0, 10)}`;
-    const scopeNote = decision.simplifiedMode ? "DORA Article 16 simplified framework" : "DORA full framework";
-    const scope = (req.body?.scope || "").toString().trim() || scopeNote;
+      const rawName = (req.body?.name || "").toString().trim();
+      const name = rawName || `DORA Assessment — ${new Date().toISOString().slice(0, 10)}`;
+      const scopeNote = decision.simplifiedMode ? "DORA Article 16 simplified framework" : "DORA full framework";
+      const scope = (req.body?.scope || "").toString().trim() || scopeNote;
 
-    const assessment = await storage.createAtomicAssessment({
-      tenantId: user.tenantId,
-      name,
-      scope,
-      createdBy: user.id,
-      status: "DRAFT",
-    });
-
-    // Pre-seed one response row per applicable control so the assessment detail
-    // page renders the right control set from the moment it opens.
-    for (const c of applicable) {
-      await storage.upsertAtomicAssessmentResponse({
-        atomicAssessmentId: assessment.id,
-        atomicControlId: c.id,
-        implementationStatus: "NOT_STARTED",
-        maturityLevel: 0,
-        confidence: "NONE",
-        notes: null,
-        answeredBy: user.id,
-      });
-    }
-
-    await storage.createAuditLog({
-      tenantId: user.tenantId,
-      actorUserId: user.id,
-      action: "DORA_ASSESSMENT_CREATED",
-      entityType: "AtomicAssessment",
-      entityId: String(assessment.id),
-      details: {
+      const assessment = await storage.createAtomicAssessment({
+        tenantId: user.tenantId,
         name,
         scope,
-        controlCount: applicable.length,
-        simplifiedMode: decision.simplifiedMode,
-      },
-    });
+        createdBy: user.id,
+        status: "DRAFT",
+      });
 
-    res.json({ assessment, controlCount: applicable.length });
+      // Pre-seed one response row per applicable control in a single batched insert so
+      // the assessment detail page renders the right control set immediately.
+      const rows = applicable.map((c) => ({
+        atomicAssessmentId: assessment.id,
+        atomicControlId: c.id,
+        implementationStatus: "NOT_STARTED" as const,
+        maturityLevel: 0,
+        confidence: "NONE" as const,
+        notes: null,
+        answeredBy: user.id,
+      }));
+      if (rows.length > 0) {
+        await db.insert(atomicAssessmentResponses).values(rows);
+      }
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "DORA_ASSESSMENT_CREATED",
+        entityType: "AtomicAssessment",
+        entityId: String(assessment.id),
+        details: {
+          name,
+          scope,
+          controlCount: applicable.length,
+          simplifiedMode: decision.simplifiedMode,
+        },
+      });
+
+      return res.status(200).json({ assessment, controlCount: applicable.length });
+    } catch (err: any) {
+      console.error("[POST /api/dora/assessments] failed:", err);
+      return res.status(500).json({ message: err?.message || "Failed to create DORA assessment" });
+    }
   });
 
   // GET /api/dora/assessments — list atomic assessments for this tenant that
@@ -4529,9 +4532,6 @@ export async function registerRoutes(
   app.get("/api/dora/assessments", requireAuth, requireDoraModule, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
-    const { db } = await import("./db");
-    const { atomicAssessments, atomicAssessmentResponses, atomicControls } = await import("@shared/schema");
-    const { eq, and, inArray, sql } = await import("drizzle-orm");
     const { DORA_SOURCE_KEY } = await import("./dora-applicability");
 
     const tenantAssessments = await db
