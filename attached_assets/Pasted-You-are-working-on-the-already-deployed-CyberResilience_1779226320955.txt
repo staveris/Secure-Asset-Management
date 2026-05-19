@@ -1,0 +1,210 @@
+You are working on the already deployed CyberResilience360 by Tools of Tech application.
+
+Goal:
+Import the cybersecurity risk register from the attached Excel file:
+CyberResilience360_Cybersecurity_Risk_Register_NIS2_Art21.xlsx
+
+Important:
+These are cybersecurity risks, not controls. Do not import them into the existing NIS2, NIST, DORA, ISO, or other control libraries.
+
+Before coding:
+1. Inspect the current app architecture, database schema, ORM, routes, tenant/organization model, existing controls, existing assessments, and risk-management features.
+2. Identify whether a risk register/risk library already exists.
+3. Create a safe implementation plan before modifying code.
+4. Use non-destructive migrations only.
+5. Do not delete, rename, overwrite, or re-key existing controls.
+6. Do not modify existing control assessment statuses.
+7. Do not globally create risk records for all organizations.
+8. Make the import script idempotent and safe to run multiple times.
+
+Excel file structure:
+Use the sheet named:
+Cybersecurity Risks
+
+The sheet contains these columns:
+- Risk_ID
+- Framework_Context
+- Risk_Category
+- Risk_Title
+- Risk_Statement
+- Typical_Impact
+- NIS2_Art21_Mapping
+- Affected_Assets_or_Services
+- Inherent_Likelihood
+- Inherent_Impact
+- Inherent_Risk_Rating
+- Treatment_Option
+- Treatment_Direction
+- Suggested_Controls
+- Evidence_Artifacts
+- Typical_Owner
+- Review_Frequency
+- Applicability_Tags
+- Default_Status
+- Source_URL
+- Notes
+
+Import requirements:
+1. Import the risks as a separate risk library.
+2. Use library_code = NIS2_ART21_CYBER_RISKS.
+3. Use Risk_ID as the stable unique key.
+4. Use upsert logic based on library_code + Risk_ID.
+5. Preserve Risk_ID exactly, for example CYR-001.
+6. Do not create duplicate risks if the import is run again.
+7. Do not create fake evidence records.
+8. Evidence_Artifacts should be stored only as suggested evidence guidance.
+9. Suggested_Controls should be stored as treatment/control guidance only, not as actual platform controls.
+10. Source_URL should be stored as a plain text reference.
+
+If a risk library table does not exist, create one with fields similar to:
+- id
+- library_code
+- risk_id
+- framework_context
+- category
+- title
+- risk_statement
+- typical_impact
+- regulatory_mapping
+- affected_assets_or_services
+- default_likelihood
+- default_impact
+- default_risk_rating
+- default_treatment_option
+- treatment_guidance
+- suggested_controls
+- suggested_evidence
+- default_owner_role
+- review_frequency
+- tags
+- default_status
+- source_url
+- notes
+- created_at
+- updated_at
+
+Organization applicability:
+The imported risk library may be visible globally to admins, but organization-specific risk records must only be created when explicitly enabled.
+
+Create or reuse organization-level settings:
+- cyber_risk_register_enabled: boolean, default false
+- nis2_art21_risk_register_enabled: boolean, default false
+- nis2_scope_confirmed: boolean, default false, if not already present
+- cyber_risk_register_generated_at: datetime nullable
+- cyber_risk_register_generated_by: user reference nullable
+
+Generation logic:
+1. Do not automatically create organization risk records for every organization.
+2. Show an action/button:
+   “Generate NIS2 Art.21 Cyber Risk Register”
+3. Enable this action only when:
+   - the organization has NIS2 scope confirmed, or
+   - an admin explicitly enables the NIS2 Art.21 risk register with a reason.
+4. When generating the register, create organization-specific risk records from the library.
+5. Use upsert logic based on organization_id + library_code + risk_id.
+6. Default organization risk status should be Not Assessed.
+7. Do not overwrite existing organization risk status, owner, notes, treatment plan, residual risk, evidence, or due dates when re-running generation.
+
+Organization risk record fields:
+- organization_id
+- library_code
+- risk_id
+- category
+- title
+- risk_statement
+- typical_impact
+- regulatory_mapping
+- affected_assets_or_services
+- inherent_likelihood
+- inherent_impact
+- inherent_risk_rating
+- treatment_option
+- treatment_direction
+- suggested_controls
+- suggested_evidence
+- owner nullable
+- status default Not Assessed
+- treatment_status nullable
+- residual_likelihood nullable
+- residual_impact nullable
+- residual_risk_rating nullable
+- treatment_plan nullable
+- due_date nullable
+- evidence_links nullable
+- acceptance_decision nullable
+- acceptance_approved_by nullable
+- last_review_date nullable
+- next_review_date nullable
+- notes nullable
+
+UI requirements:
+1. Add a Risk Register area if one does not already exist.
+2. Add a library filter:
+   NIS2 Art.21 Cybersecurity Risks
+3. Add category filters using Risk_Category.
+4. Add rating filters for Critical, High, Medium, Low.
+5. Add status filters.
+6. In each organization, show these risks only after the NIS2 Art.21 risk register is enabled/generated.
+7. Existing NIS2/NIST/DORA control dashboards must remain unchanged.
+8. If there is already a risk dashboard, include this library as a separate source/filter.
+9. If no risk dashboard exists, add a basic dashboard showing:
+   - total risks
+   - risks by category
+   - risks by inherent rating
+   - risks by status
+   - overdue treatment actions
+
+Import validation:
+Reject or log rows where:
+- Risk_ID is empty
+- Risk_Title is empty
+- Risk_Category is empty
+- duplicate Risk_ID exists in the Excel file
+- Inherent_Likelihood is not Low, Medium, or High
+- Inherent_Impact is not Low, Medium, or High
+- Inherent_Risk_Rating is not Low, Medium, High, or Critical
+
+Logging:
+Log:
+- imported rows
+- updated rows
+- skipped rows
+- failed rows
+- validation errors
+
+Testing:
+Add tests for:
+1. Existing controls still load after migration.
+2. Existing control assessments remain unchanged.
+3. Risk library imports 100 risks from Excel.
+4. Re-running import does not create duplicates.
+5. Organization risk records are not created globally.
+6. NIS2 Art.21 risk register appears only after enable/generation.
+7. Re-running generation does not overwrite existing organization risk work.
+8. Risk filters work by category, rating, and status.
+9. Suggested evidence is guidance only and does not create fake evidence.
+10. Suggested controls are guidance only and do not create actual controls.
+
+Implementation:
+- Follow the current app’s existing stack and patterns.
+- If the app uses Prisma, create a Prisma migration and import script.
+- If the app uses Drizzle, create a Drizzle migration and import script.
+- If the app uses Supabase, create SQL migrations and a safe import function.
+- If the app uses Node/TypeScript, use the existing import pattern or SheetJS/xlsx.
+- If the app uses Python, use the existing import pattern or openpyxl.
+- Keep the import script in a clear path such as:
+  scripts/import-cyber-risks-nis2-art21.*
+- Keep applicability/generation logic in a reusable service, not scattered across UI components.
+- Update README/admin documentation with import and generation instructions.
+
+Deliverables:
+1. Safe database migration.
+2. Excel import script.
+3. Risk library import.
+4. Organization-specific risk register generation logic.
+5. UI filters and risk register view.
+6. Tests.
+7. Documentation.
+8. Final summary confirming that existing controls were not modified.
+
+Do not deploy until all tests pass.
