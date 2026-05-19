@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, SENSITIVE_FIELDS } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import helmet from "helmet";
@@ -86,6 +86,23 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+const LOG_REDACT_FIELDS = new Set([
+  ...SENSITIVE_FIELDS,
+  "secret", "otpauthUrl", "otpauth_url", "qrCode", "qr_code",
+  "inviteLink", "invite_link", "inviteToken", "invite_token",
+]);
+
+function redactForLog(obj: any): any {
+  if (obj === null || obj === undefined || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(redactForLog);
+  if (obj instanceof Date || obj instanceof Buffer) return obj;
+  const cleaned: any = {};
+  for (const key of Object.keys(obj)) {
+    cleaned[key] = LOG_REDACT_FIELDS.has(key) ? "[REDACTED]" : redactForLog(obj[key]);
+  }
+  return cleaned;
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -102,7 +119,7 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        logLine += ` :: ${JSON.stringify(redactForLog(capturedJsonResponse))}`;
       }
 
       log(logLine);

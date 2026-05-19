@@ -183,7 +183,7 @@ function sanitizeObject(obj: any): any {
   return obj;
 }
 
-const SENSITIVE_FIELDS = new Set([
+export const SENSITIVE_FIELDS = new Set([
   "passwordHash", "password_hash",
   "totpSecret", "totp_secret",
   "passwordResetToken", "password_reset_token",
