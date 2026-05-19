@@ -1,0 +1,3376 @@
+{
+  "libraryCode": "NIS2_ART21_CYBER_RISKS",
+  "title": "NIS2 Article 21 — Cybersecurity Risk Register",
+  "sourceFile": "CyberResilience360_Cybersecurity_Risk_Register_NIS2_Art21.xlsx",
+  "importedFromSheet": "Cybersecurity Risks",
+  "entryCount": 100,
+  "entries": [
+    {
+      "riskId": "CYR-001",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "Incomplete cybersecurity risk assessment",
+      "riskStatement": "Incomplete cybersecurity risk assessment may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unknown risks remain untreated; management decisions are made with incomplete information.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis and information system security policies; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Enterprise services, critical processes, information systems, suppliers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Establish a formal cyber risk assessment methodology and annual review cycle.",
+      "suggestedControls": [
+        "Risk methodology, risk workshops, periodic risk assessment, risk scoring criteria"
+      ],
+      "suggestedEvidence": [
+        "Risk methodology",
+        "completed risk assessments",
+        "risk register",
+        "management review minutes"
+      ],
+      "defaultOwnerRole": "CISO / Risk Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Risk assessment",
+        "Governance"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-002",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "Lack of documented information security policy",
+      "riskStatement": "Lack of documented information security policy may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Inconsistent security practices and weak enforceability of minimum requirements.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis and information system security policies; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Enterprise services, critical processes, information systems, suppliers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Approve, communicate and periodically review information security policies.",
+      "suggestedControls": [
+        "Information security policy framework, policy ownership, policy review workflow"
+      ],
+      "suggestedEvidence": [
+        "Approved policy set",
+        "policy review records",
+        "employee acknowledgement records"
+      ],
+      "defaultOwnerRole": "CISO / Compliance Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Security policy",
+        "Governance"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-003",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "No defined risk appetite or tolerance",
+      "riskStatement": "No defined risk appetite or tolerance may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Poor risk decisions; unresolved disagreement on acceptable residual risk.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis and information system security policies; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Enterprise services, critical processes, information systems, suppliers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define management-approved cybersecurity risk appetite and tolerance thresholds.",
+      "suggestedControls": [
+        "Risk appetite statement, risk matrix, escalation thresholds, acceptance criteria"
+      ],
+      "suggestedEvidence": [
+        "Risk appetite statement",
+        "board/management approval",
+        "risk acceptance records"
+      ],
+      "defaultOwnerRole": "Management Body / Risk Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Risk appetite",
+        "Governance"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-004",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "Critical assets are not identified",
+      "riskStatement": "Critical assets are not identified may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Key systems, applications, data and dependencies remain unprotected or under-prioritized.",
+      "regulatoryMapping": "Art.21(2)(i) asset management; Art.21(2)(a) risk analysis",
+      "affectedAssetsOrServices": "Assets, applications, cloud services, infrastructure, data repositories",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Maintain an asset and service inventory linked to business criticality.",
+      "suggestedControls": [
+        "Asset inventory, classification, ownership, criticality assignment"
+      ],
+      "suggestedEvidence": [
+        "Asset register",
+        "ownership records",
+        "criticality matrix",
+        "CMDB reports"
+      ],
+      "defaultOwnerRole": "IT Manager / Asset Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Asset management",
+        "Critical assets"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-005",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "Critical business services are not mapped to supporting systems",
+      "riskStatement": "Critical business services are not mapped to supporting systems may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Inability to understand operational impact and prioritize resilience measures.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis; Art.21(2)(c) business continuity and crisis management",
+      "affectedAssetsOrServices": "Critical services, process maps, ICT dependencies, suppliers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Map critical services to systems, applications, suppliers, data and dependencies.",
+      "suggestedControls": [
+        "Service dependency mapping, business impact analysis, criticality model"
+      ],
+      "suggestedEvidence": [
+        "Service maps",
+        "BIA records",
+        "dependency register",
+        "critical function list"
+      ],
+      "defaultOwnerRole": "Business Continuity Manager / CISO",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Service mapping",
+        "BIA"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-006",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "Cyber risks are not assigned to owners",
+      "riskStatement": "Cyber risks are not assigned to owners may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "No accountability for treatment decisions, deadlines or residual-risk approval.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis and information system security policies; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Enterprise services, critical processes, information systems, suppliers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Assign risk owners and action owners for every material cybersecurity risk.",
+      "suggestedControls": [
+        "Risk ownership model, RACI matrix, risk assignment workflow"
+      ],
+      "suggestedEvidence": [
+        "Risk register with owners",
+        "RACI",
+        "action tracker",
+        "escalation records"
+      ],
+      "defaultOwnerRole": "Risk Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Risk ownership",
+        "Governance"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-007",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "Risk treatment actions are not tracked",
+      "riskStatement": "Risk treatment actions are not tracked may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Controls remain unimplemented and residual risk remains unknown.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis and information system security policies; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Enterprise services, critical processes, information systems, suppliers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Maintain a risk treatment plan with owners, target dates, status and evidence.",
+      "suggestedControls": [
+        "Risk treatment plan, remediation tracker, status reporting, overdue escalation"
+      ],
+      "suggestedEvidence": [
+        "Treatment plan",
+        "remediation tickets",
+        "status reports",
+        "closure evidence"
+      ],
+      "defaultOwnerRole": "CISO / PMO",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Risk treatment",
+        "Remediation"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-008",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "Residual risks are accepted without approval",
+      "riskStatement": "Residual risks are accepted without approval may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Excessive or unmanaged exposure is retained without informed management accountability.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis and information system security policies; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Enterprise services, critical processes, information systems, suppliers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Require formal residual-risk acceptance with justification and management approval.",
+      "suggestedControls": [
+        "Residual risk approval workflow, acceptance thresholds, expiry dates"
+      ],
+      "suggestedEvidence": [
+        "Risk acceptance forms",
+        "approval records",
+        "review/expiry logs"
+      ],
+      "defaultOwnerRole": "Management Body / Risk Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Residual risk",
+        "Acceptance"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-009",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "Management does not oversee cybersecurity risk",
+      "riskStatement": "Management does not oversee cybersecurity risk may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Weak governance, poor prioritization and increased accountability exposure.",
+      "regulatoryMapping": "Art.20 management accountability; Art.21 cybersecurity risk-management measures",
+      "affectedAssetsOrServices": "Enterprise risk governance, cyber risk dashboard, management committees",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Establish recurring management oversight of cybersecurity risk and resilience.",
+      "suggestedControls": [
+        "Management reporting, cyber risk committee, board updates, KPI/KRI monitoring"
+      ],
+      "suggestedEvidence": [
+        "Management meeting minutes",
+        "cyber risk dashboards",
+        "decision logs"
+      ],
+      "defaultOwnerRole": "Management Body / CISO",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Management oversight",
+        "Governance"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-010",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Governance & Risk Management",
+      "title": "Cybersecurity controls are not periodically reviewed",
+      "riskStatement": "Cybersecurity controls are not periodically reviewed may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Controls become outdated, ineffective or misaligned to current threats.",
+      "regulatoryMapping": "Art.21(2)(f) policies and procedures to assess effectiveness of cybersecurity risk-management measures",
+      "affectedAssetsOrServices": "Controls, policies, technical safeguards, third-party controls",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Perform scheduled control effectiveness reviews and track improvement actions.",
+      "suggestedControls": [
+        "Control testing, internal audits, maturity assessments, effectiveness KPIs"
+      ],
+      "suggestedEvidence": [
+        "Control test results",
+        "audit reports",
+        "improvement actions",
+        "KPI reports"
+      ],
+      "defaultOwnerRole": "Internal Audit / CISO",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Control effectiveness",
+        "Assurance"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-011",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Weak password practices",
+      "riskStatement": "Weak password practices may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Account compromise, credential stuffing and unauthorized access.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "Users, privileged accounts, IAM, remote access, critical applications",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Enforce strong authentication and password policy controls.",
+      "suggestedControls": [
+        "Password policy, banned passwords, account lockout, password manager guidance"
+      ],
+      "suggestedEvidence": [
+        "IAM policy",
+        "password policy settings",
+        "audit reports"
+      ],
+      "defaultOwnerRole": "IAM Owner / IT Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "IAM",
+        "Authentication"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-012",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Absence of multi-factor authentication",
+      "riskStatement": "Absence of multi-factor authentication may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Higher likelihood of account takeover, especially for privileged and remote access.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "Users, privileged accounts, IAM, remote access, critical applications",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Enable MFA for privileged accounts, remote access, cloud consoles and critical applications.",
+      "suggestedControls": [
+        "MFA enforcement, conditional access, privileged MFA, exception reviews"
+      ],
+      "suggestedEvidence": [
+        "MFA configuration reports",
+        "exception register",
+        "access logs"
+      ],
+      "defaultOwnerRole": "IAM Owner / IT Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "MFA",
+        "Privileged access"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-013",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Excessive user privileges",
+      "riskStatement": "Excessive user privileges may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Privilege abuse, data exposure and lateral movement after compromise.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "Users, privileged accounts, IAM, remote access, critical applications",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Apply least privilege and role-based access controls.",
+      "suggestedControls": [
+        "RBAC, access request approvals, least privilege, privileged access reviews"
+      ],
+      "suggestedEvidence": [
+        "Access matrices",
+        "approval records",
+        "access review reports"
+      ],
+      "defaultOwnerRole": "Application Owners / IAM Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Access control",
+        "Least privilege"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-014",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Privileged accounts are not monitored",
+      "riskStatement": "Privileged accounts are not monitored may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Misuse of admin access may remain undetected.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "Privileged accounts, domain admins, cloud admins, database admins",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Implement privileged access management and monitor administrator activity.",
+      "suggestedControls": [
+        "PAM, session logging, admin alerts, break-glass account controls"
+      ],
+      "suggestedEvidence": [
+        "PAM reports",
+        "privileged access logs",
+        "alert records",
+        "break-glass review"
+      ],
+      "defaultOwnerRole": "IAM Owner / SOC Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "PAM",
+        "Monitoring"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-015",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Dormant or orphaned accounts remain active",
+      "riskStatement": "Dormant or orphaned accounts remain active may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unauthorized access after employee exit, role change or supplier termination.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "User accounts, supplier accounts, service accounts, SaaS accounts",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Automate and review joiner/mover/leaver account lifecycle processes.",
+      "suggestedControls": [
+        "JML workflow, HR integration, periodic dormant account review"
+      ],
+      "suggestedEvidence": [
+        "JML records",
+        "terminated-user reports",
+        "deactivation logs"
+      ],
+      "defaultOwnerRole": "HR / IAM Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "JML",
+        "Account lifecycle"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-016",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Shared administrator accounts",
+      "riskStatement": "Shared administrator accounts may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Lack of accountability and weak traceability for privileged actions.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "Administrative accounts, servers, databases, network devices",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Use named privileged accounts and eliminate shared administrator accounts where possible.",
+      "suggestedControls": [
+        "Named admin accounts, PAM checkout, session recording, access attribution"
+      ],
+      "suggestedEvidence": [
+        "Admin account inventory",
+        "PAM logs",
+        "shared account exception approvals"
+      ],
+      "defaultOwnerRole": "IT Operations / IAM Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Admin access",
+        "Accountability"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-017",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Poor access reviews",
+      "riskStatement": "Poor access reviews may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Accumulated access rights increase unauthorized access and fraud risk.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "IAM, applications, databases, file shares, SaaS platforms",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Perform periodic access recertification for users, privileged accounts and suppliers.",
+      "suggestedControls": [
+        "Quarterly access reviews, privilege review, business owner certification"
+      ],
+      "suggestedEvidence": [
+        "Access review reports",
+        "revoked access list",
+        "certification approvals"
+      ],
+      "defaultOwnerRole": "IAM Owner / Application Owners",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Access review",
+        "Recertification"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-018",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Weak remote access controls",
+      "riskStatement": "Weak remote access controls may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unauthorized entry into internal systems or cloud environments.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "VPN, ZTNA, remote desktop, cloud admin portals",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Secure remote access using VPN/ZTNA, MFA, device checks and monitoring.",
+      "suggestedControls": [
+        "ZTNA/VPN security, MFA, endpoint compliance checks, restricted RDP/SSH"
+      ],
+      "suggestedEvidence": [
+        "Remote access policy",
+        "VPN/ZTNA settings",
+        "MFA logs",
+        "access logs"
+      ],
+      "defaultOwnerRole": "Network Security / IAM Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Remote access",
+        "MFA"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-019",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Lack of segregation of duties",
+      "riskStatement": "Lack of segregation of duties may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Fraud, unauthorized changes or unreviewed administrative activity.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "Finance systems, admin roles, change management, production deployments",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define incompatible roles and enforce segregation of duties for critical processes.",
+      "suggestedControls": [
+        "SoD matrix, role design, conflict checks, compensating controls"
+      ],
+      "suggestedEvidence": [
+        "SoD matrix",
+        "role definitions",
+        "conflict reports",
+        "approvals"
+      ],
+      "defaultOwnerRole": "Compliance Manager / Application Owners",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "SoD",
+        "Access governance"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-020",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Identity & Access Management",
+      "title": "Inadequate HR security checks for sensitive roles",
+      "riskStatement": "Inadequate HR security checks for sensitive roles may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Insider risk and unauthorized access to critical information or systems.",
+      "regulatoryMapping": "Art.21(2)(i) human resources security, access control and asset management; Art.21(2)(j) MFA/continuous authentication and secured communications",
+      "affectedAssetsOrServices": "Employees, contractors, privileged users, critical operations roles",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Apply appropriate screening, confidentiality obligations and role-based access controls.",
+      "suggestedControls": [
+        "Pre-employment screening, confidentiality agreements, role-based onboarding"
+      ],
+      "suggestedEvidence": [
+        "Screening records",
+        "signed confidentiality agreements",
+        "HR security procedure"
+      ],
+      "defaultOwnerRole": "HR / Compliance Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "HR security",
+        "Insider risk"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-021",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Unsupported operating systems or software",
+      "riskStatement": "Unsupported operating systems or software may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Exploitation of known vulnerabilities and inability to receive security fixes.",
+      "regulatoryMapping": "Art.21(2)(e) security in acquisition, development and maintenance, including vulnerability handling; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Servers, endpoints, network devices, cloud infrastructure, security tools",
+      "defaultLikelihood": "High",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Upgrade, isolate or decommission unsupported systems.",
+      "suggestedControls": [
+        "End-of-life inventory, upgrade roadmap, compensating controls, isolation"
+      ],
+      "suggestedEvidence": [
+        "EOL inventory",
+        "upgrade plan",
+        "exception approvals",
+        "isolation records"
+      ],
+      "defaultOwnerRole": "IT Operations",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Vulnerability management",
+        "Legacy systems"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-022",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Unpatched critical vulnerabilities",
+      "riskStatement": "Unpatched critical vulnerabilities may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "System compromise, ransomware, data breach or service disruption.",
+      "regulatoryMapping": "Art.21(2)(e) security in acquisition, development and maintenance, including vulnerability handling; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Servers, endpoints, network devices, cloud infrastructure, security tools",
+      "defaultLikelihood": "High",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Implement vulnerability scanning and SLA-based patch management.",
+      "suggestedControls": [
+        "Vulnerability scanning, patch SLAs, emergency patch process, remediation tracking"
+      ],
+      "suggestedEvidence": [
+        "Vulnerability reports",
+        "patch records",
+        "remediation tickets",
+        "exception approvals"
+      ],
+      "defaultOwnerRole": "IT Operations / Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Patch management",
+        "Vulnerability handling"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-023",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Poor network segmentation",
+      "riskStatement": "Poor network segmentation may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Rapid spread of attacks across systems and business services.",
+      "regulatoryMapping": "Art.21(2)(e) secure maintenance; Art.21(2)(i) asset management; Art.21(2)(j) secured communications",
+      "affectedAssetsOrServices": "Networks, VLANs, firewalls, critical systems, OT/IT boundary",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Segment critical networks and restrict lateral movement.",
+      "suggestedControls": [
+        "Network segmentation, firewall zones, microsegmentation, network access controls"
+      ],
+      "suggestedEvidence": [
+        "Network diagrams",
+        "firewall rules",
+        "segmentation test results"
+      ],
+      "defaultOwnerRole": "Network Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Network segmentation",
+        "Lateral movement"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-024",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Internet-exposed services are not controlled",
+      "riskStatement": "Internet-exposed services are not controlled may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Increased attack surface and exploitation of exposed systems.",
+      "regulatoryMapping": "Art.21(2)(e) security in acquisition, development and maintenance, including vulnerability handling; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Public IPs, web apps, APIs, VPN, remote admin interfaces",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Maintain external attack-surface management and approval for exposed services.",
+      "suggestedControls": [
+        "External asset inventory, exposure scans, change approvals, hardening"
+      ],
+      "suggestedEvidence": [
+        "External scan reports",
+        "exposed service inventory",
+        "approval records"
+      ],
+      "defaultOwnerRole": "Security Operations / Network Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Attack surface",
+        "Exposure management"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-025",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Misconfigured firewalls or security groups",
+      "riskStatement": "Misconfigured firewalls or security groups may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unauthorized network access, data exposure or service compromise.",
+      "regulatoryMapping": "Art.21(2)(e) security in acquisition, development and maintenance, including vulnerability handling; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Firewalls, routers, cloud security groups, network ACLs",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Review and approve firewall and cloud security group rules.",
+      "suggestedControls": [
+        "Firewall rule review, change control, least-access rules, rule recertification"
+      ],
+      "suggestedEvidence": [
+        "Firewall rulebase review",
+        "change tickets",
+        "approval logs"
+      ],
+      "defaultOwnerRole": "Network Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Firewall",
+        "Network access"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-026",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Insecure wireless networks",
+      "riskStatement": "Insecure wireless networks may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unauthorized access to internal resources or interception of traffic.",
+      "regulatoryMapping": "Art.21(2)(j) secured communications; Art.21(2)(i) access control",
+      "affectedAssetsOrServices": "Wireless networks, guest Wi-Fi, employee endpoints",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Secure Wi-Fi using strong authentication, encryption and guest segregation.",
+      "suggestedControls": [
+        "WPA3/enterprise authentication, guest isolation, wireless monitoring"
+      ],
+      "suggestedEvidence": [
+        "Wireless configuration",
+        "network diagrams",
+        "access logs"
+      ],
+      "defaultOwnerRole": "Network Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Wireless",
+        "Secure communications"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-027",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Lack of endpoint protection",
+      "riskStatement": "Lack of endpoint protection may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Malware infection, data theft and poor visibility into endpoint compromise.",
+      "regulatoryMapping": "Art.21(2)(e) security in acquisition, development and maintenance, including vulnerability handling; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Workstations, laptops, servers, mobile devices",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Deploy and monitor endpoint detection and response controls.",
+      "suggestedControls": [
+        "EDR/anti-malware, tamper protection, detection policies, endpoint isolation"
+      ],
+      "suggestedEvidence": [
+        "EDR coverage reports",
+        "alert logs",
+        "endpoint compliance dashboards"
+      ],
+      "defaultOwnerRole": "SOC Manager / IT Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Endpoint security",
+        "Malware"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-028",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Weak server hardening",
+      "riskStatement": "Weak server hardening may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Compromise of critical systems through unnecessary services or insecure configurations.",
+      "regulatoryMapping": "Art.21(2)(e) security in acquisition, development and maintenance, including vulnerability handling; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Servers, databases, network appliances, cloud workloads",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Apply secure configuration baselines and hardening standards.",
+      "suggestedControls": [
+        "CIS baselines, configuration scanning, hardening checklists, exception tracking"
+      ],
+      "suggestedEvidence": [
+        "Hardening standards",
+        "scan reports",
+        "configuration baselines"
+      ],
+      "defaultOwnerRole": "IT Operations",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Hardening",
+        "Secure configuration"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-029",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Insecure administrative interfaces",
+      "riskStatement": "Insecure administrative interfaces may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unauthorized system control through exposed management consoles.",
+      "regulatoryMapping": "Art.21(2)(e) security in acquisition, development and maintenance, including vulnerability handling; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Admin portals, SSH, RDP, hypervisors, cloud consoles, network management",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Restrict administrative interfaces and enforce MFA and network controls.",
+      "suggestedControls": [
+        "Admin interface restrictions, bastion hosts, MFA, IP allowlisting, logging"
+      ],
+      "suggestedEvidence": [
+        "Admin interface inventory",
+        "access rules",
+        "MFA reports",
+        "logs"
+      ],
+      "defaultOwnerRole": "Network Security / IT Operations",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Admin interfaces",
+        "Remote access"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-030",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Network & Infrastructure Security",
+      "title": "Lack of logging on critical systems",
+      "riskStatement": "Lack of logging on critical systems may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Incidents remain undetected or cannot be investigated.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Servers, applications, databases, network devices, cloud platforms",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Enable centralized logging for critical systems and security events.",
+      "suggestedControls": [
+        "Centralized logging, log retention, log integrity, SIEM integration"
+      ],
+      "suggestedEvidence": [
+        "Logging policy",
+        "SIEM data sources",
+        "log retention settings",
+        "monitoring reports"
+      ],
+      "defaultOwnerRole": "SOC Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Logging",
+        "Detection"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-031",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "Security events are not monitored",
+      "riskStatement": "Security events are not monitored may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Delayed detection and containment of cyber incidents.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Security events, monitoring platforms, incident response process, critical services",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Implement SIEM/SOC or equivalent monitored logging and alerting.",
+      "suggestedControls": [
+        "SIEM/SOC monitoring, alert rules, escalation playbooks, log source coverage"
+      ],
+      "suggestedEvidence": [
+        "SIEM reports",
+        "alert rules",
+        "SOC procedures",
+        "escalation records"
+      ],
+      "defaultOwnerRole": "SOC Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Monitoring",
+        "Detection"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-032",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "No incident response plan",
+      "riskStatement": "No incident response plan may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Chaotic or delayed response during cyber incidents.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Incident response team, critical systems, communication channels",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Create, approve and test a cybersecurity incident response plan.",
+      "suggestedControls": [
+        "IR plan, response playbooks, severity model, crisis communications"
+      ],
+      "suggestedEvidence": [
+        "Incident response plan",
+        "tabletop reports",
+        "call trees",
+        "playbooks"
+      ],
+      "defaultOwnerRole": "CISO / Incident Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Incident response",
+        "Playbooks"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-033",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "Incident roles and responsibilities are unclear",
+      "riskStatement": "Incident roles and responsibilities are unclear may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Delayed containment, investigation and recovery.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Incident response team, management, legal, communications, IT operations",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define incident response roles, escalation paths and responsibilities.",
+      "suggestedControls": [
+        "IR RACI, escalation matrix, on-call rota, management notification process"
+      ],
+      "suggestedEvidence": [
+        "RACI",
+        "escalation matrix",
+        "on-call schedule",
+        "training records"
+      ],
+      "defaultOwnerRole": "Incident Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Incident response",
+        "Roles"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-034",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "Incidents are not classified by severity",
+      "riskStatement": "Incidents are not classified by severity may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Incorrect response prioritization and regulatory reporting decisions.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; NIS2 incident notification obligations",
+      "affectedAssetsOrServices": "Incident records, service impact, user impact, regulatory reporting workflow",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define incident classification criteria including impact, severity and reporting triggers.",
+      "suggestedControls": [
+        "Severity matrix, incident classification workflow, reporting trigger checklist"
+      ],
+      "suggestedEvidence": [
+        "Incident classification criteria",
+        "sample incident records",
+        "reporting decisions"
+      ],
+      "defaultOwnerRole": "Incident Manager / Compliance Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Incident classification",
+        "Reporting"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-035",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "NIS2-reportable incidents are not escalated on time",
+      "riskStatement": "NIS2-reportable incidents are not escalated on time may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Regulatory breach, sanctions and loss of supervisory confidence.",
+      "regulatoryMapping": "Art.23 incident reporting obligations; Art.21(2)(b) incident handling",
+      "affectedAssetsOrServices": "Incident process, legal/compliance, competent authority communication",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Implement regulatory incident-reporting workflow and escalation deadlines.",
+      "suggestedControls": [
+        "Regulatory reporting procedure, notification timeline tracker, legal review workflow"
+      ],
+      "suggestedEvidence": [
+        "Reporting procedure",
+        "incident notification logs",
+        "authority submissions",
+        "decision records"
+      ],
+      "defaultOwnerRole": "Compliance Manager / CISO",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Regulatory reporting",
+        "Incident escalation"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-036",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "No forensic readiness",
+      "riskStatement": "No forensic readiness may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Loss of evidence and inability to investigate incidents properly.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Logs, endpoints, servers, cloud systems, forensic evidence",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Preserve relevant logs, evidence and chain of custody.",
+      "suggestedControls": [
+        "Forensic readiness plan, evidence retention, chain-of-custody process"
+      ],
+      "suggestedEvidence": [
+        "Forensic procedure",
+        "chain-of-custody records",
+        "log retention settings"
+      ],
+      "defaultOwnerRole": "SOC Manager / Legal",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Forensics",
+        "Evidence"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-037",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "No lessons-learned process after incidents",
+      "riskStatement": "No lessons-learned process after incidents may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Repeated incidents and failure to improve controls.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Incident process, controls, remediation actions",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Conduct post-incident reviews and track corrective actions.",
+      "suggestedControls": [
+        "Post-incident review, root-cause analysis, corrective action tracking"
+      ],
+      "suggestedEvidence": [
+        "PIR reports",
+        "RCA records",
+        "action tracker",
+        "closure evidence"
+      ],
+      "defaultOwnerRole": "Incident Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Lessons learned",
+        "Continuous improvement"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-038",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "Alert fatigue or unmanaged alerts",
+      "riskStatement": "Alert fatigue or unmanaged alerts may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Critical attacks are missed due to excessive false positives or weak triage.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "SIEM, EDR, network alerts, cloud security alerts",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define alert triage, tuning and escalation processes.",
+      "suggestedControls": [
+        "Alert tuning, severity classification, triage queues, SOC metrics"
+      ],
+      "suggestedEvidence": [
+        "Alert metrics",
+        "tuning records",
+        "escalation logs",
+        "false positive analysis"
+      ],
+      "defaultOwnerRole": "SOC Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Alerting",
+        "SOC operations"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-039",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "Lack of threat intelligence use",
+      "riskStatement": "Lack of threat intelligence use may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Poor awareness of active threats and delayed defensive actions.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis; Art.21(2)(b) incident handling",
+      "affectedAssetsOrServices": "Threat intelligence, SIEM, vulnerability management, risk register",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Integrate threat intelligence into monitoring, vulnerability prioritization and risk assessment.",
+      "suggestedControls": [
+        "Threat intel feeds, IOC enrichment, threat briefings, risk updates"
+      ],
+      "suggestedEvidence": [
+        "Threat bulletins",
+        "IOC integration",
+        "risk updates",
+        "detection rule changes"
+      ],
+      "defaultOwnerRole": "SOC Manager / Threat Intel Lead",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Threat intelligence",
+        "Monitoring"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-040",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Incident Management & Detection",
+      "title": "DDoS attacks disrupt public services",
+      "riskStatement": "DDoS attacks disrupt public services may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Service unavailability, reputational damage and operational disruption.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity; Art.21(2)(b) incident handling",
+      "affectedAssetsOrServices": "Public websites, APIs, DNS, internet connectivity, customer portals",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Use DDoS protection and resilience planning for internet-facing services.",
+      "suggestedControls": [
+        "DDoS protection, CDN/WAF, runbooks, ISP escalation, traffic monitoring"
+      ],
+      "suggestedEvidence": [
+        "DDoS protection contracts",
+        "runbooks",
+        "test/incident reports",
+        "monitoring logs"
+      ],
+      "defaultOwnerRole": "Network Security / Service Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "DDoS",
+        "Availability"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-041",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Sensitive data is not classified",
+      "riskStatement": "Sensitive data is not classified may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Inadequate protection of confidential, personal or critical operational data.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis; Art.21(2)(h) cryptography; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Sensitive data, databases, file shares, backups, logs, communication channels",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Establish and apply a data classification scheme.",
+      "suggestedControls": [
+        "Data classification policy, data inventory, labeling, handling rules"
+      ],
+      "suggestedEvidence": [
+        "Data classification policy",
+        "data inventory",
+        "sample labels",
+        "handling procedure"
+      ],
+      "defaultOwnerRole": "Data Protection Officer / CISO",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Data classification",
+        "Data protection"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-042",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Sensitive data is stored without encryption",
+      "riskStatement": "Sensitive data is stored without encryption may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Data exposure after system compromise, theft or unauthorized access.",
+      "regulatoryMapping": "Art.21(2)(h) policies and procedures regarding cryptography and encryption; Art.21(2)(j) secured communications",
+      "affectedAssetsOrServices": "Databases, storage, endpoints, backups, cloud storage",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Encrypt sensitive data at rest using approved cryptographic standards.",
+      "suggestedControls": [
+        "Encryption at rest, key management, database encryption, disk encryption"
+      ],
+      "suggestedEvidence": [
+        "Encryption configuration",
+        "key management records",
+        "storage policy"
+      ],
+      "defaultOwnerRole": "IT Security / Data Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Encryption",
+        "Data at rest"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-043",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Data is transmitted without encryption",
+      "riskStatement": "Data is transmitted without encryption may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Interception, manipulation or disclosure of data in transit.",
+      "regulatoryMapping": "Art.21(2)(h) policies and procedures regarding cryptography and encryption; Art.21(2)(j) secured communications",
+      "affectedAssetsOrServices": "Networks, APIs, email, file transfer, web applications",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Enforce secure communications for internal and external data transfers.",
+      "suggestedControls": [
+        "TLS, secure file transfer, VPN/ZTNA, certificate management"
+      ],
+      "suggestedEvidence": [
+        "TLS configuration",
+        "certificate inventory",
+        "secure transfer procedures"
+      ],
+      "defaultOwnerRole": "Network Security / Application Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Secure communications",
+        "Encryption"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-044",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Poor encryption-key management",
+      "riskStatement": "Poor encryption-key management may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Loss of confidentiality or availability due to exposed, weak or lost keys.",
+      "regulatoryMapping": "Art.21(2)(h) policies and procedures regarding cryptography and encryption; Art.21(2)(j) secured communications",
+      "affectedAssetsOrServices": "Encryption keys, HSM/KMS, certificates, secrets",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Implement formal cryptographic key lifecycle management.",
+      "suggestedControls": [
+        "Key management policy, KMS/HSM, rotation, access controls, backup keys"
+      ],
+      "suggestedEvidence": [
+        "Key management policy",
+        "KMS settings",
+        "rotation logs",
+        "access reviews"
+      ],
+      "defaultOwnerRole": "IT Security / Infrastructure Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Key management",
+        "Cryptography"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-045",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Excessive data retention",
+      "riskStatement": "Excessive data retention may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Increased breach impact and privacy/compliance exposure.",
+      "regulatoryMapping": "Art.21(2)(a) risk analysis; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Data repositories, archives, backups, logs, SaaS platforms",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define and enforce data retention and secure deletion rules.",
+      "suggestedControls": [
+        "Data retention schedule, deletion workflow, archive controls"
+      ],
+      "suggestedEvidence": [
+        "Retention policy",
+        "deletion logs",
+        "archive register",
+        "exception approvals"
+      ],
+      "defaultOwnerRole": "Data Protection Officer / Data Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Data retention",
+        "Data minimization"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-046",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Data leakage through email or cloud sharing",
+      "riskStatement": "Data leakage through email or cloud sharing may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Confidentiality breach, regulatory exposure and reputational damage.",
+      "regulatoryMapping": "Art.21(2)(h) encryption; Art.21(2)(j) secured communications; Art.21(2)(i) access control",
+      "affectedAssetsOrServices": "Email, collaboration platforms, cloud storage, file sharing",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Deploy data leakage prevention and secure sharing controls.",
+      "suggestedControls": [
+        "DLP, sharing restrictions, external collaboration controls, encryption"
+      ],
+      "suggestedEvidence": [
+        "DLP policies",
+        "sharing reports",
+        "incident records",
+        "user training records"
+      ],
+      "defaultOwnerRole": "IT Security / Data Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "DLP",
+        "Cloud sharing"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-047",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Backups contain unprotected sensitive data",
+      "riskStatement": "Backups contain unprotected sensitive data may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Sensitive data exposure through backup compromise or theft.",
+      "regulatoryMapping": "Art.21(2)(c) backup management; Art.21(2)(h) encryption",
+      "affectedAssetsOrServices": "Backup systems, backup media, recovery vaults, cloud backup",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Encrypt backups and restrict access to backup repositories.",
+      "suggestedControls": [
+        "Backup encryption, access restrictions, immutable backups, backup monitoring"
+      ],
+      "suggestedEvidence": [
+        "Backup encryption settings",
+        "access logs",
+        "backup policy",
+        "restore tests"
+      ],
+      "defaultOwnerRole": "IT Operations / Backup Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Backups",
+        "Encryption"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-048",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Poor database access controls",
+      "riskStatement": "Poor database access controls may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unauthorized access to critical business or personal data.",
+      "regulatoryMapping": "Art.21(2)(i) access control; Art.21(2)(h) encryption",
+      "affectedAssetsOrServices": "Databases, data warehouses, reporting platforms",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Restrict and monitor database access using least privilege and logging.",
+      "suggestedControls": [
+        "Database access review, privileged database monitoring, encryption, activity logging"
+      ],
+      "suggestedEvidence": [
+        "Database access matrix",
+        "DBA logs",
+        "access reviews",
+        "query audit reports"
+      ],
+      "defaultOwnerRole": "Database Administrator / Data Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Database security",
+        "Access control"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-049",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Inadequate protection of logs",
+      "riskStatement": "Inadequate protection of logs may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Log tampering, loss of evidence or exposure of sensitive information.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21(2)(f) effectiveness assessment; Art.21(2)(h) encryption",
+      "affectedAssetsOrServices": "Security logs, system logs, audit logs, SIEM",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Protect log integrity, confidentiality and retention.",
+      "suggestedControls": [
+        "Log integrity protection, restricted access, encryption, retention policy"
+      ],
+      "suggestedEvidence": [
+        "Log retention settings",
+        "SIEM access controls",
+        "integrity controls",
+        "audit logs"
+      ],
+      "defaultOwnerRole": "SOC Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Logging",
+        "Integrity"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-050",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Data Protection & Cryptography",
+      "title": "Lack of secure disposal procedures",
+      "riskStatement": "Lack of secure disposal procedures may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Data leakage from retired equipment, media or cloud resources.",
+      "regulatoryMapping": "Art.21(2)(i) asset management; Art.21(2)(h) encryption",
+      "affectedAssetsOrServices": "Laptops, servers, storage media, mobile devices, cloud volumes",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Apply secure wiping and disposal procedures for ICT assets and media.",
+      "suggestedControls": [
+        "Secure disposal policy, media sanitization, disposal certificates, asset offboarding"
+      ],
+      "suggestedEvidence": [
+        "Disposal records",
+        "wiping certificates",
+        "asset register updates"
+      ],
+      "defaultOwnerRole": "IT Asset Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Asset disposal",
+        "Data protection"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-051",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "No business continuity plan for cyber scenarios",
+      "riskStatement": "No business continuity plan for cyber scenarios may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Prolonged service outage and uncoordinated business response after a cyber incident.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Critical services, recovery systems, backups, crisis management, continuity plans",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Create and test a cyber-focused business continuity plan.",
+      "suggestedControls": [
+        "Cyber BCP, continuity scenarios, call trees, service continuity procedures"
+      ],
+      "suggestedEvidence": [
+        "BCP",
+        "exercise reports",
+        "call trees",
+        "continuity actions"
+      ],
+      "defaultOwnerRole": "Business Continuity Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Business continuity",
+        "Cyber scenarios"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-052",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "No disaster recovery plan",
+      "riskStatement": "No disaster recovery plan may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Inability to restore critical systems within business tolerance.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Critical systems, recovery infrastructure, applications, data",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define disaster recovery strategy and recovery priorities.",
+      "suggestedControls": [
+        "DR plan, recovery tiers, DR architecture, recovery runbooks"
+      ],
+      "suggestedEvidence": [
+        "DR plan",
+        "recovery runbooks",
+        "DR test results",
+        "system priority list"
+      ],
+      "defaultOwnerRole": "IT Operations / BCP Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Disaster recovery",
+        "Resilience"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-053",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "Backups are not tested",
+      "riskStatement": "Backups are not tested may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Failed recovery during ransomware or destructive incident.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Backups, recovery vaults, critical applications, databases",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Test backup restoration regularly and track failed restore actions.",
+      "suggestedControls": [
+        "Restore testing, backup verification, restore SLAs, test evidence"
+      ],
+      "suggestedEvidence": [
+        "Restore test reports",
+        "backup success logs",
+        "remediation tickets"
+      ],
+      "defaultOwnerRole": "Backup Owner / IT Operations",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Backup testing",
+        "Recovery"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-054",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "Backups are connected to production systems",
+      "riskStatement": "Backups are connected to production systems may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Backups may be encrypted, deleted or corrupted by attackers.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Backup repositories, storage, backup admin accounts, recovery vaults",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Use immutable, offline or logically isolated backups.",
+      "suggestedControls": [
+        "Immutable backups, offline copies, backup network isolation, admin segregation"
+      ],
+      "suggestedEvidence": [
+        "Backup architecture",
+        "immutability settings",
+        "access reviews",
+        "ransomware recovery tests"
+      ],
+      "defaultOwnerRole": "Backup Owner / IT Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Immutable backups",
+        "Ransomware resilience"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-055",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "Recovery time objectives are not defined",
+      "riskStatement": "Recovery time objectives are not defined may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Business disruption exceeds management tolerance.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Critical services, applications, databases, service owners",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define RTO/RPO for critical services and align backup/recovery capabilities.",
+      "suggestedControls": [
+        "BIA, RTO/RPO definition, service criticality tiers, recovery planning"
+      ],
+      "suggestedEvidence": [
+        "BIA",
+        "RTO/RPO register",
+        "service tier list",
+        "management approval"
+      ],
+      "defaultOwnerRole": "Business Continuity Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "RTO",
+        "RPO"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-056",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "Crisis management is not tested",
+      "riskStatement": "Crisis management is not tested may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Poor executive coordination and communication during major cyber incidents.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Management body, crisis team, communications, legal/compliance",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Conduct crisis exercises and executive tabletop testing.",
+      "suggestedControls": [
+        "Crisis management exercises, tabletop scenarios, communication templates"
+      ],
+      "suggestedEvidence": [
+        "Exercise reports",
+        "action plans",
+        "communication templates",
+        "participant lists"
+      ],
+      "defaultOwnerRole": "Crisis Manager / CISO",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Crisis management",
+        "Exercises"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-057",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "Single points of failure in critical systems",
+      "riskStatement": "Single points of failure in critical systems may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Service interruption if one component, provider or location fails.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Critical infrastructure, network paths, systems, suppliers, locations",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Identify and reduce single points of failure in critical services.",
+      "suggestedControls": [
+        "Architecture review, redundancy, failover, dependency analysis"
+      ],
+      "suggestedEvidence": [
+        "Architecture diagrams",
+        "SPOF analysis",
+        "failover test reports"
+      ],
+      "defaultOwnerRole": "IT Architecture / Service Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "SPOF",
+        "Resilience"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-058",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "Power, telecom or data-centre dependency failure",
+      "riskStatement": "Power, telecom or data-centre dependency failure may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Loss of service availability due to infrastructure or provider outage.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Data centres, telecom lines, power, cloud regions, facilities",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Build redundancy and supplier continuity plans for critical infrastructure dependencies.",
+      "suggestedControls": [
+        "Redundant power/connectivity, provider SLAs, continuity testing, alternate sites"
+      ],
+      "suggestedEvidence": [
+        "Supplier SLAs",
+        "redundancy architecture",
+        "test reports",
+        "continuity plans"
+      ],
+      "defaultOwnerRole": "IT Operations / Facilities",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Infrastructure dependency",
+        "Availability"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-059",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "No manual workaround for critical processes",
+      "riskStatement": "No manual workaround for critical processes may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Operations stop completely during ICT outage.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Critical business processes, service desks, customer support, operations",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define manual fallback procedures for critical business processes.",
+      "suggestedControls": [
+        "Manual workaround procedures, process owner training, fallback forms"
+      ],
+      "suggestedEvidence": [
+        "Manual procedures",
+        "exercise records",
+        "staff training logs"
+      ],
+      "defaultOwnerRole": "Business Process Owner / BCP Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Manual fallback",
+        "Continuity"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-060",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Business Continuity & Disaster Recovery",
+      "title": "Recovery priorities are not aligned with business impact",
+      "riskStatement": "Recovery priorities are not aligned with business impact may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Wrong systems are restored first and critical services remain unavailable.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity, backup management, disaster recovery and crisis management",
+      "affectedAssetsOrServices": "Critical services, applications, recovery plans, DR runbooks",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Align recovery sequence with business impact analysis and criticality.",
+      "suggestedControls": [
+        "BIA-based recovery prioritization, recovery runbooks, management approval"
+      ],
+      "suggestedEvidence": [
+        "BIA",
+        "recovery sequence",
+        "DR runbooks",
+        "exercise reports"
+      ],
+      "defaultOwnerRole": "Business Continuity Manager / IT Operations",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Recovery priority",
+        "BIA"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-061",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "Suppliers are not risk assessed",
+      "riskStatement": "Suppliers are not risk assessed may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Hidden third-party exposure affecting critical services and data.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(e) security in acquisition, development and maintenance",
+      "affectedAssetsOrServices": "Suppliers, ICT providers, cloud services, outsourced services, subcontractors",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Perform supplier cybersecurity assessment before onboarding and periodically thereafter.",
+      "suggestedControls": [
+        "Supplier risk assessment, due diligence, criticality classification, reassessment cycle"
+      ],
+      "suggestedEvidence": [
+        "Supplier assessments",
+        "due diligence records",
+        "supplier risk register"
+      ],
+      "defaultOwnerRole": "Third-Party Risk Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Supplier risk",
+        "Third party"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-062",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "Supplier contracts lack security requirements",
+      "riskStatement": "Supplier contracts lack security requirements may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Weak contractual protection and unclear responsibilities during incidents.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(e) security in acquisition, development and maintenance",
+      "affectedAssetsOrServices": "Contracts, SLAs, outsourced services, cloud providers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Add cybersecurity, resilience and reporting clauses to supplier contracts.",
+      "suggestedControls": [
+        "Security clauses, SLAs, audit rights, incident notification, data protection terms"
+      ],
+      "suggestedEvidence": [
+        "Contract templates",
+        "executed supplier contracts",
+        "clause checklist"
+      ],
+      "defaultOwnerRole": "Procurement / Legal",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Contracts",
+        "Third party"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-063",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "Critical suppliers lack incident notification obligations",
+      "riskStatement": "Critical suppliers lack incident notification obligations may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Late awareness of supplier incidents and delayed regulatory response.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(e) security in acquisition, development and maintenance",
+      "affectedAssetsOrServices": "Critical suppliers, cloud providers, managed service providers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Require timely supplier incident notification and escalation procedures.",
+      "suggestedControls": [
+        "Incident notification clauses, supplier escalation contacts, reporting SLAs"
+      ],
+      "suggestedEvidence": [
+        "Contract clauses",
+        "supplier incident procedure",
+        "escalation records"
+      ],
+      "defaultOwnerRole": "Third-Party Risk Manager / Legal",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Supplier incidents",
+        "Reporting"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-064",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "Cloud provider misconfiguration",
+      "riskStatement": "Cloud provider misconfiguration may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Data exposure, service compromise or unauthorized access due to shared responsibility gaps.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(e) security in acquisition, development and maintenance",
+      "affectedAssetsOrServices": "Cloud tenants, storage buckets, IAM, cloud networks, SaaS platforms",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Review cloud configuration and shared responsibility controls.",
+      "suggestedControls": [
+        "Cloud security posture management, configuration baselines, shared responsibility matrix"
+      ],
+      "suggestedEvidence": [
+        "Cloud posture reports",
+        "configuration review",
+        "shared responsibility matrix"
+      ],
+      "defaultOwnerRole": "Cloud Security Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Cloud security",
+        "Misconfiguration"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-065",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "Supplier remote access is uncontrolled",
+      "riskStatement": "Supplier remote access is uncontrolled may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unauthorized access through vendor accounts or remote maintenance tools.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(e) security in acquisition, development and maintenance",
+      "affectedAssetsOrServices": "Vendor accounts, remote access tools, VPN/ZTNA, privileged access",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Restrict, approve and monitor supplier remote access.",
+      "suggestedControls": [
+        "Supplier access approval, MFA, time-bound access, session monitoring, PAM"
+      ],
+      "suggestedEvidence": [
+        "Supplier access register",
+        "access logs",
+        "approval records",
+        "PAM reports"
+      ],
+      "defaultOwnerRole": "IAM Owner / Third-Party Risk Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Supplier access",
+        "Remote access"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-066",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "Concentration risk on one ICT provider",
+      "riskStatement": "Concentration risk on one ICT provider may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Major outage or operational disruption if a single supplier fails.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(c) business continuity",
+      "affectedAssetsOrServices": "Cloud providers, managed service providers, telecom providers, outsourced platforms",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Assess concentration risk and define resilience or exit options.",
+      "suggestedControls": [
+        "Provider concentration analysis, contingency planning, multi-provider strategy, exit plan"
+      ],
+      "suggestedEvidence": [
+        "Concentration risk assessment",
+        "exit plans",
+        "supplier dependency maps"
+      ],
+      "defaultOwnerRole": "Third-Party Risk Manager / Business Continuity Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Concentration risk",
+        "Supplier resilience"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-067",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "Supplier subcontractors are unknown",
+      "riskStatement": "Supplier subcontractors are unknown may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Uncontrolled fourth-party exposure and lack of visibility into supply chain dependencies.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(e) security in acquisition, development and maintenance",
+      "affectedAssetsOrServices": "Fourth parties, subcontractors, outsourced ICT chains",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Require subcontractor transparency and change notification for critical suppliers.",
+      "suggestedControls": [
+        "Subcontractor register, supplier disclosure clauses, approval/notification process"
+      ],
+      "suggestedEvidence": [
+        "Subcontractor lists",
+        "contract clauses",
+        "supplier notifications"
+      ],
+      "defaultOwnerRole": "Third-Party Risk Manager / Procurement",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Fourth party",
+        "Supply chain"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-068",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "No right to audit critical suppliers",
+      "riskStatement": "No right to audit critical suppliers may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Inability to verify supplier controls or investigate resilience concerns.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(e) security in acquisition, development and maintenance",
+      "affectedAssetsOrServices": "Critical supplier contracts, audit reports, assurance documentation",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Include audit, assurance and evidence rights for critical suppliers.",
+      "suggestedControls": [
+        "Right-to-audit clauses, assurance reports, supplier review meetings"
+      ],
+      "suggestedEvidence": [
+        "Contract clauses",
+        "SOC/ISO reports",
+        "audit plans",
+        "review minutes"
+      ],
+      "defaultOwnerRole": "Legal / Third-Party Risk Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Supplier audit",
+        "Assurance"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-069",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "No supplier exit plan",
+      "riskStatement": "No supplier exit plan may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Dependency lock-in and inability to transition services during supplier failure.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(c) business continuity",
+      "affectedAssetsOrServices": "Critical suppliers, data, service transition plans, alternative providers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Maintain exit and transition plans for critical ICT suppliers.",
+      "suggestedControls": [
+        "Exit plan, transition scenarios, data portability, termination support clauses"
+      ],
+      "suggestedEvidence": [
+        "Exit plans",
+        "transition procedures",
+        "data export tests",
+        "contract clauses"
+      ],
+      "defaultOwnerRole": "Third-Party Risk Manager / Service Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Exit plan",
+        "Supplier resilience"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-070",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Supplier & Third-Party Risk",
+      "title": "Software supply-chain compromise",
+      "riskStatement": "Software supply-chain compromise may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Malware, backdoor or vulnerable component introduced into systems or products.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(e) secure development and vulnerability handling",
+      "affectedAssetsOrServices": "Software vendors, packages, CI/CD, source code, dependencies",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Use secure software supply-chain controls and verify components.",
+      "suggestedControls": [
+        "SBOM, code signing, dependency scanning, vendor assurance, secure CI/CD"
+      ],
+      "suggestedEvidence": [
+        "SBOMs",
+        "SCA reports",
+        "code signing records",
+        "vendor assurance evidence"
+      ],
+      "defaultOwnerRole": "Application Security / Procurement",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Software supply chain",
+        "SBOM"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-071",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "Applications are developed without security requirements",
+      "riskStatement": "Applications are developed without security requirements may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Vulnerable systems and missed security controls during design.",
+      "regulatoryMapping": "Art.21(2)(e) security in network and information systems acquisition, development and maintenance, including vulnerability handling and disclosure",
+      "affectedAssetsOrServices": "Applications, APIs, source code, CI/CD, software components, development environments",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Integrate cybersecurity requirements into the software development lifecycle.",
+      "suggestedControls": [
+        "Secure SDLC, security requirements, threat modeling, design review"
+      ],
+      "suggestedEvidence": [
+        "SDLC policy",
+        "security requirements",
+        "threat models",
+        "design review records"
+      ],
+      "defaultOwnerRole": "Application Security Lead",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Secure SDLC",
+        "Security requirements"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-072",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "Code is deployed without security testing",
+      "riskStatement": "Code is deployed without security testing may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Exploitable application flaws are released to production.",
+      "regulatoryMapping": "Art.21(2)(e) security in network and information systems acquisition, development and maintenance, including vulnerability handling and disclosure",
+      "affectedAssetsOrServices": "Source code, web applications, APIs, production deployments",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Use SAST, DAST, code review and penetration testing before release.",
+      "suggestedControls": [
+        "SAST/DAST, manual code review, release gates, penetration testing"
+      ],
+      "suggestedEvidence": [
+        "SAST/DAST reports",
+        "code review records",
+        "release approvals",
+        "pentest reports"
+      ],
+      "defaultOwnerRole": "Application Security Lead / Engineering",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Security testing",
+        "Secure development"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-073",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "Vulnerable open-source components",
+      "riskStatement": "Vulnerable open-source components may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Compromise through known CVEs in third-party libraries.",
+      "regulatoryMapping": "Art.21(2)(e) security in network and information systems acquisition, development and maintenance, including vulnerability handling and disclosure",
+      "affectedAssetsOrServices": "Open-source libraries, packages, containers, software dependencies",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Use software composition analysis and dependency update processes.",
+      "suggestedControls": [
+        "SCA, dependency management, CVE triage, SBOM"
+      ],
+      "suggestedEvidence": [
+        "SCA reports",
+        "dependency inventory",
+        "remediation tickets",
+        "SBOM"
+      ],
+      "defaultOwnerRole": "Application Security Lead",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Open source",
+        "Vulnerability management"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-074",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "No vulnerability disclosure process",
+      "riskStatement": "No vulnerability disclosure process may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Externally discovered vulnerabilities remain unmanaged or mishandled.",
+      "regulatoryMapping": "Art.21(2)(e) security in network and information systems acquisition, development and maintenance, including vulnerability handling and disclosure",
+      "affectedAssetsOrServices": "External researchers, product teams, security mailbox, vulnerability tickets",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Establish a vulnerability disclosure and coordinated response process.",
+      "suggestedControls": [
+        "Vulnerability disclosure policy, security contact, triage workflow, remediation SLA"
+      ],
+      "suggestedEvidence": [
+        "Disclosure policy",
+        "intake records",
+        "vulnerability tickets",
+        "response logs"
+      ],
+      "defaultOwnerRole": "CISO / Application Security Lead",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Vulnerability disclosure",
+        "Triage"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-075",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "Weak API authentication",
+      "riskStatement": "Weak API authentication may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unauthorized access to data or services through exposed APIs.",
+      "regulatoryMapping": "Art.21(2)(e) secure development; Art.21(2)(j) MFA/secured communications; Art.21(2)(i) access control",
+      "affectedAssetsOrServices": "APIs, integration services, customer portals, mobile backends",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Secure APIs with strong authentication, authorization, throttling and logging.",
+      "suggestedControls": [
+        "API authentication, authorization checks, rate limiting, API gateway, logging"
+      ],
+      "suggestedEvidence": [
+        "API security design",
+        "test reports",
+        "gateway policies",
+        "access logs"
+      ],
+      "defaultOwnerRole": "Application Owner / API Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "API security",
+        "Authentication"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-076",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "Poor change management",
+      "riskStatement": "Poor change management may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Outages, insecure changes or unauthorized modifications to production systems.",
+      "regulatoryMapping": "Art.21(2)(e) secure maintenance; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "Production systems, applications, network devices, cloud infrastructure",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Formalize change approval, testing and rollback procedures.",
+      "suggestedControls": [
+        "Change management workflow, risk-based approvals, rollback plans, emergency change review"
+      ],
+      "suggestedEvidence": [
+        "Change tickets",
+        "approvals",
+        "test records",
+        "rollback plans",
+        "emergency change reviews"
+      ],
+      "defaultOwnerRole": "IT Operations / Change Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Change management",
+        "Production security"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-077",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "Secrets stored in code repositories",
+      "riskStatement": "Secrets stored in code repositories may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Credential theft and unauthorized access to systems, APIs or cloud services.",
+      "regulatoryMapping": "Art.21(2)(e) security in network and information systems acquisition, development and maintenance, including vulnerability handling and disclosure",
+      "affectedAssetsOrServices": "Source repositories, CI/CD, API keys, cloud credentials, service accounts",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Use secrets management and prevent secrets from being committed to repositories.",
+      "suggestedControls": [
+        "Secrets scanning, secrets vault, token rotation, repository protections"
+      ],
+      "suggestedEvidence": [
+        "Secrets scan reports",
+        "vault configuration",
+        "rotated credential records"
+      ],
+      "defaultOwnerRole": "Engineering / Application Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Secrets management",
+        "DevSecOps"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-078",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "Insecure CI/CD pipeline",
+      "riskStatement": "Insecure CI/CD pipeline may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Malicious or vulnerable code may be built and deployed to production.",
+      "regulatoryMapping": "Art.21(2)(e) security in network and information systems acquisition, development and maintenance, including vulnerability handling and disclosure",
+      "affectedAssetsOrServices": "CI/CD tools, build agents, deployment credentials, code repositories",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Secure build and deployment pipelines with least privilege, signing and approvals.",
+      "suggestedControls": [
+        "CI/CD hardening, branch protection, artifact signing, build isolation, approvals"
+      ],
+      "suggestedEvidence": [
+        "CI/CD configuration",
+        "branch protection settings",
+        "build logs",
+        "access reviews"
+      ],
+      "defaultOwnerRole": "DevOps Lead / Application Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "CI/CD security",
+        "Software supply chain"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-079",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "Lack of environment segregation",
+      "riskStatement": "Lack of environment segregation may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Testing or development activity impacts production or exposes production data.",
+      "regulatoryMapping": "Art.21(2)(e) security in network and information systems acquisition, development and maintenance, including vulnerability handling and disclosure",
+      "affectedAssetsOrServices": "Development environments, test systems, production systems, data sets",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Separate development, test and production environments with distinct access controls.",
+      "suggestedControls": [
+        "Environment segregation, production data masking, access separation, deployment controls"
+      ],
+      "suggestedEvidence": [
+        "Environment architecture",
+        "access matrices",
+        "data masking records"
+      ],
+      "defaultOwnerRole": "Engineering / IT Operations",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Environment segregation",
+        "Production security"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-080",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Application Security & Secure Development",
+      "title": "Uncontrolled software acquisition",
+      "riskStatement": "Uncontrolled software acquisition may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Shadow IT, unsupported tools and unassessed security exposure.",
+      "regulatoryMapping": "Art.21(2)(e) secure acquisition; Art.21(2)(d) supply-chain security; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "SaaS, desktop software, business applications, open-source tools",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Approve, inventory and risk-assess software before acquisition and use.",
+      "suggestedControls": [
+        "Software approval process, SaaS inventory, security assessment, procurement gates"
+      ],
+      "suggestedEvidence": [
+        "Approved software list",
+        "procurement records",
+        "SaaS inventory",
+        "risk assessments"
+      ],
+      "defaultOwnerRole": "Procurement / IT Asset Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Software acquisition",
+        "Shadow IT"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-081",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Phishing attacks compromise users",
+      "riskStatement": "Phishing attacks compromise users may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Credential theft, malware infection or unauthorized access to business systems.",
+      "regulatoryMapping": "Art.21(2)(g) basic cyber hygiene and cybersecurity training; Art.21(2)(i) HR security and access control",
+      "affectedAssetsOrServices": "Employees, contractors, helpdesk, privileged users, endpoints, collaboration tools",
+      "defaultLikelihood": "High",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Run awareness training, phishing simulations and email security controls.",
+      "suggestedControls": [
+        "Email security, phishing simulations, user reporting button, awareness training"
+      ],
+      "suggestedEvidence": [
+        "Training records",
+        "phishing simulation results",
+        "email security settings",
+        "reported phishing logs"
+      ],
+      "defaultOwnerRole": "Security Awareness Lead / SOC Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Phishing",
+        "Awareness"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-082",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Social engineering against helpdesk",
+      "riskStatement": "Social engineering against helpdesk may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Account takeover through fraudulent reset or support requests.",
+      "regulatoryMapping": "Art.21(2)(g) basic cyber hygiene and cybersecurity training; Art.21(2)(i) HR security and access control",
+      "affectedAssetsOrServices": "Helpdesk, IAM, password reset, privileged users",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Strengthen helpdesk identity verification and high-risk request approvals.",
+      "suggestedControls": [
+        "Identity verification scripts, callback procedures, MFA reset approvals, helpdesk training"
+      ],
+      "suggestedEvidence": [
+        "Helpdesk procedure",
+        "ticket samples",
+        "training records",
+        "reset approval logs"
+      ],
+      "defaultOwnerRole": "Service Desk Manager / IAM Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Social engineering",
+        "Helpdesk"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-083",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Employees lack cyber hygiene training",
+      "riskStatement": "Employees lack cyber hygiene training may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Increased human-error incidents and policy non-compliance.",
+      "regulatoryMapping": "Art.21(2)(g) basic cyber hygiene and cybersecurity training; Art.21(2)(i) HR security and access control",
+      "affectedAssetsOrServices": "Employees, contractors, privileged users, business process owners",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Conduct periodic cybersecurity training and role-specific education.",
+      "suggestedControls": [
+        "Annual training, role-specific training, training completion tracking, policy awareness"
+      ],
+      "suggestedEvidence": [
+        "Training plan",
+        "completion reports",
+        "training materials",
+        "attendance logs"
+      ],
+      "defaultOwnerRole": "Security Awareness Lead / HR",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Training",
+        "Cyber hygiene"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-084",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Malicious insider activity",
+      "riskStatement": "Malicious insider activity may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Data theft, sabotage, fraud or unauthorized disclosure.",
+      "regulatoryMapping": "Art.21(2)(g) basic cyber hygiene and cybersecurity training; Art.21(2)(i) HR security and access control",
+      "affectedAssetsOrServices": "Employees, contractors, privileged accounts, sensitive data",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Monitor privileged activity, enforce segregation of duties and apply HR security controls.",
+      "suggestedControls": [
+        "Insider risk monitoring, SoD, privileged monitoring, exit controls"
+      ],
+      "suggestedEvidence": [
+        "Monitoring alerts",
+        "SoD matrix",
+        "access reviews",
+        "HR procedures"
+      ],
+      "defaultOwnerRole": "HR / CISO",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Insider risk",
+        "Monitoring"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-085",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Accidental data disclosure",
+      "riskStatement": "Accidental data disclosure may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Confidentiality breach caused by user error or misdirected communication.",
+      "regulatoryMapping": "Art.21(2)(g) basic cyber hygiene and cybersecurity training; Art.21(2)(i) HR security and access control",
+      "affectedAssetsOrServices": "Email, cloud sharing, documents, customer data",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Train users and apply DLP and secure sharing controls.",
+      "suggestedControls": [
+        "DLP, user training, secure sharing rules, classification labels"
+      ],
+      "suggestedEvidence": [
+        "DLP incidents",
+        "training records",
+        "classification policy",
+        "sharing reports"
+      ],
+      "defaultOwnerRole": "Data Protection Officer / CISO",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Data disclosure",
+        "Awareness"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-086",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Uncontrolled use of removable media",
+      "riskStatement": "Uncontrolled use of removable media may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Malware introduction or data leakage through USB/removable devices.",
+      "regulatoryMapping": "Art.21(2)(g) cyber hygiene; Art.21(2)(i) asset management and access control",
+      "affectedAssetsOrServices": "Endpoints, removable media, sensitive data, OT systems",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Restrict and monitor removable media use.",
+      "suggestedControls": [
+        "USB control, media encryption, exception approvals, endpoint policy"
+      ],
+      "suggestedEvidence": [
+        "Endpoint policy",
+        "device control settings",
+        "exception register",
+        "DLP logs"
+      ],
+      "defaultOwnerRole": "IT Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Removable media",
+        "Endpoint control"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-087",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Use of personal devices without controls",
+      "riskStatement": "Use of personal devices without controls may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Data exposure, malware infection or unmanaged access to business systems.",
+      "regulatoryMapping": "Art.21(2)(g) cyber hygiene; Art.21(2)(i) access control; Art.21(2)(j) secured communications",
+      "affectedAssetsOrServices": "Mobile devices, laptops, cloud apps, remote access",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Implement BYOD/mobile device policy and device compliance controls.",
+      "suggestedControls": [
+        "MDM, conditional access, BYOD policy, device encryption"
+      ],
+      "suggestedEvidence": [
+        "BYOD policy",
+        "MDM reports",
+        "conditional access settings",
+        "device inventory"
+      ],
+      "defaultOwnerRole": "IT Security / IAM Owner",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "BYOD",
+        "Mobile security"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-088",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Poor security culture",
+      "riskStatement": "Poor security culture may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Persistent policy non-compliance and low reporting of suspicious activity.",
+      "regulatoryMapping": "Art.21(2)(g) basic cyber hygiene and cybersecurity training; Art.21(2)(i) HR security and access control",
+      "affectedAssetsOrServices": "Employees, management, business units, security awareness programme",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Run awareness campaigns and reinforce security expectations through management.",
+      "suggestedControls": [
+        "Security culture campaigns, leadership communications, reporting channels, KPIs"
+      ],
+      "suggestedEvidence": [
+        "Awareness campaigns",
+        "survey results",
+        "reporting metrics",
+        "management communications"
+      ],
+      "defaultOwnerRole": "CISO / Security Awareness Lead",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Security culture",
+        "Awareness"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-089",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Lack of disciplinary process for security violations",
+      "riskStatement": "Lack of disciplinary process for security violations may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Weak enforcement of cybersecurity policies and repeated non-compliance.",
+      "regulatoryMapping": "Art.21(2)(g) cyber hygiene; Art.21(2)(i) HR security",
+      "affectedAssetsOrServices": "Employees, contractors, policy violations, HR procedures",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Define disciplinary and corrective action process for policy violations.",
+      "suggestedControls": [
+        "Policy violation procedure, HR escalation, corrective actions, repeat violation monitoring"
+      ],
+      "suggestedEvidence": [
+        "Disciplinary procedure",
+        "HR records",
+        "violation logs",
+        "corrective actions"
+      ],
+      "defaultOwnerRole": "HR / Compliance Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Policy enforcement",
+        "HR security"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-090",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Human Factors, Awareness & Insider Risk",
+      "title": "Key cybersecurity knowledge depends on one person",
+      "riskStatement": "Key cybersecurity knowledge depends on one person may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Operational dependency and poor resilience if key staff are unavailable.",
+      "regulatoryMapping": "Art.21(2)(c) business continuity; Art.21(2)(g) training",
+      "affectedAssetsOrServices": "Security operations, IT operations, admin procedures, critical systems",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Document procedures and cross-train staff for critical cybersecurity operations.",
+      "suggestedControls": [
+        "Procedure documentation, cross-training, succession planning, runbooks"
+      ],
+      "suggestedEvidence": [
+        "Runbooks",
+        "cross-training records",
+        "coverage plan",
+        "succession matrix"
+      ],
+      "defaultOwnerRole": "CISO / IT Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Key person dependency",
+        "Training"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-091",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "Unauthorized physical access to ICT areas",
+      "riskStatement": "Unauthorized physical access to ICT areas may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Tampering, theft or disruption of critical ICT infrastructure.",
+      "regulatoryMapping": "Art.21 all-hazards approach; Art.21(2)(c) business continuity; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Server rooms, data centres, network cabinets, backup media",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Control and monitor physical access to server rooms and network areas.",
+      "suggestedControls": [
+        "Physical access control, visitor logs, restricted areas, CCTV, access reviews"
+      ],
+      "suggestedEvidence": [
+        "Access control logs",
+        "visitor records",
+        "CCTV policy",
+        "access review reports"
+      ],
+      "defaultOwnerRole": "Facilities / IT Operations",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Physical security",
+        "ICT areas"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-092",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "Fire, flood or environmental event affects ICT systems",
+      "riskStatement": "Fire, flood or environmental event affects ICT systems may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Service outage, equipment damage or data loss.",
+      "regulatoryMapping": "Art.21 all-hazards approach; Art.21(2)(c) business continuity; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Server rooms, data centres, network rooms, backup systems",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Implement environmental protections and continuity measures.",
+      "suggestedControls": [
+        "Fire suppression, water detection, UPS, environmental monitoring, DR plan"
+      ],
+      "suggestedEvidence": [
+        "Environmental monitoring logs",
+        "maintenance records",
+        "DR tests",
+        "facility risk assessment"
+      ],
+      "defaultOwnerRole": "Facilities / IT Operations",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Environmental risk",
+        "Continuity"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-093",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "CCTV/access logs are not reviewed",
+      "riskStatement": "CCTV/access logs are not reviewed may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Physical incidents or unauthorized access may go undetected.",
+      "regulatoryMapping": "Art.21 all-hazards approach; Art.21(2)(c) business continuity; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "Physical access systems, CCTV, visitor logs, server rooms",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Medium",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Monitor, retain and periodically review physical security logs.",
+      "suggestedControls": [
+        "Access log review, CCTV retention, exception alerts, periodic audits"
+      ],
+      "suggestedEvidence": [
+        "Access review records",
+        "CCTV retention settings",
+        "exception reports"
+      ],
+      "defaultOwnerRole": "Facilities / Security Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Physical monitoring",
+        "Log review"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-094",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "OT/ICS systems are connected without segmentation",
+      "riskStatement": "OT/ICS systems are connected without segmentation may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Operational disruption, safety impact or lateral movement from IT to OT.",
+      "regulatoryMapping": "Art.21 all-hazards approach; Art.21(2)(e) secure maintenance; Art.21(2)(i) asset management",
+      "affectedAssetsOrServices": "OT/ICS networks, production systems, industrial controllers, IT/OT gateways",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Segment OT from IT networks and strictly control remote access.",
+      "suggestedControls": [
+        "IT/OT segmentation, firewall rules, jump servers, OT access monitoring"
+      ],
+      "suggestedEvidence": [
+        "Network diagrams",
+        "segmentation rules",
+        "OT access logs",
+        "firewall review"
+      ],
+      "defaultOwnerRole": "OT Security Owner / Network Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "OT security",
+        "Segmentation"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-095",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "Legacy OT systems cannot be patched",
+      "riskStatement": "Legacy OT systems cannot be patched may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Persistent exploitation risk due to unpatched operational systems.",
+      "regulatoryMapping": "Art.21(2)(e) vulnerability handling; Art.21 all-hazards approach",
+      "affectedAssetsOrServices": "Legacy OT systems, industrial controllers, engineering workstations",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Apply compensating controls, isolation and OT monitoring.",
+      "suggestedControls": [
+        "Compensating controls, vulnerability risk assessment, network isolation, vendor support plan"
+      ],
+      "suggestedEvidence": [
+        "OT asset register",
+        "exception approvals",
+        "monitoring reports",
+        "compensating control records"
+      ],
+      "defaultOwnerRole": "OT Security Owner / Operations",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "OT vulnerability",
+        "Legacy systems"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-096",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "Remote maintenance of OT is insecure",
+      "riskStatement": "Remote maintenance of OT is insecure may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Unauthorized operational access or compromise via vendor maintenance channels.",
+      "regulatoryMapping": "Art.21(2)(d) supply-chain security; Art.21(2)(i) access control; Art.21(2)(j) secured communications",
+      "affectedAssetsOrServices": "OT remote access, vendor accounts, maintenance tools, jump servers",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Secure vendor remote maintenance with MFA, approvals, monitoring and time-bound access.",
+      "suggestedControls": [
+        "Vendor access approval, MFA, session recording, time-bound access, jump host"
+      ],
+      "suggestedEvidence": [
+        "Vendor access logs",
+        "approval records",
+        "MFA reports",
+        "session recordings"
+      ],
+      "defaultOwnerRole": "OT Security Owner / Third-Party Risk Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "OT remote access",
+        "Supplier access"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-097",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "Lack of OT incident response procedures",
+      "riskStatement": "Lack of OT incident response procedures may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Delayed containment and unsafe response in industrial or operational environments.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21 all-hazards approach",
+      "affectedAssetsOrServices": "OT/ICS environments, operations teams, safety systems, incident response team",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Create OT-specific incident response playbooks and escalation procedures.",
+      "suggestedControls": [
+        "OT incident playbooks, IT/OT escalation, safe shutdown procedures, exercises"
+      ],
+      "suggestedEvidence": [
+        "OT IR playbooks",
+        "tabletop reports",
+        "escalation matrix",
+        "training records"
+      ],
+      "defaultOwnerRole": "OT Security Owner / Incident Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "OT incident response",
+        "Playbooks"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-098",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "Inadequate monitoring of critical infrastructure systems",
+      "riskStatement": "Inadequate monitoring of critical infrastructure systems may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Attacks or anomalies in critical systems remain undetected.",
+      "regulatoryMapping": "Art.21(2)(b) incident handling; Art.21(2)(f) effectiveness assessment",
+      "affectedAssetsOrServices": "OT networks, critical infrastructure systems, SCADA, industrial sensors",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Deploy OT/critical-infrastructure-aware monitoring and alerting.",
+      "suggestedControls": [
+        "OT monitoring, anomaly detection, asset visibility, alert escalation"
+      ],
+      "suggestedEvidence": [
+        "Monitoring coverage reports",
+        "OT alerts",
+        "response procedures",
+        "dashboard reports"
+      ],
+      "defaultOwnerRole": "OT Security Owner / SOC Manager",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "OT monitoring",
+        "Critical infrastructure"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-099",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "Insecure IoT devices",
+      "riskStatement": "Insecure IoT devices may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Botnet participation, lateral movement, surveillance or data leakage.",
+      "regulatoryMapping": "Art.21(2)(i) asset management; Art.21(2)(e) secure maintenance",
+      "affectedAssetsOrServices": "IoT devices, cameras, sensors, smart devices, building systems",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "High",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Inventory and harden IoT devices and restrict their network access.",
+      "suggestedControls": [
+        "IoT inventory, default credential removal, segmentation, firmware updates"
+      ],
+      "suggestedEvidence": [
+        "IoT asset inventory",
+        "hardening records",
+        "network segmentation",
+        "firmware update logs"
+      ],
+      "defaultOwnerRole": "IT Operations / Facilities",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "IoT security",
+        "Asset management"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    },
+    {
+      "riskId": "CYR-100",
+      "frameworkContext": "NIS2 Art.21 Cybersecurity Risk Management",
+      "category": "Physical, Environmental & OT/IoT Security",
+      "title": "Telecom or network equipment compromise",
+      "riskStatement": "Telecom or network equipment compromise may affect the confidentiality, integrity, availability or resilience of critical services and network and information systems.",
+      "typicalImpact": "Service disruption, interception or loss of network integrity.",
+      "regulatoryMapping": "Art.21(2)(j) secured communications; Art.21(2)(e) secure maintenance",
+      "affectedAssetsOrServices": "Routers, switches, firewalls, telecom links, DNS, network management",
+      "defaultLikelihood": "Medium",
+      "defaultImpact": "High",
+      "defaultRiskRating": "Critical",
+      "defaultTreatmentOption": "Mitigate",
+      "treatmentDirection": "Secure and monitor network and telecom infrastructure.",
+      "suggestedControls": [
+        "Network device hardening, firmware updates, configuration backup, monitoring, access control"
+      ],
+      "suggestedEvidence": [
+        "Network device inventory",
+        "firmware records",
+        "configuration backups",
+        "monitoring logs"
+      ],
+      "defaultOwnerRole": "Network Security",
+      "reviewFrequency": "Quarterly",
+      "tags": [
+        "NIS2",
+        "Network equipment",
+        "Secure communications"
+      ],
+      "defaultStatus": "Not Assessed",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng",
+      "notes": null
+    }
+  ]
+}

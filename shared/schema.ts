@@ -12,6 +12,7 @@ import {
   serial,
   date,
   real,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -627,6 +628,76 @@ export const tenantDailySnapshots = pgTable("tenant_daily_snapshots", {
   incidentsOpen: integer("incidents_open").notNull().default(0),
 });
 
+export const riskLibraryEntries = pgTable("risk_library_entries", {
+  id: serial("id").primaryKey(),
+  libraryCode: text("library_code").notNull(),
+  riskId: text("risk_id").notNull(),
+  frameworkContext: text("framework_context"),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  riskStatement: text("risk_statement"),
+  typicalImpact: text("typical_impact"),
+  regulatoryMapping: text("regulatory_mapping"),
+  affectedAssetsOrServices: text("affected_assets_or_services"),
+  defaultLikelihood: text("default_likelihood"),
+  defaultImpact: text("default_impact"),
+  defaultRiskRating: text("default_risk_rating"),
+  defaultTreatmentOption: text("default_treatment_option"),
+  treatmentDirection: text("treatment_direction"),
+  suggestedControls: jsonb("suggested_controls").$type<string[]>().default([]),
+  suggestedEvidence: jsonb("suggested_evidence").$type<string[]>().default([]),
+  defaultOwnerRole: text("default_owner_role"),
+  reviewFrequency: text("review_frequency"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  defaultStatus: text("default_status").notNull().default("Not Assessed"),
+  sourceUrl: text("source_url"),
+  notes: text("notes"),
+  contentHash: text("content_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  uniqLibraryRisk: uniqueIndex("risk_library_entries_lib_risk_uniq").on(t.libraryCode, t.riskId),
+}));
+
+export const tenantRiskRegisterItems = pgTable("tenant_risk_register_items", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  libraryCode: text("library_code").notNull(),
+  riskId: text("risk_id").notNull(),
+  libraryEntryId: integer("library_entry_id").references(() => riskLibraryEntries.id),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  riskStatement: text("risk_statement"),
+  typicalImpact: text("typical_impact"),
+  regulatoryMapping: text("regulatory_mapping"),
+  affectedAssetsOrServices: text("affected_assets_or_services"),
+  inherentLikelihood: text("inherent_likelihood"),
+  inherentImpact: text("inherent_impact"),
+  inherentRiskRating: text("inherent_risk_rating"),
+  treatmentOption: text("treatment_option"),
+  treatmentDirection: text("treatment_direction"),
+  suggestedControls: jsonb("suggested_controls").$type<string[]>().default([]),
+  suggestedEvidence: jsonb("suggested_evidence").$type<string[]>().default([]),
+  ownerUserId: integer("owner_user_id").references(() => users.id),
+  status: text("status").notNull().default("Not Assessed"),
+  treatmentStatus: text("treatment_status"),
+  residualLikelihood: text("residual_likelihood"),
+  residualImpact: text("residual_impact"),
+  residualRiskRating: text("residual_risk_rating"),
+  treatmentPlan: text("treatment_plan"),
+  dueDate: timestamp("due_date"),
+  evidenceLinks: jsonb("evidence_links").$type<string[]>().default([]),
+  acceptanceDecision: text("acceptance_decision"),
+  acceptanceApprovedBy: integer("acceptance_approved_by").references(() => users.id),
+  lastReviewDate: timestamp("last_review_date"),
+  nextReviewDate: timestamp("next_review_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  uniqTenantLibraryRisk: uniqueIndex("tenant_risk_register_tenant_lib_risk_uniq").on(t.tenantId, t.libraryCode, t.riskId),
+}));
+
 export const passwordHistory = pgTable("password_history", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -1022,6 +1093,22 @@ export const insertDoraRegulatoryProfileSchema = createInsertSchema(doraRegulato
 });
 export type DoraRegulatoryProfile = typeof doraRegulatoryProfile.$inferSelect;
 export type InsertDoraRegulatoryProfile = z.infer<typeof insertDoraRegulatoryProfileSchema>;
+
+export const insertRiskLibraryEntrySchema = createInsertSchema(riskLibraryEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type RiskLibraryEntry = typeof riskLibraryEntries.$inferSelect;
+export type InsertRiskLibraryEntry = z.infer<typeof insertRiskLibraryEntrySchema>;
+
+export const insertTenantRiskRegisterItemSchema = createInsertSchema(tenantRiskRegisterItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type TenantRiskRegisterItem = typeof tenantRiskRegisterItems.$inferSelect;
+export type InsertTenantRiskRegisterItem = z.infer<typeof insertTenantRiskRegisterItemSchema>;
 
 export const loginSchema = z.object({
   email: z.string().email(),

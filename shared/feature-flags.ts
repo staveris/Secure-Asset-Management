@@ -18,6 +18,12 @@ export const FEATURE_FLAG_REGISTRY: FeatureFlagDefinition[] = [
     description: "Enables the DORA dashboard, wizard, and controls for this tenant.",
     icon: "shield",
   },
+  {
+    key: "NIS2_ART21_RISK_REGISTER",
+    label: "NIS2 Art.21 Cyber Risk Register",
+    description: "Adds the NIS2 Article 21 cybersecurity risk register tab on the Risks page for this tenant.",
+    icon: "shield",
+  },
 ];
 
 export function getFeatureFlagDefinition(key: string): FeatureFlagDefinition | undefined {
