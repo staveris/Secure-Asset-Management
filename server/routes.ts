@@ -104,6 +104,16 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const snapshotRecomputeLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 5,
+  message: { message: "Too many recompute requests, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => false,
+  keyGenerator: (req) => `user:${req.session?.userId ?? "anon"}`,
+});
+
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000;
 
@@ -1930,6 +1940,7 @@ export async function registerRoutes(
         filename: file.originalname,
         mimeType: file.mimetype,
         size: file.size,
+        storagePath: path.relative(process.cwd(), file.path),
         uploadedBy: user.id,
       });
 
@@ -3643,7 +3654,7 @@ export async function registerRoutes(
     res.json(snapshots);
   });
 
-  app.post("/api/snapshots/recompute", requireAuth, async (req, res) => {
+  app.post("/api/snapshots/recompute", requireAuth, requireWriteAccess, snapshotRecomputeLimiter, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const snapshot = await storage.recomputeTenantSnapshot(user.tenantId);
