@@ -1113,7 +1113,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
     },
   });
 
-  const controls = controlsData?.data || [];
+  const allControls = controlsData?.data || [];
   const responses = assessment?.responses || [];
 
   const responseMap = useMemo(() => {
@@ -1123,6 +1123,25 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
     }
     return map;
   }, [responses]);
+
+  // Scope each assessment to its source frameworks:
+  //   - If the assessment has pre-seeded responses (DORA or future scoped sets),
+  //     restrict to the source keys present in those responses.
+  //   - Otherwise (legacy unscoped NIS2 atomic assessments) show everything
+  //     EXCEPT DORA, since DORA controls only belong to dedicated DORA runs.
+  const controls = useMemo(() => {
+    if (allControls.length === 0) return allControls;
+    if (responseMap.size > 0) {
+      const allowedSourceKeys = new Set<string>();
+      for (const c of allControls) {
+        if (responseMap.has(c.id) && c.sourceKey) allowedSourceKeys.add(c.sourceKey);
+      }
+      if (allowedSourceKeys.size > 0) {
+        return allControls.filter((c) => c.sourceKey && allowedSourceKeys.has(c.sourceKey));
+      }
+    }
+    return allControls.filter((c) => c.sourceKey !== "DORA_2022_2554");
+  }, [allControls, responseMap]);
 
   const filteredControls = useMemo(() => {
     let filtered = controls;
