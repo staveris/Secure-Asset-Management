@@ -453,7 +453,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-3" data-testid="nav-brand">
               <img src={companyLogo} alt="Tools of Tech" className="h-10 rounded-md object-contain" />
               <div>
-                <span className="text-white font-semibold text-sm tracking-wide">NIS2 Platform</span>
+                <span className="text-white font-semibold text-sm tracking-wide">CyberResilience360</span>
                 <span className="hidden sm:block text-slate-500 text-[10px] tracking-[0.12em] uppercase">by Tools of Tech</span>
               </div>
             </div>
@@ -507,14 +507,13 @@ export default function LandingPage() {
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.08] tracking-tight mb-6" data-testid="text-hero-title">
-              Enterprise NIS2{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-400 to-violet-400">
-                Compliance Platform
+                CyberResilience360
               </span>
             </h1>
 
             <p className="text-lg sm:text-xl text-slate-400 leading-relaxed mb-10 max-w-2xl mx-auto" data-testid="text-hero-description">
-              Streamline your path to NIS2 and CIR compliance with unified assessments, automated reporting timelines, and audit-ready evidence management.
+              The cyber resilience platform for NIS2, DORA, and NIST CSF 2.0 compliance.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
