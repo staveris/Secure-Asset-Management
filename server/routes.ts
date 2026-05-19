@@ -126,6 +126,20 @@ async function destroyUserSessions(userId: number): Promise<void> {
   }
 }
 
+async function destroyTenantSessions(tenantId: number): Promise<void> {
+  try {
+    const result = await pool.query<{ id: number }>(
+      `SELECT id FROM "users" WHERE "tenantId" = $1`,
+      [tenantId]
+    );
+    for (const row of result.rows) {
+      await destroyUserSessions(row.id);
+    }
+  } catch (err) {
+    console.error("[Security] Failed to destroy tenant sessions:", err);
+  }
+}
+
 function logSecurityEvent(event: string, details: Record<string, any>) {
   const timestamp = new Date().toISOString();
   console.log(`[SECURITY] ${timestamp} | ${event} | ${JSON.stringify(details)}`);
@@ -256,9 +270,30 @@ async function addPasswordToHistory(userId: number, hash: string): Promise<void>
   }
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
+const VERIFICATION_EXEMPT_PATHS = new Set([
+  "/api/auth/resend-verification",
+  "/api/auth/logout",
+  "/api/auth/me",
+]);
+
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
     return res.status(401).json({ message: "Unauthorized" });
+  }
+  const user = await storage.getUser(req.session.userId);
+  if (!user || !user.isActive) {
+    req.session.destroy(() => {});
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  if (user.role !== "PLATFORM_ADMIN" && user.tenantId) {
+    const tenant = await storage.getTenant(user.tenantId);
+    if (tenant && tenant.status === "suspended") {
+      req.session.destroy(() => {});
+      return res.status(403).json({ message: "Your organization's access has been suspended. Please contact your administrator." });
+    }
+  }
+  if (!user.emailVerified && !VERIFICATION_EXEMPT_PATHS.has(req.path)) {
+    return res.status(403).json({ message: "Email verification required. Please verify your email before accessing the platform." });
   }
   next();
 }
@@ -266,7 +301,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 async function requirePlatformAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
   const user = await storage.getUser(req.session.userId);
-  if (!user || user.role !== "PLATFORM_ADMIN") {
+  if (!user || !user.isActive || user.role !== "PLATFORM_ADMIN") {
     return res.status(403).json({ message: "Forbidden" });
   }
   next();
@@ -921,7 +956,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/auth/me", async (req, res) => {
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user) return res.status(401).json({ message: "Not authenticated" });
     const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
@@ -2949,6 +2984,9 @@ export async function registerRoutes(
       const { status } = tenantStatusSchema.parse(req.body);
       const tenant = await storage.updateTenant(tenantId, { status } as any);
       if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+      if (status === "suspended") {
+        await destroyTenantSessions(tenantId);
+      }
       res.json(tenant);
     } catch (err: any) {
       if (err instanceof z.ZodError) {
@@ -3328,6 +3366,10 @@ export async function registerRoutes(
       if (fullAccessEnabled !== undefined) updates.fullAccessEnabled = fullAccessEnabled;
 
       const updated = await storage.updateUser(targetId, updates);
+
+      if (isActive === false) {
+        await destroyUserSessions(targetId);
+      }
 
       await storage.createAuditLog({
         tenantId: user.tenantId,
