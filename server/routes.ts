@@ -3181,6 +3181,81 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  app.post("/api/admin/tenants/:tenantId/invite", requirePlatformAdmin, async (req, res) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const tenant = await storage.getTenant(tenantId);
+      if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+
+      const { email, fullName, role } = req.body || {};
+      if (!email || typeof email !== "string" || !email.includes("@")) {
+        return res.status(400).json({ message: "Valid email required" });
+      }
+
+      const allowedRoles = ["TENANT_ADMIN", "TENANT_MANAGER", "TENANT_USER", "READONLY_AUDITOR"];
+      const inviteRole = role && allowedRoles.includes(role) ? role : "TENANT_USER";
+
+      const tenantUsers = await storage.getUsersByTenant(tenantId);
+      if (tenantUsers.length >= tenant.maxUsers) {
+        return res.status(403).json({ message: `User limit reached (${tenant.maxUsers} users).` });
+      }
+
+      const existing = await storage.getUserByEmail(email);
+      if (existing) return res.status(400).json({ message: "User already exists" });
+
+      const adminUser = await getAuthUser(req);
+      if (!adminUser) return res.status(401).json({ message: "Unauthorized" });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+      const invite = await storage.createInviteToken({
+        tenantId,
+        email,
+        role: inviteRole,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        createdBy: adminUser.id,
+      });
+
+      await storage.createAuditLog({
+        tenantId,
+        actorUserId: adminUser.id,
+        action: "INVITE_USER",
+        entityType: "INVITE",
+        entityId: String(invite.id),
+        details: { email, role: inviteRole, fullName: fullName || null, viaPlatformAdmin: true },
+      });
+
+      const baseUrl = getAppBaseUrl();
+      const inviteLink = `${baseUrl}/invite/${token}`;
+      const tenantName = tenant.name || "your organization";
+      const inviterName = adminUser.fullName || adminUser.email;
+      const greetingName = fullName && typeof fullName === "string" && fullName.trim() ? fullName.trim() : "there";
+
+      const htmlBody = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #1a1a1a;">You've been invited to join ${tenantName}</h2>
+          <p>Hi ${greetingName},</p>
+          <p>${inviterName} (Platform Admin) has invited you to join <strong>${tenantName}</strong> on the NIS2 Readiness Platform as a <strong>${inviteRole.replace("_", " ")}</strong>.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${inviteLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Accept Invitation
+            </a>
+          </div>
+          <p style="color: #666; font-size: 14px;">This invitation expires in 7 days.</p>
+          <p style="color: #666; font-size: 12px;">If the button doesn't work, copy and paste this URL into your browser:<br/>${inviteLink}</p>
+        </div>
+      `;
+
+      const emailSent = await sendGenericEmail(email, `You're invited to join ${tenantName} - NIS2 Platform`, htmlBody);
+
+      res.json({ invite, inviteLink: `/invite/${token}`, emailSent });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/admin/requirements", requirePlatformAdmin, async (req, res) => {
     const data = await storage.getRequirementsWithControls();
     res.json(data);

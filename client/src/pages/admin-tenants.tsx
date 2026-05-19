@@ -37,7 +37,7 @@ import {
 import { Switch as SwitchUI } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom, Pencil } from "lucide-react";
+import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom, Pencil, Shield, UserPlus } from "lucide-react";
 
 interface TenantInfo {
   id: number;
@@ -114,6 +114,8 @@ export default function AdminTenants() {
   const [editEmail, setEditEmail] = useState("");
   const [editTenant, setEditTenant] = useState<TenantInfo | null>(null);
   const [editTenantForm, setEditTenantForm] = useState<{ name: string; sector: string; subsector: string; entityType: string; country: string }>({ name: "", sector: "", subsector: "", entityType: "", country: "" });
+  const [inviteTenant, setInviteTenant] = useState<TenantInfo | null>(null);
+  const [inviteForm, setInviteForm] = useState<{ email: string; fullName: string; role: string }>({ email: "", fullName: "", role: "TENANT_USER" });
 
   const { data: tenants, isLoading } = useQuery<TenantInfo[]>({
     queryKey: ["/api/admin/tenants"],
@@ -171,6 +173,35 @@ export default function AdminTenants() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const inviteUserMutation = useMutation({
+    mutationFn: async ({ tenantId, data }: { tenantId: number; data: typeof inviteForm }) => {
+      const res = await apiRequest("POST", `/api/admin/tenants/${tenantId}/invite`, data);
+      return await res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/tenants/${vars.tenantId}/users`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants"] });
+      toast({ title: "Invitation sent", description: "The user will appear in the tenant list once they accept and verify." });
+      setInviteTenant(null);
+      setInviteForm({ email: "", fullName: "", role: "TENANT_USER" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleSubmitInvite = () => {
+    if (!inviteTenant) return;
+    if (!inviteForm.email.trim() || !inviteForm.email.includes("@")) {
+      toast({ title: "Validation", description: "A valid email address is required.", variant: "destructive" });
+      return;
+    }
+    inviteUserMutation.mutate({
+      tenantId: inviteTenant.id,
+      data: { ...inviteForm, email: inviteForm.email.trim(), fullName: inviteForm.fullName.trim() },
+    });
+  };
 
   const editTenantDetailsMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: typeof editTenantForm }) => {
@@ -553,7 +584,7 @@ export default function AdminTenants() {
                 </div>
                 {expandedTenant === tenant.id && (
                   <div className="mt-4 pt-4 border-t space-y-2">
-                    <div className="flex items-center gap-3 p-2 rounded-md bg-muted/30 mb-3" data-testid={`atomic-flag-row-${tenant.id}`}>
+                    <div className="flex items-center gap-3 p-2 rounded-md bg-muted/30 mb-2" data-testid={`atomic-flag-row-${tenant.id}`}>
                       <Atom className="w-4 h-4 text-primary shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium">Atomic Assessments Add-on</p>
@@ -566,7 +597,34 @@ export default function AdminTenants() {
                         data-testid={`switch-atomic-flag-${tenant.id}`}
                       />
                     </div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2">User Access Management</p>
+                    <div className="flex items-center gap-3 p-2 rounded-md bg-muted/30 mb-3" data-testid={`dora-flag-row-${tenant.id}`}>
+                      <Shield className="w-4 h-4 text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">DORA Module</p>
+                        <p className="text-xs text-muted-foreground">Enables the DORA dashboard, wizard, and controls for this tenant.</p>
+                      </div>
+                      <SwitchUI
+                        checked={tenantFeatureFlags?.some((f: any) => f.key === "DORA_MODULE" && f.enabled) ?? false}
+                        onCheckedChange={(checked) => featureFlagMutation.mutate({ tenantId: tenant.id, key: "DORA_MODULE", enabled: checked })}
+                        disabled={featureFlagMutation.isPending}
+                        data-testid={`switch-dora-flag-${tenant.id}`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-muted-foreground">User Access Management</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setInviteForm({ email: "", fullName: "", role: "TENANT_USER" });
+                          setInviteTenant(tenant);
+                        }}
+                        data-testid={`button-invite-user-${tenant.id}`}
+                      >
+                        <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                        Invite user
+                      </Button>
+                    </div>
                     {usersLoading ? (
                       <div className="space-y-2">
                         {[1, 2].map(i => <Skeleton key={i} className="h-10" />)}
@@ -715,6 +773,66 @@ export default function AdminTenants() {
               data-testid="button-save-edit-user"
             >
               {editUserProfileMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!inviteTenant} onOpenChange={(open) => !open && setInviteTenant(null)}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-invite-user">
+          <DialogHeader>
+            <DialogTitle>Invite User</DialogTitle>
+            <DialogDescription>
+              Send an invitation to join {inviteTenant?.name}. They'll receive an email with a link to set their password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="inviteEmail">Email Address</Label>
+              <Input
+                id="inviteEmail"
+                type="email"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="user@example.com"
+                data-testid="input-invite-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inviteFullName">Full Name <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Input
+                id="inviteFullName"
+                value={inviteForm.fullName}
+                onChange={(e) => setInviteForm(prev => ({ ...prev, fullName: e.target.value }))}
+                placeholder="Jane Doe"
+                data-testid="input-invite-fullname"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={inviteForm.role} onValueChange={(v) => setInviteForm(prev => ({ ...prev, role: v }))}>
+                <SelectTrigger data-testid="select-invite-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TENANT_ADMIN">Tenant Admin</SelectItem>
+                  <SelectItem value="TENANT_MANAGER">Tenant Manager</SelectItem>
+                  <SelectItem value="TENANT_USER">Tenant User</SelectItem>
+                  <SelectItem value="READONLY_AUDITOR">Readonly Auditor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setInviteTenant(null)} data-testid="button-cancel-invite">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitInvite}
+              disabled={inviteUserMutation.isPending}
+              data-testid="button-submit-invite"
+            >
+              {inviteUserMutation.isPending ? "Sending..." : "Send Invitation"}
             </Button>
           </DialogFooter>
         </DialogContent>
