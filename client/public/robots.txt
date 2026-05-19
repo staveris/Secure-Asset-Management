@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://nis2compliance.toolsoftech.eu/sitemap.xml
+Sitemap: https://cyres360.toolsoftech.eu/sitemap.xml
