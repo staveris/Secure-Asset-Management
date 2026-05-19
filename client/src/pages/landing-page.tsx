@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import faviconLogo from "@assets/browser_1770569283054.png";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
+import { HeroGraphic } from "@/components/hero-graphic";
 
 const features = [
   {
@@ -498,56 +499,65 @@ export default function LandingPage() {
         }} />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] border border-white/[0.08] mb-8" data-testid="badge-regulation">
-              <Globe className="w-4 h-4 text-blue-400" />
-              <span className="text-blue-300/90 text-xs font-medium tracking-wider uppercase">
-                EU Directive 2022/2555 & CIR 2024/2690
-              </span>
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center mb-16">
+            {/* Left — text content */}
+            <div className="text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] border border-white/[0.08] mb-8" data-testid="badge-regulation">
+                <Globe className="w-4 h-4 text-blue-400" />
+                <span className="text-blue-300/90 text-xs font-medium tracking-wider uppercase">
+                  EU Directive 2022/2555 & CIR 2024/2690
+                </span>
+              </div>
+
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.08] tracking-tight mb-6" data-testid="text-hero-title">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-400 to-violet-400">
+                  CyberResilience360
+                </span>
+              </h1>
+
+              <p className="text-lg sm:text-xl text-slate-400 leading-relaxed mb-10 max-w-xl" data-testid="text-hero-description">
+                The cyber resilience platform for NIS2 and CIR compliance.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
+                <Button
+                  size="lg"
+                  onClick={() => navigate("/register")}
+                  className="bg-blue-600 text-white border-blue-500"
+                  data-testid="button-hero-get-started"
+                >
+                  Start Compliance Journey
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => navigate("/login")}
+                  className="border-white/[0.15] text-slate-300 bg-white/[0.04]"
+                  style={{ backdropFilter: "blur(8px)" }}
+                  data-testid="button-hero-sign-in"
+                >
+                  Sign In to Dashboard
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.08] tracking-tight mb-6" data-testid="text-hero-title">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-400 to-violet-400">
-                CyberResilience360
-              </span>
-            </h1>
-
-            <p className="text-lg sm:text-xl text-slate-400 leading-relaxed mb-10 max-w-2xl mx-auto" data-testid="text-hero-description">
-              The cyber resilience platform for NIS2 and CIR compliance.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-              <Button
-                size="lg"
-                onClick={() => navigate("/register")}
-                className="bg-blue-600 text-white border-blue-500"
-                data-testid="button-hero-get-started"
-              >
-                Start Compliance Journey
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => navigate("/login")}
-                className="border-white/[0.15] text-slate-300 bg-white/[0.04]"
-                style={{ backdropFilter: "blur(8px)" }}
-                data-testid="button-hero-sign-in"
-              >
-                Sign In to Dashboard
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
+            {/* Right — hero graphic */}
+            <div className="flex justify-center lg:justify-end">
+              <HeroGraphic />
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8" data-testid="hero-stats">
-              {stats.map((stat) => (
-                <div key={stat.label} className="text-center" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
-                  <div className="text-3xl sm:text-4xl font-bold text-white mb-1">{stat.value}</div>
-                  <div className="text-blue-400 text-xs font-semibold tracking-wider uppercase mb-0.5">{stat.label}</div>
-                  <div className="text-slate-500 text-[11px]">{stat.description}</div>
-                </div>
-              ))}
-            </div>
+          {/* Stats row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 border-t border-white/[0.06] pt-12" data-testid="hero-stats">
+            {stats.map((stat) => (
+              <div key={stat.label} className="text-center" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                <div className="text-3xl sm:text-4xl font-bold text-white mb-1">{stat.value}</div>
+                <div className="text-blue-400 text-xs font-semibold tracking-wider uppercase mb-0.5">{stat.label}</div>
+                <div className="text-slate-500 text-[11px]">{stat.description}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
