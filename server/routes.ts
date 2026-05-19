@@ -3887,8 +3887,14 @@ export async function registerRoutes(
     if (!user) { res.status(401).json({ message: "Not authenticated" }); return false; }
     if (user.role === "PLATFORM_ADMIN") return true;
     if (!user.tenantId) { res.status(400).json({ message: "No tenant" }); return false; }
-    const enabled = await storage.isFeatureEnabled(user.tenantId, "ATOMIC_ASSESSMENTS");
-    if (!enabled) { res.status(403).json({ message: "Atomic assessments not enabled for this tenant" }); return false; }
+    // Either the generic atomic-assessments flag or the DORA module satisfies this gate.
+    // Tenant scoping on every downstream endpoint still prevents cross-tenant access.
+    const atomicEnabled = await storage.isFeatureEnabled(user.tenantId, "ATOMIC_ASSESSMENTS");
+    const doraEnabled = await storage.isFeatureEnabled(user.tenantId, "DORA_MODULE");
+    if (!atomicEnabled && !doraEnabled) {
+      res.status(403).json({ message: "Atomic assessments not enabled for this tenant" });
+      return false;
+    }
     return true;
   }
 
@@ -4442,6 +4448,121 @@ export async function registerRoutes(
       applicableCount: applicable.length,
       ...(debug ? { debug: debugInfo } : {}),
     });
+  });
+
+  // POST /api/dora/assessments — create a DORA assessment pre-scoped to the
+  // tenant's applicable DORA controls. Returns the new assessment id so the
+  // client can navigate to the standard /atomic-assessments/:id UI.
+  app.post("/api/dora/assessments", requireAuth, requireDoraModule, requireWriteAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+    const { db } = await import("./db");
+    const { atomicControls } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+    const { DORA_SOURCE_KEY, decideDoraApplicability, computeApplicableDoraControls } =
+      await import("./dora-applicability");
+
+    const profile = (await loadDoraProfile(user.tenantId)) || emptyDoraProfile(user.tenantId);
+    const decision = decideDoraApplicability(profile);
+    if (!decision.doraApplicable) {
+      return res.status(400).json({
+        message: "DORA is not currently applicable to this organisation. Complete the scope wizard first.",
+        reason: decision.reason,
+      });
+    }
+
+    const allDora = await db
+      .select()
+      .from(atomicControls)
+      .where(and(eq(atomicControls.sourceKey, DORA_SOURCE_KEY), eq(atomicControls.isActive, true)));
+    const applicable = computeApplicableDoraControls(profile, allDora);
+    if (applicable.length === 0) {
+      return res.status(400).json({ message: "No DORA controls are applicable to this organisation's profile." });
+    }
+
+    const rawName = (req.body?.name || "").toString().trim();
+    const name = rawName || `DORA Assessment — ${new Date().toISOString().slice(0, 10)}`;
+    const scopeNote = decision.simplifiedMode ? "DORA Article 16 simplified framework" : "DORA full framework";
+    const scope = (req.body?.scope || "").toString().trim() || scopeNote;
+
+    const assessment = await storage.createAtomicAssessment({
+      tenantId: user.tenantId,
+      name,
+      scope,
+      createdBy: user.id,
+      status: "DRAFT",
+    });
+
+    // Pre-seed one response row per applicable control so the assessment detail
+    // page renders the right control set from the moment it opens.
+    for (const c of applicable) {
+      await storage.upsertAtomicAssessmentResponse({
+        atomicAssessmentId: assessment.id,
+        atomicControlId: c.id,
+        implementationStatus: "NOT_STARTED",
+        maturityLevel: 0,
+        confidence: "NONE",
+        notes: null,
+        answeredBy: user.id,
+      });
+    }
+
+    await storage.createAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: "DORA_ASSESSMENT_CREATED",
+      entityType: "AtomicAssessment",
+      entityId: String(assessment.id),
+      details: {
+        name,
+        scope,
+        controlCount: applicable.length,
+        simplifiedMode: decision.simplifiedMode,
+      },
+    });
+
+    res.json({ assessment, controlCount: applicable.length });
+  });
+
+  // GET /api/dora/assessments — list atomic assessments for this tenant that
+  // contain DORA controls (so the DORA dashboard can show prior runs).
+  app.get("/api/dora/assessments", requireAuth, requireDoraModule, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+    const { db } = await import("./db");
+    const { atomicAssessments, atomicAssessmentResponses, atomicControls } = await import("@shared/schema");
+    const { eq, and, inArray, sql } = await import("drizzle-orm");
+    const { DORA_SOURCE_KEY } = await import("./dora-applicability");
+
+    const tenantAssessments = await db
+      .select()
+      .from(atomicAssessments)
+      .where(eq(atomicAssessments.tenantId, user.tenantId))
+      .orderBy(sql`${atomicAssessments.createdAt} desc`);
+    if (tenantAssessments.length === 0) return res.json([]);
+
+    const ids = tenantAssessments.map((a) => a.id);
+    const rows = await db
+      .select({
+        atomicAssessmentId: atomicAssessmentResponses.atomicAssessmentId,
+        sourceKey: atomicControls.sourceKey,
+        status: atomicAssessmentResponses.implementationStatus,
+      })
+      .from(atomicAssessmentResponses)
+      .innerJoin(atomicControls, eq(atomicAssessmentResponses.atomicControlId, atomicControls.id))
+      .where(and(inArray(atomicAssessmentResponses.atomicAssessmentId, ids), eq(atomicControls.sourceKey, DORA_SOURCE_KEY)));
+
+    const stats = new Map<number, { total: number; implemented: number }>();
+    for (const r of rows) {
+      const s = stats.get(r.atomicAssessmentId) || { total: 0, implemented: 0 };
+      s.total += 1;
+      if (r.status === "IMPLEMENTED") s.implemented += 1;
+      stats.set(r.atomicAssessmentId, s);
+    }
+    const result = tenantAssessments
+      .filter((a) => stats.has(a.id))
+      .map((a) => ({ ...a, ...stats.get(a.id)! }));
+    res.json(result);
   });
 
   // GET /api/dora/module-enabled — whether tenant can see the DORA module at all

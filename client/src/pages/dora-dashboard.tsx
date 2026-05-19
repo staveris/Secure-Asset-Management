@@ -1,10 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Shield, AlertCircle, CheckCircle2, ArrowRight, ListChecks } from "lucide-react";
+import { Shield, AlertCircle, CheckCircle2, ArrowRight, ListChecks, FilePlus2, ClipboardCheck } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface DoraProfile {
   doraEnabled: boolean;
@@ -22,9 +24,45 @@ interface ControlsResp {
   applicableCount?: number;
 }
 
+interface DoraAssessmentRow {
+  id: number;
+  name: string;
+  scope: string | null;
+  status: string;
+  createdAt: string;
+  total: number;
+  implemented: number;
+}
+
 export default function DoraDashboard() {
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
   const { data: profile, isLoading: pLoading } = useQuery<DoraProfile>({ queryKey: ["/api/dora/profile"] });
   const { data: ctrls, isLoading: cLoading } = useQuery<ControlsResp>({ queryKey: ["/api/dora/controls"] });
+  const { data: assessments } = useQuery<DoraAssessmentRow[]>({ queryKey: ["/api/dora/assessments"] });
+
+  const createAssessment = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/dora/assessments", {});
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dora/assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments"] });
+      toast({
+        title: "DORA assessment created",
+        description: `${data.controlCount} applicable controls pre-loaded.`,
+      });
+      navigate(`/atomic-assessments/${data.assessment.id}`);
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Could not create assessment",
+        description: err?.message || "Failed",
+        variant: "destructive",
+      });
+    },
+  });
 
   if (pLoading || cLoading) {
     return (
@@ -118,6 +156,65 @@ export default function DoraDashboard() {
             </CardContent>
           </Card>
 
+          <Card data-testid="card-dora-assessments">
+            <CardHeader className="flex flex-row items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5 text-primary" />
+                  DORA assessments
+                </CardTitle>
+                <CardDescription>
+                  Run a structured assessment pre-scoped to the {ctrls?.applicableCount ?? ctrls?.controls.length ?? 0}
+                  {" "}controls applicable to your profile. Uses the standard assessment workspace.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() => createAssessment.mutate()}
+                disabled={createAssessment.isPending}
+                data-testid="button-new-dora-assessment"
+              >
+                <FilePlus2 className="mr-2 h-4 w-4" />
+                {createAssessment.isPending ? "Creating..." : "New DORA assessment"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {(assessments || []).length === 0 ? (
+                <p className="text-sm text-muted-foreground" data-testid="text-no-dora-assessments">
+                  No DORA assessments yet. Create your first one to start tracking implementation status against
+                  each applicable control.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {(assessments || []).map((a) => {
+                    const pct = a.total > 0 ? Math.round((a.implemented / a.total) * 100) : 0;
+                    return (
+                      <Link key={a.id} href={`/atomic-assessments/${a.id}`}>
+                        <div
+                          className="flex items-center justify-between gap-4 p-3 rounded-md border hover-elevate cursor-pointer"
+                          data-testid={`row-dora-assessment-${a.id}`}
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{a.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {a.scope || "—"} · {new Date(a.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <Badge variant="outline" className="text-xs">{a.status}</Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {a.implemented}/{a.total} ({pct}%)
+                            </span>
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card data-testid="card-dora-controls-cta">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -125,13 +222,13 @@ export default function DoraDashboard() {
                 Browse applicable DORA controls
               </CardTitle>
               <CardDescription>
-                View and manage the {ctrls?.applicableCount ?? ctrls?.controls.length ?? 0} DORA controls tailored to
-                your organisation's scope profile.
+                View the {ctrls?.applicableCount ?? ctrls?.controls.length ?? 0} DORA controls tailored to your
+                organisation's scope profile (read-only catalog).
               </CardDescription>
             </CardHeader>
             <CardContent className="flex gap-3">
               <Link href="/dora/controls">
-                <Button data-testid="button-view-dora-controls">
+                <Button variant="outline" data-testid="button-view-dora-controls">
                   View controls <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
