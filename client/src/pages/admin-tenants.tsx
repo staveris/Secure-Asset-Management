@@ -138,8 +138,8 @@ export default function AdminTenants() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags", vars.tenantId] });
       toast({ title: vars.enabled ? "Feature enabled" : "Feature disabled" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to update feature flag", variant: "destructive" });
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message || "Failed to update feature flag", variant: "destructive" });
     },
   });
 

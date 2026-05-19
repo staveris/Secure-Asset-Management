@@ -302,7 +302,7 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
       return res.status(403).json({ message: "Your organization's access has been suspended. Please contact your administrator." });
     }
   }
-  if (!user.emailVerified && !VERIFICATION_EXEMPT_PATHS.has(req.path)) {
+  if (user.role !== "PLATFORM_ADMIN" && !user.emailVerified && !VERIFICATION_EXEMPT_PATHS.has(req.path)) {
     return res.status(403).json({ message: "Email verification required. Please verify your email before accessing the platform." });
   }
   next();
