@@ -998,18 +998,10 @@ export async function registerRoutes(
     });
   });
 
-  app.get("/api/dashboard", requireAuth, async (req, res) => {
+  app.get("/api/dashboard", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const data = await storage.getDashboardData(user.tenantId);
-    const hasFullAccess = user.role === "PLATFORM_ADMIN" || user.fullAccessEnabled;
-    if (!hasFullAccess) {
-      data.activeTasks = 0;
-      data.overdueTasks = 0;
-      data.openIncidents = 0;
-      data.evidenceCount = 0;
-      data.recentTasks = [];
-    }
     res.json(data);
   });
 
@@ -4215,7 +4207,7 @@ export async function registerRoutes(
     res.json(packs);
   });
 
-  app.get("/api/assessment-history", requireAuth, async (req, res) => {
+  app.get("/api/assessment-history", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -4266,20 +4258,10 @@ export async function registerRoutes(
     res.json(history);
   });
 
-  app.get("/api/snapshots", requireAuth, async (req, res) => {
+  app.get("/api/snapshots", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const snapshots = await storage.getSnapshotsByTenant(user.tenantId, 90);
-    const hasFullAccess = user.role === "PLATFORM_ADMIN" || user.fullAccessEnabled;
-    if (!hasFullAccess) {
-      const stripped = snapshots.map((s: any) => ({
-        ...s,
-        overdueTasks: 0,
-        evidenceCoverage: 0,
-        incidentsOpen: 0,
-      }));
-      return res.json(stripped);
-    }
     res.json(snapshots);
   });
 
