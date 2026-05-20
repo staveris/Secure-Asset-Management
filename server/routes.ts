@@ -2004,7 +2004,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/evidence/linkable-entities", requireAuth, async (req, res) => {
+  app.get("/api/evidence/linkable-entities", requireAuth, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -4163,7 +4163,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/evidence/unlock-requests", requireAuth, async (req, res) => {
+  app.get("/api/evidence/unlock-requests", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const requests = await storage.getEvidenceUnlockRequests(user.tenantId);
