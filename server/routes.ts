@@ -994,6 +994,14 @@ export async function registerRoutes(
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const data = await storage.getDashboardData(user.tenantId);
+    const hasFullAccess = user.role === "PLATFORM_ADMIN" || user.fullAccessEnabled;
+    if (!hasFullAccess) {
+      data.activeTasks = 0;
+      data.overdueTasks = 0;
+      data.openIncidents = 0;
+      data.evidenceCount = 0;
+      data.recentTasks = [];
+    }
     res.json(data);
   });
 
@@ -4109,7 +4117,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/evidence/:id/unlock-request", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/evidence/:id/unlock-request", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -4146,7 +4154,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/evidence/unlock-requests/:id/approve", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/evidence/unlock-requests/:id/approve", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -4254,10 +4262,20 @@ export async function registerRoutes(
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const snapshots = await storage.getSnapshotsByTenant(user.tenantId, 90);
+    const hasFullAccess = user.role === "PLATFORM_ADMIN" || user.fullAccessEnabled;
+    if (!hasFullAccess) {
+      const stripped = snapshots.map((s: any) => ({
+        ...s,
+        overdueTasks: 0,
+        evidenceCoverage: 0,
+        incidentsOpen: 0,
+      }));
+      return res.json(stripped);
+    }
     res.json(snapshots);
   });
 
-  app.post("/api/snapshots/recompute", requireAuth, requireWriteAccess, snapshotRecomputeLimiter, async (req, res) => {
+  app.post("/api/snapshots/recompute", requireAuth, requireWriteAccess, requireFullAccess, snapshotRecomputeLimiter, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const snapshot = await storage.recomputeTenantSnapshot(user.tenantId);
