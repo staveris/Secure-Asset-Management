@@ -74,7 +74,7 @@ const TEXT_BASED_MIME_TYPES = new Set([
   "text/plain",
   "text/csv",
 ]);
-const MAX_FILE_SIZE = 150 * 1024 * 1024;
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 const uploadStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
@@ -112,6 +112,31 @@ const snapshotRecomputeLimiter = rateLimit({
   legacyHeaders: false,
   skip: () => false,
   keyGenerator: (req) => `user:${req.session?.userId ?? "anon"}`,
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { message: "Too many upload requests, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `upload:${req.session?.userId ?? "anon"}`,
+});
+
+const uploadIpLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { message: "Too many upload requests from this address, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { message: "Too many registration attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const MAX_FAILED_ATTEMPTS = 5;
@@ -408,7 +433,7 @@ export async function registerRoutes(
     next();
   });
 
-  app.post("/api/auth/register", authLimiter, async (req, res) => {
+  app.post("/api/auth/register", authLimiter, registerLimiter, async (req, res) => {
     try {
       const data = registerSchema.parse(req.body);
       const existing = await storage.getUserByEmail(data.email);
@@ -1918,7 +1943,7 @@ export async function registerRoutes(
     res.json(enrichedList);
   });
 
-  app.post("/api/evidence/upload", requireAuth, requireWriteAccess, requireFullAccess, upload.single("file"), async (req, res) => {
+  app.post("/api/evidence/upload", requireAuth, requireWriteAccess, requireFullAccess, uploadIpLimiter, uploadLimiter, upload.single("file"), async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -1967,8 +1992,13 @@ export async function registerRoutes(
         validatedAssessmentId = parsedAssessmentId;
       }
 
-      const fileBuffer = fs.readFileSync(file.path);
-      const sha256 = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+      const sha256 = await new Promise<string>((resolve, reject) => {
+        const hash = crypto.createHash("sha256");
+        const stream = fs.createReadStream(file.path);
+        stream.on("data", (chunk) => hash.update(chunk));
+        stream.on("end", () => resolve(hash.digest("hex")));
+        stream.on("error", reject);
+      });
 
       const evidenceItem = await storage.createEvidenceItem({
         tenantId: user.tenantId,
@@ -3771,7 +3801,12 @@ export async function registerRoutes(
       }
       if (isActive !== undefined) updates.isActive = isActive;
       if (fullName !== undefined) updates.fullName = fullName;
-      if (fullAccessEnabled !== undefined) updates.fullAccessEnabled = fullAccessEnabled;
+      if (fullAccessEnabled !== undefined) {
+        if (user.role !== "PLATFORM_ADMIN") {
+          return res.status(403).json({ message: "Only platform admins can modify full-access status" });
+        }
+        updates.fullAccessEnabled = fullAccessEnabled;
+      }
 
       const updated = await storage.updateUser(targetId, updates);
 

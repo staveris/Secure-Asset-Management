@@ -115,10 +115,10 @@ export const tenants = pgTable("tenants", {
   country: text("country"),
   applicabilityProfile: jsonb("applicability_profile").$type<Record<string, boolean>>(),
   status: text("status").notNull().default("active"),
-  storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }).notNull().default(10737418240),
+  storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }).notNull().default(1073741824),
   storageUsedBytes: bigint("storage_used_bytes", { mode: "number" }).notNull().default(0),
   maxUsers: integer("max_users").notNull().default(10),
-  maxFileSizeBytes: integer("max_file_size_bytes").notNull().default(157286400),
+  maxFileSizeBytes: integer("max_file_size_bytes").notNull().default(26214400),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
