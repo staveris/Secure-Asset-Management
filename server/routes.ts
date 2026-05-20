@@ -359,7 +359,7 @@ export async function registerRoutes(
       rolling: true,
       cookie: {
         httpOnly: true,
-        secure: false,
+        secure: process.env.NODE_ENV === "production",
         maxAge: 15 * 60 * 1000,
         sameSite: "lax",
       },
@@ -452,6 +452,9 @@ export async function registerRoutes(
 
       const emailSent = await sendVerificationEmail(data.email, data.fullName, verificationToken);
 
+      await new Promise<void>((resolve, reject) =>
+        req.session.regenerate((err) => (err ? reject(err) : resolve()))
+      );
       req.session.userId = user.id;
       res.json({
         id: user.id,
@@ -556,6 +559,9 @@ export async function registerRoutes(
       }
 
       await storage.updateUserLastLogin(user.id);
+      await new Promise<void>((resolve, reject) =>
+        req.session.regenerate((err) => (err ? reject(err) : resolve()))
+      );
       req.session.csrfToken = crypto.randomBytes(32).toString("hex");
       req.session.userId = user.id;
 
@@ -614,9 +620,11 @@ export async function registerRoutes(
         logSecurityEvent("TOTP_FAILED", { email: user.email, ip: clientIp });
         return res.status(401).json({ message: "Invalid verification code" });
       }
-      delete req.session.pendingTotpUserId;
       const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
       await storage.updateUserLastLogin(user.id);
+      await new Promise<void>((resolve, reject) =>
+        req.session.regenerate((err) => (err ? reject(err) : resolve()))
+      );
       req.session.csrfToken = crypto.randomBytes(32).toString("hex");
       req.session.userId = user.id;
       const clientIp = req.ip || req.headers["x-forwarded-for"] || "unknown";
