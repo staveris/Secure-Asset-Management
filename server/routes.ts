@@ -3763,7 +3763,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/tenant/users", requireAuth, async (req, res) => {
+  app.get("/api/tenant/users", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
@@ -3836,7 +3836,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/tenant/invite", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/tenant/invite", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -3909,7 +3909,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/tenant/invites", requireAuth, async (req, res) => {
+  app.get("/api/tenant/invites", requireAuth, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -4028,7 +4028,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/tenant/invites/:inviteId/resend", requireAuth, requireWriteAccess, async (req, res) => {
+  app.post("/api/tenant/invites/:inviteId/resend", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -4089,7 +4089,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/tenant/invites/:inviteId", requireAuth, requireWriteAccess, async (req, res) => {
+  app.delete("/api/tenant/invites/:inviteId", requireAuth, requireWriteAccess, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
