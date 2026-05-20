@@ -33,8 +33,8 @@ Production-scope assumptions for this repo:
 
 ## Scan Anchors
 
-- **Primary production entry points:** `server/routes.ts`, `server/storage.ts`, `server/replitAuth.ts`, `client/src/App.tsx`, `client/src/lib/auth.ts`.
-- **Highest-risk areas:** auth/session flows, self-service registration, tenant user-management routes, restricted-vs-full-access enforcement, dashboard/snapshot/reporting APIs, evidence upload and quota enforcement, evidence lock/unlock workflows, admin-only endpoints, and file-upload/report-export code.
+- **Primary production entry points:** `server/routes.ts`, `server/storage.ts`, `server/replitAuth.ts`, `server/index.ts`, `server/seed.ts`, `client/src/App.tsx`, `client/src/lib/auth.ts`.
+- **Highest-risk areas:** auth/session flows, self-service registration, startup credential/bootstrap logic executed during production boot, tenant user-management routes, restricted-vs-full-access enforcement, dashboard/snapshot/reporting APIs, evidence upload and quota enforcement, evidence lock/unlock workflows, admin-only endpoints, and file-upload/report-export code.
 - **Surface split:** public auth endpoints under `/api/auth/*`; authenticated tenant endpoints under `/api/*`; privileged platform endpoints under `/api/admin/*` and `requirePlatformAdmin` checks. Shared tenant-visible reporting endpoints such as `/api/dashboard`, `/api/assessment-history`, and `/api/snapshots*` should be reviewed for accidental disclosure of data otherwise gated behind `requireFullAccess`.
 - **Additional scan anchors:** `GET /api/tenant/users` and `GET /api/tenant/details` are important intra-tenant disclosure checkpoints; `PATCH /api/tenant/users/:id` is a critical restricted-vs-full-access and role-boundary checkpoint; `POST /api/evidence/upload` is a primary availability checkpoint because tenant quotas and upload processing are attacker-influenced. `GET /api/admin/atomic-maps` remains a platform-vs-tenant authorization checkpoint, and evidence unlock routes under `/api/evidence/*unlock*` remain sensitive to restricted-vs-full-access bypasses.
 - **Usually dev-only:** `artifacts/mockup-sandbox/**` unless production reachability is shown.
