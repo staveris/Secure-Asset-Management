@@ -386,7 +386,19 @@ export async function registerRoutes(
         pool: pool,
         createTableIfMissing: true,
       }),
-      secret: process.env.SESSION_SECRET || "nis2-platform-secret-key",
+      secret: (() => {
+        const secret = process.env.SESSION_SECRET;
+        if (!secret) {
+          if (process.env.NODE_ENV === "production") {
+            throw new Error(
+              "SESSION_SECRET environment variable must be set in production. " +
+              "Refusing to start with a hardcoded fallback session signing key."
+            );
+          }
+          return "nis2-platform-secret-key-dev-only";
+        }
+        return secret;
+      })(),
       resave: false,
       saveUninitialized: false,
       rolling: true,
@@ -528,8 +540,26 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
+      if (user.lockedUntil && user.lockedUntil > new Date()) {
+        const retryAfterMs = user.lockedUntil.getTime() - Date.now();
+        const retryAfterMins = Math.ceil(retryAfterMs / 60000);
+        logSecurityEvent("LOGIN_BLOCKED_LOCKOUT", { email: data.email, ip: clientIp, userId: user.id });
+        await storage.createAuditLog({
+          tenantId: user.tenantId,
+          actorUserId: user.id,
+          action: "LOGIN_BLOCKED_LOCKOUT",
+          entityType: "AUTH",
+          entityId: String(user.id),
+          details: { reason: "account_locked", ip: clientIp, retryAfterMins },
+        });
+        return res.status(429).json({
+          message: `Account is temporarily locked due to too many failed login attempts. Please try again in ${retryAfterMins} minute(s).`,
+        });
+      }
+
       const valid = await bcrypt.compare(data.password, user.passwordHash);
       if (!valid) {
+        await storage.incrementFailedLoginAttempts(user.id, MAX_FAILED_ATTEMPTS, LOCKOUT_DURATION_MS);
         logSecurityEvent("LOGIN_FAILED", { email: data.email, reason: "wrong_password", ip: clientIp });
         await storage.createAuditLog({
           tenantId: user.tenantId,
@@ -541,6 +571,8 @@ export async function registerRoutes(
         });
         return res.status(401).json({ message: "Invalid credentials" });
       }
+
+      await storage.resetFailedLoginAttempts(user.id);
 
       const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
       if (tenant && (tenant as any).status === "suspended" && user.role !== "PLATFORM_ADMIN") {

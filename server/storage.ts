@@ -148,6 +148,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUsersByTenant(tenantId: number): Promise<User[]>;
   updateUserLastLogin(id: number): Promise<void>;
+  incrementFailedLoginAttempts(id: number, maxAttempts: number, lockoutDurationMs: number): Promise<void>;
+  resetFailedLoginAttempts(id: number): Promise<void>;
   updateUser(id: number, data: Partial<{fullName: string, role: string, isActive: boolean}>): Promise<User | undefined>;
   updateUserPassword(id: number, newPasswordHash: string): Promise<void>;
   updateUserProfile(id: number, data: Partial<{fullName: string, email: string}>): Promise<void>;
@@ -456,6 +458,18 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserLastLogin(id: number): Promise<void> {
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id));
+  }
+
+  async incrementFailedLoginAttempts(id: number, maxAttempts: number, lockoutDurationMs: number): Promise<void> {
+    const [user] = await db.select({ failedLoginAttempts: users.failedLoginAttempts }).from(users).where(eq(users.id, id));
+    if (!user) return;
+    const newCount = (user.failedLoginAttempts ?? 0) + 1;
+    const lockedUntil = newCount >= maxAttempts ? new Date(Date.now() + lockoutDurationMs) : null;
+    await db.update(users).set({ failedLoginAttempts: newCount, lockedUntil }).where(eq(users.id, id));
+  }
+
+  async resetFailedLoginAttempts(id: number): Promise<void> {
+    await db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, id));
   }
 
   async updateUser(id: number, data: Partial<{fullName: string, role: string, isActive: boolean}>): Promise<User | undefined> {
