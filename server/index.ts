@@ -138,6 +138,26 @@ app.use((req, res, next) => {
     await seedDatabase();
     const { seedAtomicControls } = await import("./atomic-seed");
     await seedAtomicControls();
+
+    try {
+      const { seedDoraControls } = await import("./dora-seed");
+      const doraReport = await seedDoraControls();
+      console.log(
+        `DORA controls auto-seed: imported=${doraReport.imported} updated=${doraReport.updated} unchanged=${doraReport.unchanged} skipped=${doraReport.skipped} failed=${doraReport.failed}`,
+      );
+    } catch (err) {
+      console.error("DORA controls auto-seed error:", err);
+    }
+
+    try {
+      const { seedNis2Art21Risks } = await import("./cyber-risks-seed");
+      const riskReport = await seedNis2Art21Risks();
+      console.log(
+        `NIS2 Art.21 risk library auto-seed: imported=${riskReport.imported} updated=${riskReport.updated} unchanged=${riskReport.unchanged} skipped=${riskReport.skipped} failed=${riskReport.failed}`,
+      );
+    } catch (err) {
+      console.error("NIS2 Art.21 risk library auto-seed error:", err);
+    }
   } catch (err) {
     console.error("Seed error:", err);
   }
