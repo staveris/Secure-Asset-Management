@@ -4366,7 +4366,7 @@ export async function registerRoutes(
 
   app.get("/api/admin/atomic-maps", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
-    if (!user || (user.role !== "PLATFORM_ADMIN" && user.role !== "TENANT_ADMIN")) {
+    if (!user || user.role !== "PLATFORM_ADMIN") {
       return res.status(403).json({ message: "Admin only" });
     }
     const maps = await storage.getAllControlObjectiveAtomicMaps();
