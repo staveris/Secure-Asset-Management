@@ -3769,6 +3769,9 @@ export async function registerRoutes(
   app.get("/api/tenant/users", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
+    if (user.role !== "TENANT_ADMIN" && user.role !== "PLATFORM_ADMIN") {
+      return res.status(403).json({ message: "Only tenant admins can view the user directory" });
+    }
     const tenantUsers = await storage.getUsersByTenant(user.tenantId);
     const filteredUsers = tenantUsers.filter(u => u.role !== "PLATFORM_ADMIN");
     res.json(filteredUsers.map(u => ({
@@ -3784,7 +3787,14 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Only tenant admins can manage users" });
       }
 
+      if (user.role === "TENANT_ADMIN" && !user.fullAccessEnabled) {
+        return res.status(403).json({ message: "Full access required to manage users" });
+      }
+
       const targetId = parseInt(req.params.id);
+      if (targetId === user.id && user.role !== "PLATFORM_ADMIN") {
+        return res.status(403).json({ message: "You cannot modify your own account. Contact another admin." });
+      }
       const targetUser = await storage.getUser(targetId);
       if (!targetUser || targetUser.tenantId !== user.tenantId) {
         return res.status(404).json({ message: "User not found" });
@@ -4687,6 +4697,7 @@ export async function registerRoutes(
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
     const tenantUsers = await storage.getUsersByTenant(user.tenantId);
     const adminUser = tenantUsers.find(u => u.role === "TENANT_ADMIN") || tenantUsers[0];
+    const isAdminCaller = user.role === "TENANT_ADMIN" || user.role === "PLATFORM_ADMIN";
     res.json({
       id: tenant.id,
       name: tenant.name,
@@ -4697,7 +4708,7 @@ export async function registerRoutes(
       country: tenant.country,
       status: tenant.status,
       createdAt: tenant.createdAt,
-      contactEmail: adminUser?.email || null,
+      contactEmail: isAdminCaller ? (adminUser?.email || null) : undefined,
     });
   });
 

@@ -150,7 +150,7 @@ function TenantRouter() {
       <Route path="/risks">{() => <WithFullAccess component={Risks} />}</Route>
       <Route path="/reports">{() => <WithFullAccess component={Reports} />}</Route>
       <Route path="/onboarding" component={Onboarding} />
-      <Route path="/users" component={UsersPage} />
+      <Route path="/users">{() => <WithFullAccess component={UsersPage} />}</Route>
       <Route path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>
