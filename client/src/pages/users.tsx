@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Switch as SwitchUI } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, UserPlus, Mail, Shield, Clock, Lock, Unlock, Building2, MapPin } from "lucide-react";
+import { Users, UserPlus, Mail, Shield, Clock, Lock, Unlock, Building2, MapPin, Send, X, AlertTriangle } from "lucide-react";
 
 interface TenantUser {
   id: number;
@@ -32,6 +32,17 @@ interface TenantUser {
   fullAccessEnabled: boolean;
   createdAt: string;
   lastLoginAt: string | null;
+}
+
+interface PendingInvite {
+  id: number;
+  email: string;
+  role: string;
+  createdAt: string;
+  expiresAt: string;
+  invitedBy: string;
+  invitedById: number;
+  expired: boolean;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -200,6 +211,11 @@ export default function UsersPage() {
     queryKey: ["/api/tenant/users"],
   });
 
+  const { data: pendingInvites } = useQuery<PendingInvite[]>({
+    queryKey: ["/api/tenant/invites"],
+    enabled: isAdmin,
+  });
+
   const inviteMutation = useMutation({
     mutationFn: async (data: { email: string; role: string }) => {
       const res = await apiRequest("POST", "/api/tenant/invite", data);
@@ -211,6 +227,35 @@ export default function UsersPage() {
       setInviteEmail("");
       setInviteRole("TENANT_USER");
       queryClient.invalidateQueries({ queryKey: ["/api/tenant/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenant/invites"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resendInviteMutation = useMutation({
+    mutationFn: async (inviteId: number) => {
+      const res = await apiRequest("POST", `/api/tenant/invites/${inviteId}/resend`, {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Invitation Resent", description: "A fresh invitation email has been sent." });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenant/invites"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const revokeInviteMutation = useMutation({
+    mutationFn: async (inviteId: number) => {
+      const res = await apiRequest("DELETE", `/api/tenant/invites/${inviteId}`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Invitation Revoked" });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenant/invites"] });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -463,6 +508,90 @@ export default function UsersPage() {
               )}
             </CardContent>
           </Card>
+          {isAdmin && (
+            <Card data-testid="card-pending-invites">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    Pending invitations
+                  </h3>
+                  <Badge variant="outline" data-testid="badge-pending-invites-count">
+                    {pendingInvites?.length || 0}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!pendingInvites || pendingInvites.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground" data-testid="text-no-pending-invites">
+                    <Mail className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No pending invitations</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {pendingInvites.map((inv) => (
+                      <div
+                        key={inv.id}
+                        className="flex items-center gap-3 p-3 rounded-md bg-muted/30 flex-wrap"
+                        data-testid={`invite-row-${inv.id}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium" data-testid={`text-invite-email-${inv.id}`}>
+                              {inv.email}
+                            </p>
+                            <Badge variant={ROLE_VARIANTS[inv.role] as any} className="text-xs">
+                              {ROLE_LABELS[inv.role] || inv.role}
+                            </Badge>
+                            {inv.expired && (
+                              <Badge variant="destructive" className="text-xs flex items-center gap-1" data-testid={`badge-invite-expired-${inv.id}`}>
+                                <AlertTriangle className="w-3 h-3" />
+                                Expired
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                            <span data-testid={`text-invite-invited-by-${inv.id}`}>
+                              Invited by {inv.invitedBy}
+                            </span>
+                            <span className="flex items-center gap-1" data-testid={`text-invite-sent-at-${inv.id}`}>
+                              <Clock className="w-3 h-3" />
+                              Sent {new Date(inv.createdAt).toLocaleDateString()}
+                            </span>
+                            <span data-testid={`text-invite-expires-at-${inv.id}`}>
+                              Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => resendInviteMutation.mutate(inv.id)}
+                            disabled={resendInviteMutation.isPending}
+                            data-testid={`button-resend-invite-${inv.id}`}
+                          >
+                            <Send className="w-3.5 h-3.5 mr-1.5" />
+                            Resend
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => revokeInviteMutation.mutate(inv.id)}
+                            disabled={revokeInviteMutation.isPending}
+                            data-testid={`button-revoke-invite-${inv.id}`}
+                          >
+                            <X className="w-3.5 h-3.5 mr-1.5" />
+                            Revoke
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
