@@ -136,6 +136,15 @@ app.use((req, res, next) => {
 
   try {
     await seedDatabase();
+  } catch (err) {
+    console.error("Seed error:", err);
+    if (process.env.NODE_ENV === "production") {
+      console.error("Fatal seed error in production — exiting to prevent startup with unsafe state.");
+      process.exit(1);
+    }
+  }
+
+  try {
     const { seedAtomicControls } = await import("./atomic-seed");
     await seedAtomicControls();
 
@@ -159,7 +168,7 @@ app.use((req, res, next) => {
       console.error("NIS2 Art.21 risk library auto-seed error:", err);
     }
   } catch (err) {
-    console.error("Seed error:", err);
+    console.error("Post-seed setup error:", err);
   }
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

@@ -104,6 +104,14 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const csrfLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { message: "Too many requests, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const snapshotRecomputeLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 5,
@@ -391,18 +399,21 @@ export async function registerRoutes(
     })
   );
 
-  app.get("/api/auth/csrf-token", (req, res) => {
-    if (!req.session.csrfToken) {
-      req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+  app.get("/api/auth/csrf-token", csrfLimiter, (req, res) => {
+    if (req.session.userId) {
+      if (!req.session.csrfToken) {
+        req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+      }
+      return res.json({ csrfToken: req.session.csrfToken });
     }
-    res.json({ csrfToken: req.session.csrfToken });
+    res.json({ csrfToken: crypto.randomBytes(32).toString("hex") });
   });
 
   function verifyCsrf(req: Request, res: Response, next: NextFunction) {
     if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
       return next();
     }
-    if (req.path.startsWith("/auth/forgot-password") || req.path.startsWith("/auth/reset-password") || req.path.startsWith("/auth/verify-email") || req.path.startsWith("/auth/resend-verification") || req.path.startsWith("/auth/logout") || req.path.startsWith("/auth/totp-verify")) {
+    if (req.path.startsWith("/auth/login") || req.path.startsWith("/auth/register") || req.path.startsWith("/auth/forgot-password") || req.path.startsWith("/auth/reset-password") || req.path.startsWith("/auth/verify-email") || req.path.startsWith("/auth/resend-verification") || req.path.startsWith("/auth/logout") || req.path.startsWith("/auth/totp-verify")) {
       return next();
     }
     const token = req.headers["x-csrf-token"] as string;
@@ -517,45 +528,16 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
-        const minutesLeft = Math.ceil((new Date(user.lockedUntil).getTime() - Date.now()) / 60000);
-        logSecurityEvent("LOGIN_BLOCKED_LOCKOUT", { email: data.email, ip: clientIp, minutesLeft });
-        await storage.createAuditLog({
-          tenantId: user.tenantId,
-          actorUserId: user.id,
-          action: "LOGIN_BLOCKED_LOCKOUT",
-          entityType: "AUTH",
-          entityId: String(user.id),
-          details: { ip: clientIp, minutesLeft },
-        });
-        return res.status(423).json({ message: `Account temporarily locked due to too many failed login attempts. Please try again in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}.` });
-      }
-
       const valid = await bcrypt.compare(data.password, user.passwordHash);
       if (!valid) {
-        const newAttempts = (user.failedLoginAttempts || 0) + 1;
-        const updateData: any = { failedLoginAttempts: newAttempts };
-        if (newAttempts >= MAX_FAILED_ATTEMPTS) {
-          updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
-          logSecurityEvent("ACCOUNT_LOCKED", { email: data.email, ip: clientIp, attempts: newAttempts });
-          await storage.createAuditLog({
-            tenantId: user.tenantId,
-            actorUserId: user.id,
-            action: "ACCOUNT_LOCKED",
-            entityType: "AUTH",
-            entityId: String(user.id),
-            details: { ip: clientIp, attempts: newAttempts, lockedUntilMinutes: 30 },
-          });
-        }
-        await db.update(users).set(updateData).where(eq(users.id, user.id));
-        logSecurityEvent("LOGIN_FAILED", { email: data.email, reason: "wrong_password", ip: clientIp, attempts: newAttempts });
+        logSecurityEvent("LOGIN_FAILED", { email: data.email, reason: "wrong_password", ip: clientIp });
         await storage.createAuditLog({
           tenantId: user.tenantId,
           actorUserId: user.id,
           action: "LOGIN_FAILED",
           entityType: "AUTH",
           entityId: String(user.id),
-          details: { reason: "wrong_password", ip: clientIp, attempts: newAttempts },
+          details: { reason: "wrong_password", ip: clientIp },
         });
         return res.status(401).json({ message: "Invalid credentials" });
       }
@@ -572,10 +554,6 @@ export async function registerRoutes(
           details: { ip: clientIp },
         });
         return res.status(403).json({ message: "Your organization's access has been suspended. Please contact your administrator." });
-      }
-
-      if (user.failedLoginAttempts > 0 || user.lockedUntil) {
-        await db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
       }
 
       if (user.totpEnabled && user.totpSecret) {

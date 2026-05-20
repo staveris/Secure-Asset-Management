@@ -290,20 +290,37 @@ export async function seedDatabase() {
     console.log(`Seeded ${nis2Requirements.length} requirements with control objectives`);
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL || "staverist@gmail.com";
-  const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
-  const existingAdmin = await storage.getUserByEmail(adminEmail);
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "ADMIN_EMAIL and ADMIN_PASSWORD environment variables must be set in production. " +
+        "Refusing to start with hardcoded fallback credentials."
+      );
+    }
+    console.warn(
+      "WARNING: ADMIN_EMAIL / ADMIN_PASSWORD not set. " +
+      "Using insecure development defaults — never deploy this way."
+    );
+  }
+
+  const effectiveAdminEmail = adminEmail || "dev-admin@localhost.invalid";
+  const effectiveAdminPassword = adminPassword || "change-me-before-production";
+
+  const existingAdmin = await storage.getUserByEmail(effectiveAdminEmail);
   if (!existingAdmin) {
-    const passwordHash = await bcrypt.hash(adminPassword, 12);
+    const passwordHash = await bcrypt.hash(effectiveAdminPassword, 12);
     await storage.createUser({
-      email: adminEmail,
+      email: effectiveAdminEmail,
       passwordHash,
       fullName: "Platform Administrator",
       role: "PLATFORM_ADMIN",
       isActive: true,
       tenantId: null,
     });
-    console.log(`Created platform admin: ${adminEmail}`);
+    console.log(`Created platform admin: ${effectiveAdminEmail}`);
   }
 
   if (process.env.NODE_ENV !== "production") {
