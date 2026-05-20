@@ -9,8 +9,9 @@
  * - Upserts the DORA legal source and atomic controls by (controlId, sourceKey).
  * - Never touches existing NIS2 / CIR / other framework rows.
  *
- * To regenerate data/atomic_controls_dora.json from the xlsx, see
- * scripts/generate-dora-json.ts.
+ * data/atomic_controls_dora.json is the source of truth and is committed
+ * to the repo. If the upstream xlsx changes, regenerate the JSON ad-hoc
+ * (e.g. via openpyxl) — no xlsx parser is bundled with the project.
  */
 import { seedDoraControls } from "../server/dora-seed";
 
