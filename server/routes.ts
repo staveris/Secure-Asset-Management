@@ -1959,9 +1959,19 @@ export async function registerRoutes(
         return res.status(400).json({ message: "relatedType and relatedId are required" });
       }
 
+      const parsedRelatedId = parseInt(relatedId, 10);
+      if (!Number.isInteger(parsedRelatedId) || parsedRelatedId <= 0) {
+        fs.unlinkSync(file.path);
+        return res.status(400).json({ message: "relatedId must be a positive integer" });
+      }
+
       let validatedAssessmentId: number | null = null;
-      if (assessmentId) {
-        const parsedAssessmentId = parseInt(assessmentId);
+      if (assessmentId !== undefined && assessmentId !== null && assessmentId !== "") {
+        const parsedAssessmentId = parseInt(assessmentId, 10);
+        if (!Number.isInteger(parsedAssessmentId) || parsedAssessmentId <= 0) {
+          fs.unlinkSync(file.path);
+          return res.status(400).json({ message: "assessmentId must be a positive integer" });
+        }
         const assessment = await storage.getAssessment(parsedAssessmentId);
         if (!assessment || assessment.tenantId !== user.tenantId) {
           fs.unlinkSync(file.path);
@@ -1981,7 +1991,7 @@ export async function registerRoutes(
       const evidenceItem = await storage.createEvidenceItem({
         tenantId: user.tenantId,
         relatedType,
-        relatedId: parseInt(relatedId),
+        relatedId: parsedRelatedId,
         assessmentId: validatedAssessmentId,
         filename: file.originalname,
         mimeType: file.mimetype,
@@ -2003,6 +2013,15 @@ export async function registerRoutes(
 
       res.json(evidenceItem);
     } catch (err: any) {
+      if (req.file?.path) {
+        try {
+          if (fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+          }
+        } catch (cleanupErr) {
+          console.error("[Evidence] Failed to clean up orphaned upload file:", cleanupErr);
+        }
+      }
       res.status(500).json({ message: err.message });
     }
   });
