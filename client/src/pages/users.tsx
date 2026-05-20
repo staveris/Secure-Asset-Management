@@ -40,9 +40,19 @@ interface PendingInvite {
   role: string;
   createdAt: string;
   expiresAt: string;
+  usedAt: string | null;
   invitedBy: string;
   invitedById: number;
   expired: boolean;
+  status: "pending" | "accepted" | "expired" | "revoked";
+  acceptedAt: string | null;
+  acceptedByUser: {
+    id: number;
+    email: string;
+    fullName: string;
+    role: string;
+    isActive: boolean;
+  } | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -211,8 +221,25 @@ export default function UsersPage() {
     queryKey: ["/api/tenant/users"],
   });
 
+  const [inviteFilter, setInviteFilter] = useState<"pending" | "accepted" | "expired" | "revoked" | "all">("pending");
+
   const { data: pendingInvites } = useQuery<PendingInvite[]>({
-    queryKey: ["/api/tenant/invites"],
+    queryKey: ["/api/tenant/invites", { status: "pending" }],
+    queryFn: async () => {
+      const res = await fetch("/api/tenant/invites?status=pending", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load invitations");
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  const { data: filteredInvites, isLoading: filteredInvitesLoading } = useQuery<PendingInvite[]>({
+    queryKey: ["/api/tenant/invites", { status: inviteFilter }],
+    queryFn: async () => {
+      const res = await fetch(`/api/tenant/invites?status=${inviteFilter}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load invitations");
+      return res.json();
+    },
     enabled: isAdmin,
   });
 
@@ -509,84 +536,128 @@ export default function UsersPage() {
             </CardContent>
           </Card>
           {isAdmin && (
-            <Card data-testid="card-pending-invites">
+            <Card data-testid="card-invitations">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h3 className="font-semibold flex items-center gap-2">
                     <Mail className="w-4 h-4 text-muted-foreground" />
-                    Pending invitations
+                    Invitations
                   </h3>
-                  <Badge variant="outline" data-testid="badge-pending-invites-count">
-                    {pendingInvites?.length || 0}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" data-testid="badge-pending-invites-count">
+                      {pendingInvites?.length || 0} pending
+                    </Badge>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <Tabs value={inviteFilter} onValueChange={(v) => setInviteFilter(v as any)}>
+                    <TabsList data-testid="tabs-invite-filter">
+                      <TabsTrigger value="pending" data-testid="tab-invite-pending">Pending</TabsTrigger>
+                      <TabsTrigger value="accepted" data-testid="tab-invite-accepted">Accepted</TabsTrigger>
+                      <TabsTrigger value="expired" data-testid="tab-invite-expired">Expired</TabsTrigger>
+                      <TabsTrigger value="revoked" data-testid="tab-invite-revoked">Revoked</TabsTrigger>
+                      <TabsTrigger value="all" data-testid="tab-invite-all">All</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
               </CardHeader>
               <CardContent>
-                {!pendingInvites || pendingInvites.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground" data-testid="text-no-pending-invites">
+                {filteredInvitesLoading ? (
+                  <div className="text-center py-8 text-muted-foreground" data-testid="text-invites-loading">
+                    <p className="text-sm">Loading…</p>
+                  </div>
+                ) : !filteredInvites || filteredInvites.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground" data-testid="text-no-invites">
                     <Mail className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-sm">No pending invitations</p>
+                    <p className="text-sm">
+                      No {inviteFilter === "all" ? "" : inviteFilter} invitations
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {pendingInvites.map((inv) => (
-                      <div
-                        key={inv.id}
-                        className="flex items-center gap-3 p-3 rounded-md bg-muted/30 flex-wrap"
-                        data-testid={`invite-row-${inv.id}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-medium" data-testid={`text-invite-email-${inv.id}`}>
-                              {inv.email}
-                            </p>
-                            <Badge variant={ROLE_VARIANTS[inv.role] as any} className="text-xs">
-                              {ROLE_LABELS[inv.role] || inv.role}
-                            </Badge>
-                            {inv.expired && (
-                              <Badge variant="destructive" className="text-xs flex items-center gap-1" data-testid={`badge-invite-expired-${inv.id}`}>
-                                <AlertTriangle className="w-3 h-3" />
-                                Expired
+                    {filteredInvites.map((inv) => {
+                      const statusBadgeVariant: Record<string, any> = {
+                        pending: "outline",
+                        accepted: "default",
+                        expired: "destructive",
+                        revoked: "secondary",
+                      };
+                      const showActions = inv.status === "pending" || inv.status === "expired";
+                      return (
+                        <div
+                          key={inv.id}
+                          className="flex items-center gap-3 p-3 rounded-md bg-muted/30 flex-wrap"
+                          data-testid={`invite-row-${inv.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-medium" data-testid={`text-invite-email-${inv.id}`}>
+                                {inv.email}
+                              </p>
+                              <Badge variant={ROLE_VARIANTS[inv.role] as any} className="text-xs">
+                                {ROLE_LABELS[inv.role] || inv.role}
                               </Badge>
-                            )}
+                              <Badge
+                                variant={statusBadgeVariant[inv.status] || "outline"}
+                                className="text-xs capitalize"
+                                data-testid={`badge-invite-status-${inv.id}`}
+                              >
+                                {inv.status === "expired" && <AlertTriangle className="w-3 h-3 mr-1" />}
+                                {inv.status}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                              <span data-testid={`text-invite-invited-by-${inv.id}`}>
+                                Invited by {inv.invitedBy}
+                              </span>
+                              <span className="flex items-center gap-1" data-testid={`text-invite-sent-at-${inv.id}`}>
+                                <Clock className="w-3 h-3" />
+                                Sent {new Date(inv.createdAt).toLocaleDateString()}
+                              </span>
+                              {inv.status === "accepted" && inv.acceptedAt ? (
+                                <span data-testid={`text-invite-accepted-at-${inv.id}`}>
+                                  Accepted {new Date(inv.acceptedAt).toLocaleDateString()}
+                                </span>
+                              ) : (
+                                <span data-testid={`text-invite-expires-at-${inv.id}`}>
+                                  Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                                </span>
+                              )}
+                              {inv.status === "accepted" && inv.acceptedByUser && (
+                                <span data-testid={`text-invite-accepted-by-${inv.id}`}>
+                                  Joined as {inv.acceptedByUser.fullName}
+                                  {!inv.acceptedByUser.isActive && " (inactive)"}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                            <span data-testid={`text-invite-invited-by-${inv.id}`}>
-                              Invited by {inv.invitedBy}
-                            </span>
-                            <span className="flex items-center gap-1" data-testid={`text-invite-sent-at-${inv.id}`}>
-                              <Clock className="w-3 h-3" />
-                              Sent {new Date(inv.createdAt).toLocaleDateString()}
-                            </span>
-                            <span data-testid={`text-invite-expires-at-${inv.id}`}>
-                              Expires {new Date(inv.expiresAt).toLocaleDateString()}
-                            </span>
-                          </div>
+                          {showActions && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => resendInviteMutation.mutate(inv.id)}
+                                disabled={resendInviteMutation.isPending}
+                                data-testid={`button-resend-invite-${inv.id}`}
+                              >
+                                <Send className="w-3.5 h-3.5 mr-1.5" />
+                                Resend
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => revokeInviteMutation.mutate(inv.id)}
+                                disabled={revokeInviteMutation.isPending}
+                                data-testid={`button-revoke-invite-${inv.id}`}
+                              >
+                                <X className="w-3.5 h-3.5 mr-1.5" />
+                                Revoke
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => resendInviteMutation.mutate(inv.id)}
-                            disabled={resendInviteMutation.isPending}
-                            data-testid={`button-resend-invite-${inv.id}`}
-                          >
-                            <Send className="w-3.5 h-3.5 mr-1.5" />
-                            Resend
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => revokeInviteMutation.mutate(inv.id)}
-                            disabled={revokeInviteMutation.isPending}
-                            data-testid={`button-revoke-invite-${inv.id}`}
-                          >
-                            <X className="w-3.5 h-3.5 mr-1.5" />
-                            Revoke
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
