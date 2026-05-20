@@ -1189,7 +1189,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/assessments/:id", requireAuth, async (req, res) => {
+  app.get("/api/assessments/:id", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
@@ -1227,7 +1227,11 @@ export async function registerRoutes(
       };
     });
 
-    const assessmentTasks = await storage.getTasksByAssessment(id);
+    const isAdmin = user.role === "TENANT_ADMIN" || user.role === "TENANT_MANAGER" || user.role === "PLATFORM_ADMIN";
+    let assessmentTasks = await storage.getTasksByAssessment(id);
+    if (!isAdmin) {
+      assessmentTasks = assessmentTasks.filter(t => t.ownerUserId === user.id);
+    }
 
     const taskAtomicLinksForAssessment = new Map<number, number>();
     for (const t of assessmentTasks) {
@@ -1623,6 +1627,11 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Not found" });
     }
 
+    const isAdmin = user.role === "TENANT_ADMIN" || user.role === "TENANT_MANAGER" || user.role === "PLATFORM_ADMIN";
+    if (!isAdmin && existingTask.ownerUserId !== user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
     const { title, description, priority, status, dueDate, ownerUserId } = req.body;
     const updateData: Record<string, any> = {};
     if (title !== undefined) updateData.title = title;
@@ -1666,6 +1675,11 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Not found" });
     }
 
+    const isAdmin = user.role === "TENANT_ADMIN" || user.role === "TENANT_MANAGER" || user.role === "PLATFORM_ADMIN";
+    if (!isAdmin && existingTask.ownerUserId !== user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
     await storage.deleteTask(id);
 
     await storage.createAuditLog({
@@ -1689,6 +1703,11 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Task not found" });
     }
 
+    const isAdmin = user.role === "TENANT_ADMIN" || user.role === "TENANT_MANAGER" || user.role === "PLATFORM_ADMIN";
+    if (!isAdmin && task.ownerUserId !== user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
     const comments = await storage.getTaskComments(taskId);
     const allUsers = await storage.getUsersByTenant(user.tenantId);
     const enriched = comments.map(c => {
@@ -1709,6 +1728,11 @@ export async function registerRoutes(
     const task = await storage.getTask(taskId);
     if (!task || (task.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
       return res.status(404).json({ message: "Task not found" });
+    }
+
+    const isAdmin = user.role === "TENANT_ADMIN" || user.role === "TENANT_MANAGER" || user.role === "PLATFORM_ADMIN";
+    if (!isAdmin && task.ownerUserId !== user.id) {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
     const { content } = req.body;
