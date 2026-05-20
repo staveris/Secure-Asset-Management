@@ -32,8 +32,9 @@ Production-scope assumptions for this repo:
 ## Scan Anchors
 
 - **Primary production entry points:** `server/routes.ts`, `server/storage.ts`, `server/replitAuth.ts`, `client/src/App.tsx`, `client/src/lib/auth.ts`.
-- **Highest-risk areas:** auth/session flows, tenant user-management routes, restricted-vs-full-access enforcement, evidence lock/unlock workflows, admin-only endpoints, file-upload and report/export code.
-- **Surface split:** public auth endpoints under `/api/auth/*`; authenticated tenant endpoints under `/api/*`; privileged platform endpoints under `/api/admin/*` and `requirePlatformAdmin` checks.
+- **Highest-risk areas:** auth/session flows, tenant user-management routes, restricted-vs-full-access enforcement, dashboard/snapshot reporting APIs, evidence lock/unlock workflows, admin-only endpoints, and file-upload/report-export code.
+- **Surface split:** public auth endpoints under `/api/auth/*`; authenticated tenant endpoints under `/api/*`; privileged platform endpoints under `/api/admin/*` and `requirePlatformAdmin` checks. Shared tenant-visible reporting endpoints such as `/api/dashboard` and `/api/snapshots*` should also be reviewed for accidental disclosure of data otherwise gated behind `requireFullAccess`.
+- **Additional scan anchors:** `GET /api/admin/atomic-maps` is a platform-vs-tenant authorization checkpoint because it returns platform-global library data, and evidence unlock routes under `/api/evidence/*unlock*` are sensitive to restricted-vs-full-access bypasses.
 - **Usually dev-only:** `artifacts/mockup-sandbox/**` unless production reachability is shown.
 
 ## Threat Categories
