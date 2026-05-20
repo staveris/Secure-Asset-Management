@@ -24,6 +24,9 @@ import {
   Eye,
   FileText,
   Activity,
+  Landmark,
+  ShieldAlert,
+  Network,
 } from "lucide-react";
 import faviconLogo from "@assets/browser_1770569283054.png";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
@@ -33,45 +36,73 @@ const features = [
   {
     icon: Shield,
     title: "NIS2 Directive Compliance",
-    description: "Complete coverage of 41 control objectives from Directive 2022/2555, spanning governance, risk management, and incident response frameworks.",
+    description: "Complete coverage of 41 control objectives and 107 atomic controls from Directive 2022/2555, spanning governance, risk management, and incident response.",
     color: "from-blue-500/20 to-blue-600/20",
     iconColor: "text-blue-400",
   },
   {
     icon: Scale,
     title: "CIR 2024/2690 Controls",
-    description: "Full implementation of 17 sector-specific requirements for digital infrastructure, ICT service management, and digital providers.",
+    description: "Full implementation of the Commission Implementing Regulation for digital infrastructure, ICT service management, and digital providers.",
     color: "from-violet-500/20 to-violet-600/20",
     iconColor: "text-violet-400",
   },
   {
+    icon: Landmark,
+    title: "DORA — Regulation (EU) 2022/2554",
+    description: "155 DORA controls for financial-sector digital operational resilience, with applicability tagging (full/simplified, ICT third-party, TLPT, CTPP) driven by a scope wizard.",
+    color: "from-amber-500/20 to-orange-500/20",
+    iconColor: "text-amber-400",
+  },
+  {
+    icon: ShieldAlert,
+    title: "Article 21 Cyber-Risk Register",
+    description: "Tenant register seeded from a 100-entry NIS2 Art.21 risk library with residual scoring, treatment workflow, evidence linking, and acceptance trail.",
+    color: "from-rose-500/20 to-rose-600/20",
+    iconColor: "text-rose-400",
+  },
+  {
     icon: Layers,
     title: "Atomic-Level Assessments",
-    description: "Granular control breakdowns with obligation-level tracking, filtered by entity type and subsector for precise compliance mapping.",
+    description: "Granular control breakdowns with obligation-level tracking, filtered by entity type and subsector for precise per-organisation compliance mapping.",
     color: "from-cyan-500/20 to-cyan-600/20",
     iconColor: "text-cyan-400",
   },
   {
+    icon: Network,
+    title: "Supply Chain & Third-Party Risk",
+    description: "Questionnaire-driven supplier assessments (NIS2 + CIR mapped), service-dependency mapping, contract clause tracking, and ICT third-party register aligned to DORA.",
+    color: "from-teal-500/20 to-emerald-500/20",
+    iconColor: "text-teal-400",
+  },
+  {
+    icon: Activity,
+    title: "Incident Management & EU Reporting",
+    description: "Article 23 timeline tracking with 24-hour early warning, 72-hour notification, and one-month final-report drafting — plus DORA major-incident handling.",
+    color: "from-orange-500/20 to-red-500/20",
+    iconColor: "text-orange-400",
+  },
+  {
     icon: FileCheck,
     title: "Evidence & Audit Readiness",
-    description: "Secure evidence vault with intelligent linking to controls and automated generation of print-ready compliance documentation.",
+    description: "Secure evidence vault with intelligent linking to controls and automated generation of print-ready, sign-off-ready compliance documentation.",
     color: "from-emerald-500/20 to-emerald-600/20",
     iconColor: "text-emerald-400",
   },
   {
     icon: BarChart3,
     title: "Compliance Analytics & Reports",
-    description: "Real-time dashboards with trend analysis, risk heat maps, gap identification, and comprehensive audit-ready reporting.",
-    color: "from-rose-500/20 to-rose-600/20",
-    iconColor: "text-rose-400",
+    description: "Real-time dashboards with trend analysis, risk heat maps, gap identification, weighted audit-readiness scoring, and audit-grade reporting across all frameworks.",
+    color: "from-indigo-500/20 to-purple-500/20",
+    iconColor: "text-indigo-400",
   },
 ];
 
 const stats = [
-  { value: "18", label: "NIS2 Sectors", description: "Industry sectors covered" },
-  { value: "41", label: "Control Objectives", description: "Compliance checkpoints" },
-  { value: "17", label: "CIR Controls", description: "Regulatory controls" },
-  { value: "27", label: "EU Countries", description: "Member states supported" },
+  { value: "3", label: "EU Frameworks", description: "NIS2 · CIR · DORA" },
+  { value: "300+", label: "Mapped Controls", description: "41 NIS2 + 17 CIR + 155 DORA + atomic" },
+  { value: "100", label: "Art.21 Cyber Risks", description: "Pre-seeded risk register" },
+  { value: "27", label: "Member States", description: "EU-wide regulatory coverage" },
 ];
 
 const capabilities = [
@@ -82,10 +113,10 @@ const capabilities = [
 ];
 
 const processSteps = [
-  { step: "01", icon: Building2, title: "Onboard Your Organization", description: "Set up your tenant, classify your sector, and define your entity type with our guided onboarding wizard." },
-  { step: "02", icon: Target, title: "Assess Compliance Posture", description: "Complete unified assessments across NIS2 objectives, atomic controls, and CIR requirements with evidence linking." },
-  { step: "03", icon: ListTodo, title: "Remediate & Track", description: "Generate and manage remediation tasks with priority-based workflows, due dates, and Gantt-style project planning." },
-  { step: "04", icon: FileText, title: "Report & Audit", description: "Generate comprehensive print-ready reports with risk analysis, compliance insights, and audit-ready documentation." },
+  { step: "01", icon: Building2, title: "Onboard Your Organization", description: "Set up your tenant, classify your sector, and define your entity type with our guided onboarding wizard. Financial-sector tenants run the DORA scope wizard." },
+  { step: "02", icon: Target, title: "Assess Across Frameworks", description: "Run unified assessments across NIS2 objectives, atomic controls, CIR requirements, and DORA controls — each scoped automatically to your applicability profile." },
+  { step: "03", icon: ListTodo, title: "Remediate & Track", description: "Generate and manage remediation tasks with priority-based workflows, due dates, owners, and Gantt-style project planning, tagged per framework." },
+  { step: "04", icon: FileText, title: "Report, Sign-Off & Audit", description: "Produce print-ready audit-grade reports with Article 21 measure coverage, audit-readiness scoring, incident posture, and a document control + sign-off block." },
 ];
 
 function MockComplianceDonut() {
@@ -505,19 +536,35 @@ export default function LandingPage() {
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] border border-white/[0.08] mb-8" data-testid="badge-regulation">
                 <Globe className="w-4 h-4 text-blue-400" />
                 <span className="text-blue-300/90 text-xs font-medium tracking-wider uppercase">
-                  EU Directive 2022/2555 & CIR 2024/2690
+                  NIS2 · CIR · DORA — EU Cyber Resilience Suite
                 </span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.08] tracking-tight mb-6" data-testid="text-hero-title">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.08] tracking-tight mb-4" data-testid="text-hero-title">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-400 to-violet-400">
                   CyberResilience360
                 </span>
               </h1>
 
-              <p className="text-lg sm:text-xl text-slate-400 leading-relaxed mb-10 max-w-xl" data-testid="text-hero-description">
-                The cyber resilience platform for NIS2 and CIR compliance.
+              <p className="text-base sm:text-lg text-slate-300 leading-relaxed mb-3 max-w-xl font-medium" data-testid="text-hero-tagline">
+                One platform. Three EU frameworks. Audit-grade evidence.
               </p>
+
+              <p className="text-base sm:text-lg text-slate-400 leading-relaxed mb-10 max-w-xl" data-testid="text-hero-description">
+                Unified compliance for the NIS2 Directive, Commission Implementing Regulation 2024/2690, and the Digital Operational Resilience Act (DORA). Enterprise-grade assessments, applicability-driven control sets, EU incident-reporting timelines, and sign-off-ready reporting in a single multi-tenant SaaS.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 mb-10" data-testid="hero-framework-chips">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[11px] font-semibold tracking-wider uppercase">
+                  <Lock className="w-3 h-3" /> NIS2 · 2022/2555
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[11px] font-semibold tracking-wider uppercase">
+                  <Scale className="w-3 h-3" /> CIR · 2024/2690
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-semibold tracking-wider uppercase">
+                  <Landmark className="w-3 h-3" /> DORA · 2022/2554
+                </span>
+              </div>
 
               <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
                 <Button
@@ -567,10 +614,10 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <span className="text-blue-400 text-xs font-semibold tracking-[0.2em] uppercase mb-3 block" data-testid="text-features-label">Platform Capabilities</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4" data-testid="text-features-title">
-              Everything You Need for NIS2 Compliance
+              Built for NIS2, CIR & DORA in One Place
             </h2>
             <p className="text-slate-400 text-base max-w-2xl mx-auto" data-testid="text-features-description">
-              A comprehensive suite of tools designed to guide your organization through every aspect of NIS2 and CIR regulatory compliance.
+              A comprehensive suite of tools designed to guide your organisation through every aspect of EU cybersecurity and digital operational resilience regulation — from atomic control assessments to executive sign-off.
             </p>
           </div>
 
@@ -659,10 +706,10 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <span className="text-blue-400 text-xs font-semibold tracking-[0.2em] uppercase mb-3 block" data-testid="text-process-label">How It Works</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4" data-testid="text-process-title">
-              Your Path to NIS2 Compliance
+              Your Path to EU Cyber Resilience
             </h2>
             <p className="text-slate-400 text-base max-w-2xl mx-auto" data-testid="text-process-description">
-              Follow our structured four-step process to achieve and maintain compliance with the NIS2 Directive and implementing regulations.
+              Follow our structured four-step process to achieve and maintain compliance with the NIS2 Directive, CIR 2024/2690, and DORA — without duplicating effort across frameworks.
             </p>
           </div>
 
@@ -713,9 +760,10 @@ export default function LandingPage() {
 
             <div className="space-y-4" data-testid="compliance-checklist">
               {[
-                { title: "Risk Assessment & Management", desc: "Systematic identification and mitigation of cybersecurity risks aligned with NIS2 requirements", icon: Target },
-                { title: "Supply Chain Security", desc: "Third-party risk management with comprehensive supplier assessment and monitoring", icon: Users },
-                { title: "Audit Trail & Evidence", desc: "Complete audit logging with tamper-proof records and secure evidence management", icon: FileCheck },
+                { title: "Risk Assessment & Management", desc: "Article 21 cyber-risk register with 100 pre-seeded entries, residual scoring, treatment workflow, and acceptance trail.", icon: Target },
+                { title: "Supply Chain & ICT Third-Party Risk", desc: "Supplier assessments mapped to NIS2 Art. 21(2)(d) and the DORA ICT third-party register requirements.", icon: Users },
+                { title: "DORA Digital Operational Resilience", desc: "Scope-aware control set for financial entities — applicability tags for simplified scope, TLPT, CTPP, and ICT TPPs.", icon: Landmark },
+                { title: "Audit Trail & Evidence Vault", desc: "Tamper-evident audit logs, secure evidence storage, and document control with formal Prepared / Reviewed / Approved sign-off.", icon: FileCheck },
               ].map((item) => (
                 <div key={item.title} className="flex gap-4 p-4 rounded-lg bg-white/[0.03] border border-white/[0.06]" data-testid={`checklist-${item.title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`}>
                   <div className="w-9 h-9 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
@@ -736,10 +784,10 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="p-10 sm:p-14 rounded-2xl bg-gradient-to-br from-blue-600/10 to-violet-600/10 border border-white/[0.08]" data-testid="cta-section">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4" data-testid="text-cta-title">
-              Ready to Achieve NIS2 Compliance?
+              Ready to Unify NIS2, CIR & DORA Compliance?
             </h2>
             <p className="text-slate-400 text-base max-w-xl mx-auto mb-8" data-testid="text-cta-description">
-              Join organizations across Europe who trust our platform to manage their NIS2 compliance journey. Get started today with a guided onboarding experience.
+              Join organisations across Europe who trust CyberResilience360 to run their cybersecurity and digital operational resilience programmes end-to-end. Get started today with a guided onboarding experience.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
@@ -781,7 +829,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <p className="text-slate-500 text-sm leading-relaxed">
-                Empowering European organizations with enterprise-grade NIS2 compliance solutions.
+                Empowering European organisations with enterprise-grade NIS2, CIR, and DORA compliance solutions.
               </p>
             </div>
 
@@ -797,12 +845,13 @@ export default function LandingPage() {
             </div>
 
             <div>
-              <h4 className="text-white text-sm font-semibold mb-4">Compliance</h4>
+              <h4 className="text-white text-sm font-semibold mb-4">Frameworks</h4>
               <div className="space-y-2.5">
-                <span className="block text-slate-400 text-sm">NIS2 Directive</span>
+                <span className="block text-slate-400 text-sm">NIS2 Directive (2022/2555)</span>
                 <span className="block text-slate-400 text-sm">CIR 2024/2690</span>
-                <span className="block text-slate-400 text-sm">Risk Management</span>
-                <span className="block text-slate-400 text-sm">Incident Reporting</span>
+                <span className="block text-slate-400 text-sm">DORA (EU 2022/2554)</span>
+                <span className="block text-slate-400 text-sm">Article 21 Risk Register</span>
+                <span className="block text-slate-400 text-sm">Incident Reporting (Art. 23)</span>
               </div>
             </div>
 

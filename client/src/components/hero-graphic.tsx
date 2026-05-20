@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Shield, Lock, Activity, FileCheck, CheckCircle2 } from "lucide-react";
+import { Shield, Lock, Activity, FileCheck, CheckCircle2, Landmark } from "lucide-react";
 
 export function HeroGraphic() {
   const [mounted, setMounted] = useState(false);
@@ -11,13 +11,17 @@ export function HeroGraphic() {
   return (
     <div className="relative w-full max-w-[560px] h-[460px] bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-2xl mx-auto font-sans">
       <style>{`
-        @keyframes cr360-orbit {
-          from { transform: rotate(0deg) translateX(160px) rotate(0deg); }
-          to { transform: rotate(360deg) translateX(160px) rotate(-360deg); }
+        @keyframes cr360-orbit-inner {
+          from { transform: rotate(0deg) translateX(150px) rotate(0deg); }
+          to { transform: rotate(360deg) translateX(150px) rotate(-360deg); }
         }
-        @keyframes cr360-orbit-reverse {
-          from { transform: rotate(360deg) translateX(210px) rotate(-360deg); }
-          to { transform: rotate(0deg) translateX(210px) rotate(0deg); }
+        @keyframes cr360-orbit-mid {
+          from { transform: rotate(0deg) translateX(195px) rotate(0deg); }
+          to { transform: rotate(360deg) translateX(195px) rotate(-360deg); }
+        }
+        @keyframes cr360-orbit-outer-rev {
+          from { transform: rotate(360deg) translateX(230px) rotate(-360deg); }
+          to { transform: rotate(0deg) translateX(230px) rotate(0deg); }
         }
         @keyframes cr360-pulse-glow {
           0%, 100% { filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.5)); transform: scale(1); }
@@ -30,11 +34,13 @@ export function HeroGraphic() {
           0%, 100% { opacity: 0.4; }
           50% { opacity: 0.9; }
         }
-        .cr360-orbit-1 { animation: cr360-orbit 15s linear infinite; }
-        .cr360-orbit-2 { animation: cr360-orbit 20s linear infinite; animation-delay: -5s; }
-        .cr360-orbit-3 { animation: cr360-orbit 18s linear infinite; animation-delay: -10s; }
-        .cr360-orbit-rev-1 { animation: cr360-orbit-reverse 25s linear infinite; }
-        .cr360-orbit-rev-2 { animation: cr360-orbit-reverse 22s linear infinite; animation-delay: -8s; }
+        .cr360-orbit-nis2 { animation: cr360-orbit-inner 18s linear infinite; }
+        .cr360-orbit-cir { animation: cr360-orbit-inner 18s linear infinite; animation-delay: -6s; }
+        .cr360-orbit-dora { animation: cr360-orbit-inner 18s linear infinite; animation-delay: -12s; }
+        .cr360-orbit-audit { animation: cr360-orbit-mid 22s linear infinite; animation-delay: -3s; }
+        .cr360-orbit-art21 { animation: cr360-orbit-mid 22s linear infinite; animation-delay: -14s; }
+        .cr360-orbit-eu { animation: cr360-orbit-outer-rev 28s linear infinite; }
+        .cr360-orbit-check { animation: cr360-orbit-outer-rev 28s linear infinite; animation-delay: -14s; }
         .cr360-pulse-shield { animation: cr360-pulse-glow 4s ease-in-out infinite; }
         .cr360-circuit-path { stroke-dasharray: 10, 10; animation: cr360-dash 30s linear infinite; }
       `}</style>
@@ -61,14 +67,21 @@ export function HeroGraphic() {
       {/* Orbit rings (SVG so they stay perfectly circular) */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 560 460" fill="none">
         <circle
-          cx="280" cy="230" r="160"
-          stroke="rgba(0,212,255,0.15)"
+          cx="280" cy="230" r="150"
+          stroke="rgba(0,212,255,0.18)"
           strokeWidth="1"
           strokeDasharray="10,10"
           className="cr360-circuit-path"
         />
         <circle
-          cx="280" cy="230" r="210"
+          cx="280" cy="230" r="195"
+          stroke="rgba(245,158,11,0.14)"
+          strokeWidth="1"
+          strokeDasharray="6,12"
+          className="cr360-circuit-path"
+        />
+        <circle
+          cx="280" cy="230" r="230"
           stroke="rgba(59,130,246,0.12)"
           strokeWidth="1"
           strokeDasharray="8,14"
@@ -81,9 +94,12 @@ export function HeroGraphic() {
         className={"relative z-10 flex flex-col items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-cyan-500/50 cr360-pulse-shield transition-opacity duration-1000 " + (mounted ? "opacity-100" : "opacity-0")}
       >
         <div className="absolute inset-0 rounded-full bg-cyan-500/10 blur-xl" />
-        <Shield className="w-12 h-12 text-cyan-400 mb-1" strokeWidth={1.5} />
-        <span className="text-xl font-bold text-white tracking-wider" style={{ textShadow: "0 0 10px rgba(0,212,255,0.7)" }}>
+        <Shield className="w-11 h-11 text-cyan-400 mb-0.5" strokeWidth={1.5} />
+        <span className="text-xl font-bold text-white tracking-wider leading-none" style={{ textShadow: "0 0 10px rgba(0,212,255,0.7)" }}>
           360
+        </span>
+        <span className="text-[8px] font-semibold text-cyan-300/80 tracking-[0.18em] uppercase mt-0.5">
+          Cyber Resilience
         </span>
       </div>
 
@@ -92,41 +108,63 @@ export function HeroGraphic() {
         className={"absolute top-1/2 left-1/2 transition-opacity duration-700 delay-300 " + (mounted ? "opacity-100" : "opacity-0")}
         style={{ transform: "translate(-50%,-50%)" }}
       >
-        {/* Inner orbit — NIS2 */}
-        <div className="absolute cr360-orbit-1">
+        {/* Inner orbit — NIS2 (blue) */}
+        <div className="absolute cr360-orbit-nis2">
           <div
             className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-slate-900 border border-cyan-500"
-            style={{ transform: "translate(-50%,-50%)", boxShadow: "0 0 12px rgba(0,212,255,0.3)" }}
+            style={{ transform: "translate(-50%,-50%)", boxShadow: "0 0 14px rgba(0,212,255,0.35)" }}
           >
             <Lock className="w-5 h-5 text-cyan-400" strokeWidth={1.5} />
             <span className="text-[10px] font-bold text-cyan-300 mt-0.5">NIS2</span>
           </div>
         </div>
 
-        {/* Inner orbit — CIR */}
-        <div className="absolute cr360-orbit-2">
+        {/* Inner orbit — CIR (violet) */}
+        <div className="absolute cr360-orbit-cir">
           <div
-            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-slate-900 border border-cyan-400"
-            style={{ transform: "translate(-50%,-50%)", boxShadow: "0 0 12px rgba(0,212,255,0.25)" }}
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-slate-900 border border-violet-400"
+            style={{ transform: "translate(-50%,-50%)", boxShadow: "0 0 14px rgba(167,139,250,0.3)" }}
           >
-            <Activity className="w-5 h-5 text-cyan-400" strokeWidth={1.5} />
-            <span className="text-[10px] font-bold text-cyan-300 mt-0.5">CIR</span>
+            <Activity className="w-5 h-5 text-violet-300" strokeWidth={1.5} />
+            <span className="text-[10px] font-bold text-violet-200 mt-0.5">CIR</span>
           </div>
         </div>
 
-        {/* Inner orbit — AUDIT */}
-        <div className="absolute cr360-orbit-3">
+        {/* Inner orbit — DORA (amber, financial-sector accent) */}
+        <div className="absolute cr360-orbit-dora">
+          <div
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-slate-900 border border-amber-400"
+            style={{ transform: "translate(-50%,-50%)", boxShadow: "0 0 14px rgba(251,191,36,0.35)" }}
+          >
+            <Landmark className="w-5 h-5 text-amber-300" strokeWidth={1.5} />
+            <span className="text-[10px] font-bold text-amber-200 mt-0.5">DORA</span>
+          </div>
+        </div>
+
+        {/* Mid orbit — AUDIT */}
+        <div className="absolute cr360-orbit-audit">
           <div
             className="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-slate-900 border border-indigo-400"
             style={{ transform: "translate(-50%,-50%)", boxShadow: "0 0 10px rgba(99,102,241,0.25)" }}
           >
-            <FileCheck className="w-4 h-4 text-indigo-400" strokeWidth={1.5} />
-            <span className="text-[9px] font-bold text-indigo-300 mt-0.5">AUDIT</span>
+            <FileCheck className="w-4 h-4 text-indigo-300" strokeWidth={1.5} />
+            <span className="text-[9px] font-bold text-indigo-200 mt-0.5">AUDIT</span>
           </div>
         </div>
 
-        {/* Outer orbit — EU */}
-        <div className="absolute cr360-orbit-rev-1">
+        {/* Mid orbit — Art.21 risk register */}
+        <div className="absolute cr360-orbit-art21">
+          <div
+            className="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-slate-900 border border-rose-400/70"
+            style={{ transform: "translate(-50%,-50%)", boxShadow: "0 0 10px rgba(251,113,133,0.25)" }}
+          >
+            <Shield className="w-4 h-4 text-rose-300" strokeWidth={1.5} />
+            <span className="text-[8px] font-bold text-rose-200 mt-0.5 leading-none">ART.21</span>
+          </div>
+        </div>
+
+        {/* Outer orbit — EU badge */}
+        <div className="absolute cr360-orbit-eu">
           <div
             className="flex items-center justify-center gap-1 w-16 h-8 rounded-full bg-slate-900 border border-blue-500 px-2"
             style={{ transform: "translate(-50%,-50%)", boxShadow: "0 0 10px rgba(59,130,246,0.25)" }}
@@ -136,8 +174,8 @@ export function HeroGraphic() {
           </div>
         </div>
 
-        {/* Outer orbit — check */}
-        <div className="absolute cr360-orbit-rev-2">
+        {/* Outer orbit — verified check */}
+        <div className="absolute cr360-orbit-check">
           <div
             className="flex items-center justify-center w-11 h-11 rounded-full bg-slate-900 border border-emerald-500/60"
             style={{ transform: "translate(-50%,-50%)", boxShadow: "0 0 10px rgba(16,185,129,0.2)" }}
@@ -156,6 +194,22 @@ export function HeroGraphic() {
         ))}
       </div>
 
+      {/* Top-left framework tags */}
+      <div className="absolute top-5 left-5 flex flex-col gap-1 font-mono text-[9px] tracking-[0.15em] uppercase">
+        <div className="flex items-center gap-1.5 text-cyan-400/80">
+          <span className="w-1 h-1 rounded-full bg-cyan-400" />
+          NIS2 · 2022/2555
+        </div>
+        <div className="flex items-center gap-1.5 text-violet-300/80">
+          <span className="w-1 h-1 rounded-full bg-violet-400" />
+          CIR · 2024/2690
+        </div>
+        <div className="flex items-center gap-1.5 text-amber-300/80">
+          <span className="w-1 h-1 rounded-full bg-amber-400" />
+          DORA · 2022/2554
+        </div>
+      </div>
+
       {/* Status bar — bottom */}
       <div className="absolute bottom-5 left-5 right-5 flex justify-between items-end">
         <div className="text-left font-mono text-[10px] text-cyan-500/60 uppercase tracking-widest">
@@ -163,7 +217,7 @@ export function HeroGraphic() {
             <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
             System Secure
           </div>
-          <div className="text-cyan-700/60">v2.0 · EU Certified</div>
+          <div className="text-cyan-700/60">3 Frameworks · EU Aligned</div>
         </div>
         <div className="flex gap-1 h-7 items-end">
           {[40, 70, 50, 90, 60, 80, 45].map((h, i) => (
