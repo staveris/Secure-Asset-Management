@@ -1,0 +1,327 @@
+You are working on the already deployed CyberResilience360 by Tools of Tech Replit application.
+
+Goal:
+Prepare the current Replit app for safe migration to AWS in the EU.
+
+Important:
+Do not deploy to AWS yet.
+Do not change production data.
+Do not break the existing deployed Replit app.
+Do not modify, delete, rename, overwrite, or re-key existing NIS2, DORA, NIST CSF 2.0, cybersecurity risk register, controls, assessments, users, organizations, evidence, dashboards, or statuses.
+
+Work on the current branch:
+aws-eu-migration-readiness
+
+Your task is to create an AWS EU migration readiness package.
+
+Before making any code changes:
+1. Inspect the full application architecture.
+2. Identify the frontend framework.
+3. Identify the backend framework.
+4. Identify the database technology.
+5. Identify the ORM or migration tool.
+6. Identify the authentication mechanism.
+7. Identify the file upload/storage mechanism.
+8. Identify all environment variables used by the app.
+9. Identify Replit-specific assumptions, URLs, ports, secrets, deployment settings, local filesystem usage, database settings, and build/start commands.
+10. Prepare a migration-readiness summary before making code changes.
+
+Hard rules:
+1. Use non-destructive changes only.
+2. Do not run destructive database migrations.
+3. Do not delete existing files unless they are temporary/generated files and clearly safe to remove.
+4. Do not expose real secrets in documentation, logs, code, or commits.
+5. Do not modify business logic unless required for portability.
+6. Do not change regulatory logic for NIS2, DORA, NIST, risk register, or applicability.
+7. Do not globally enable or disable any compliance module.
+8. Do not change existing production assessment data.
+9. Do not change existing user roles or organization data.
+10. If something is unclear, document it as a blocker instead of guessing.
+
+Create the following deliverables.
+
+1. Migration readiness report
+
+Create:
+
+docs/aws-migration-readiness.md
+
+Include:
+- current app stack summary
+- frontend framework
+- backend framework
+- database type
+- ORM or migration system
+- authentication/session mechanism
+- file upload/storage mechanism
+- current build command
+- current start command
+- current app port behavior
+- current deployment assumptions
+- Replit-specific dependencies or assumptions
+- database migration requirements
+- file/evidence migration requirements
+- security gaps before AWS migration
+- AWS migration blockers
+- recommended AWS target architecture
+- next steps for staging deployment
+
+2. Environment variable inventory
+
+Create:
+
+docs/environment-variable-inventory.md
+
+List every environment variable used by the app.
+
+For each variable include:
+- variable name
+- purpose
+- secret or non-secret
+- current source if detectable, for example Replit Secrets, .env, config file, or unknown
+- whether it should move to AWS Secrets Manager
+- whether it can be plain ECS task configuration
+- whether it appears Replit-specific
+- notes
+
+Do not include real values.
+
+3. .env.example
+
+Create or update:
+
+.env.example
+
+Requirements:
+- include all required environment variables
+- use placeholder values only
+- do not include real secrets
+- include comments where helpful
+- include DATABASE_URL as a placeholder if the app uses a database
+- include PORT if the app needs it
+
+4. Health check endpoint
+
+If the app does not already have a health endpoint, add:
+
+GET /health
+
+It should return a lightweight JSON response similar to:
+
+{
+  "status": "ok",
+  "service": "CyberResilience360",
+  "timestamp": "ISO timestamp",
+  "database": "ok" or "not_checked"
+}
+
+Requirements:
+- do not expose sensitive information
+- do not expose environment variables
+- do not expose database credentials
+- keep it suitable for AWS load balancer health checks
+
+5. Port binding portability
+
+Ensure the app can bind to an environment-provided port.
+
+For Node/Express-style apps, this usually means using:
+
+process.env.PORT || 5000
+
+For other stacks, follow the current framework pattern.
+
+Do not break Replit execution.
+
+6. Docker readiness
+
+Create:
+
+Dockerfile
+.dockerignore
+
+Requirements:
+- production-ready where practical
+- multi-stage build where appropriate
+- do not copy .env files
+- do not copy secrets
+- do not include unnecessary local files
+- expose the correct application port
+- use the correct production start command
+- use non-root runtime user where practical
+- keep the container stateless
+- document any Docker limitations if Docker cannot be tested inside Replit
+
+7. Local container test documentation
+
+Create:
+
+docs/local-docker-test.md
+
+Include:
+- how to build the Docker image
+- how to run the Docker container
+- how to pass environment variables safely
+- how to test /health
+- how to connect to a local or test PostgreSQL database if applicable
+- what to do if Docker is not available inside Replit
+
+8. Database migration plan
+
+Create:
+
+docs/database-migration-plan.md
+
+Include:
+- current database technology
+- current ORM/migration command
+- schema export method
+- data export method
+- data import method into AWS RDS PostgreSQL, if PostgreSQL is used
+- rollback strategy
+- verification method using row counts
+- verification checklist for:
+  - users
+  - organizations
+  - controls
+  - control assessments
+  - DORA controls
+  - NIS2 controls
+  - NIST mappings
+  - cybersecurity risk register
+  - evidence metadata
+  - audit logs
+  - uploaded-file metadata
+- SSL/TLS database connection considerations for AWS RDS
+- any blockers
+
+If the current app does not use PostgreSQL, document the safest AWS-compatible migration approach and blockers.
+
+9. File and evidence storage migration plan
+
+Create:
+
+docs/file-storage-migration-plan.md
+
+Identify where uploaded evidence, reports, Excel imports, logos, attachments, and generated documents are currently stored:
+- local Replit filesystem
+- database
+- Replit object storage
+- external service
+- unknown
+
+If local files are used, recommend migration to AWS S3.
+
+Include:
+- private S3 bucket approach
+- KMS encryption
+- block public access
+- presigned URL access
+- per-organization object key structure
+- evidence access-control requirements
+- migration verification steps
+- rollback approach
+
+Do not move files yet.
+
+10. AWS target architecture document
+
+Create:
+
+docs/aws-target-architecture.md
+
+Recommended target architecture:
+- AWS Region: eu-central-1 Frankfurt by default
+- alternative EU Regions: eu-south-1 Milan, eu-west-1 Ireland, eu-west-3 Paris
+- ECS Fargate for application containers
+- ECR for container images
+- RDS PostgreSQL for database
+- S3 for evidence, uploads, reports, imports, and exports
+- Secrets Manager for secrets
+- KMS for encryption keys
+- Application Load Balancer for HTTPS routing
+- CloudFront and AWS WAF for edge protection
+- CloudWatch Logs for application logs
+- CloudTrail for AWS audit trail
+- GuardDuty for threat detection
+- AWS Backup for backup policies
+- Route 53 and ACM for DNS and TLS certificates
+
+Explain that this is a staging/prod-ready architecture, but do not deploy it yet.
+
+11. AWS security baseline
+
+Create:
+
+docs/aws-security-baseline.md
+
+Include:
+- AWS root account MFA
+- IAM Identity Center or least-privilege IAM
+- no hardcoded secrets
+- AWS Secrets Manager for secrets
+- KMS encryption
+- private RDS subnet
+- RDS backups and point-in-time recovery
+- S3 public access blocked
+- S3 server-side encryption
+- WAF enabled
+- CloudTrail enabled
+- GuardDuty enabled
+- CloudWatch logs enabled
+- backup restore testing
+- tenant-isolation testing
+- RBAC testing
+- admin activity logging
+- evidence upload access control
+- audit-log retention
+- GDPR data-residency notes for EU hosting
+- NIS2/DORA assurance evidence benefits
+
+12. Application code changes
+
+Make only safe portability changes:
+- add /health endpoint if missing
+- ensure app reads PORT from environment
+- ensure database connection is read from environment variables
+- ensure secrets are read from environment variables
+- ensure production build/start works outside Replit where practical
+- identify local file writes
+- avoid Replit-only runtime assumptions where possible
+- do not change core compliance logic
+
+13. Tests and checks
+
+Run existing tests if available.
+
+If no tests exist, add minimal smoke tests where practical:
+- app starts
+- /health returns ok
+- main route renders or responds
+- authentication route still exists
+- database connection can be checked safely in test mode if configured
+
+Do not create tests that require real production secrets.
+
+14. Git commit
+
+After changes are complete and reviewed, commit with message:
+
+Prepare CyberResilience360 for AWS EU migration readiness
+
+15. Final response
+
+At the end, provide a clear summary:
+- stack detected
+- files created
+- code changes made
+- tests run
+- tests passed or failed
+- migration blockers
+- AWS services recommended
+- whether the app is ready for AWS staging deployment
+- exact next steps
+
+Do not deploy to AWS.
+Do not modify production data.
+Do not perform production cutover.

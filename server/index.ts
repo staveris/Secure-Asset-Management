@@ -21,6 +21,27 @@ const PRIMARY_HOST = (process.env.ALLOWED_HOST || "cyres360.toolsoftech.eu")
 // Legacy domain that should permanently redirect to PRIMARY_HOST
 const LEGACY_HOST = "nis2compliance.toolsoftech.eu";
 
+// Lightweight liveness/readiness endpoint for load balancer health checks.
+// Registered BEFORE the host-gate so AWS ALB/ECS probes (which use IP-based
+// Host headers) are not rejected. Does not expose any environment variables,
+// secrets, or database internals.
+app.get("/health", async (_req: Request, res: Response) => {
+  let databaseStatus: "ok" | "error" | "not_checked" = "not_checked";
+  try {
+    const { pool } = await import("./db");
+    await pool.query("SELECT 1");
+    databaseStatus = "ok";
+  } catch {
+    databaseStatus = "error";
+  }
+  res.status(databaseStatus === "error" ? 503 : 200).json({
+    status: databaseStatus === "error" ? "degraded" : "ok",
+    service: "CyberResilience360",
+    timestamp: new Date().toISOString(),
+    database: databaseStatus,
+  });
+});
+
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 

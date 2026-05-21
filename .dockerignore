@@ -1,0 +1,50 @@
+# --- VCS / IDE ---
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+
+# --- Replit-only ---
+.replit
+replit.nix
+.config
+.cache
+.upm
+.breakpoints
+.local
+attached_assets
+
+# --- Build / runtime artefacts (rebuilt inside the image) ---
+node_modules
+dist
+build
+coverage
+.nyc_output
+artifacts/mockup-sandbox/node_modules
+artifacts/mockup-sandbox/dist
+
+# --- Secrets — NEVER copy into the image ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+.local/.commit_message
+
+# --- Local data / logs ---
+uploads
+tmp
+*.log
+logs
+
+# --- Documentation (not needed at runtime; trim image size) ---
+docs
+*.md
+!replit.md
+threat_model.md
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
