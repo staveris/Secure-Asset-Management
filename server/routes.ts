@@ -12,7 +12,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
-import { getActiveEvidenceAdapter, getAdapterForStoragePath } from "./evidence-storage";
+import { getActiveEvidenceAdapter, getAdapterForStoragePath, getMaxUploadSizeBytes } from "./evidence-storage";
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
 import sanitizeHtml from "sanitize-html";
@@ -75,7 +75,10 @@ const TEXT_BASED_MIME_TYPES = new Set([
   "text/plain",
   "text/csv",
 ]);
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
+// MAX_UPLOAD_SIZE_MB env-overridable; defaults to 25 MB to preserve the
+// historical hard limit. The per-tenant maxFileSizeBytes check inside the
+// upload handler is the authoritative second defence.
+const MAX_FILE_SIZE = getMaxUploadSizeBytes();
 
 // In-memory multer storage. The buffer is handed off to the active
 // evidence-storage adapter (filesystem or S3) after validation. The 25 MB

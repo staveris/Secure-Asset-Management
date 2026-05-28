@@ -2,16 +2,6 @@
  * Unit tests for the evidence-storage adapter abstraction.
  *
  * Run with: tsx server/evidence-storage.test.ts
- *
- * Covers:
- *   - safeExtension() sanitisation
- *   - FilesystemEvidenceAdapter put/get/delete/exists round-trip
- *   - owns() routing for both backends
- *   - getActiveEvidenceAdapter() respects EVIDENCE_STORAGE_BACKEND
- *   - getAdapterForStoragePath() picks the right backend by key prefix
- *
- * No live S3 calls are made — the S3 adapter is exercised only through
- * its routing predicates and via a fake S3Client for put/get/delete.
  */
 import fs from "fs";
 import os from "os";
@@ -22,7 +12,10 @@ import {
   S3EvidenceAdapter,
   getActiveEvidenceAdapter,
   getAdapterForStoragePath,
+  getMaxUploadSizeBytes,
+  getPresignedUrlExpirySeconds,
   safeExtension,
+  sanitizeOriginalFilename,
   _resetEvidenceAdaptersForTests,
 } from "./evidence-storage";
 
@@ -43,6 +36,25 @@ function group(name: string, fn: () => void | Promise<void>): Promise<void> {
   return Promise.resolve(fn());
 }
 
+function withEnv<T>(overrides: Record<string, string | undefined>, fn: () => T): T {
+  const saved: Record<string, string | undefined> = {};
+  for (const k of Object.keys(overrides)) {
+    saved[k] = process.env[k];
+    const v = overrides[k];
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+  try {
+    return fn();
+  } finally {
+    for (const k of Object.keys(saved)) {
+      const v = saved[k];
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+}
+
 (async () => {
   // ---------- safeExtension ----------
   await group("safeExtension()", () => {
@@ -55,6 +67,23 @@ function group(name: string, fn: () => void | Promise<void>): Promise<void> {
     check("super long ext rejected", safeExtension("x.thisextensiontoolong") === "");
     check("non-alphanumeric ext rejected", safeExtension("x.p!df") === "");
     check("space in ext rejected", safeExtension("x.p df") === "");
+  });
+
+  // ---------- sanitizeOriginalFilename ----------
+  await group("sanitizeOriginalFilename()", () => {
+    check("strips path traversal to basename", sanitizeOriginalFilename("../etc/passwd") === "passwd");
+    check("strips backslashes", sanitizeOriginalFilename("a\\b\\c.pdf") === "a_b_c.pdf");
+    check(
+      "replaces unsafe chars with _",
+      sanitizeOriginalFilename("hello world!? .pdf") === "hello_world___.pdf",
+    );
+    check("keeps dots and dashes and dots", sanitizeOriginalFilename("name-2024.pdf") === "name-2024.pdf");
+    check("drops leading dots", sanitizeOriginalFilename("...secret.txt") === "secret.txt");
+    check("empty -> 'evidence'", sanitizeOriginalFilename("") === "evidence");
+    check(
+      "limits to 80 chars",
+      sanitizeOriginalFilename("a".repeat(200) + ".pdf").length === 80,
+    );
   });
 
   // ---------- FilesystemEvidenceAdapter round-trip ----------
@@ -109,7 +138,6 @@ function group(name: string, fn: () => void | Promise<void>): Promise<void> {
   // ---------- owns() routing ----------
   await group("owns() routing", () => {
     const fsA = new FilesystemEvidenceAdapter();
-    // We construct an S3 adapter with a stubbed client; owns() does not touch it.
     const s3A = new S3EvidenceAdapter({} as any, "irrelevant-bucket");
 
     check("filesystem owns uploads/abc.pdf", fsA.owns("uploads/abc.pdf"));
@@ -117,66 +145,102 @@ function group(name: string, fn: () => void | Promise<void>): Promise<void> {
     check("filesystem rejects path-traversal", !fsA.owns("uploads/../etc/passwd"));
     check("filesystem accepts windows-sep variant", fsA.owns("uploads\\x.pdf"));
 
-    check("s3 owns tenants/27/evidence/x.pdf", s3A.owns("tenants/27/evidence/x.pdf"));
+    check("s3 owns tenants/...", s3A.owns("tenants/27/evidence/2026/05/uuid-name.pdf"));
+    check("s3 owns prefixed keys", s3A.owns("cyberresilience360/tenants/27/evidence/x.pdf"));
     check("s3 rejects uploads/x.pdf", !s3A.owns("uploads/x.pdf"));
+    check("s3 rejects empty", !s3A.owns(""));
   });
 
   // ---------- getActiveEvidenceAdapter respects env flag ----------
-  await group("getActiveEvidenceAdapter() respects EVIDENCE_STORAGE_BACKEND", () => {
-    const prevFlag = process.env.EVIDENCE_STORAGE_BACKEND;
-    const prevBucket = process.env.S3_EVIDENCE_BUCKET;
+  await group("getActiveEvidenceAdapter() respects env flags", () => {
+    withEnv(
+      {
+        FILE_STORAGE_PROVIDER: undefined,
+        EVIDENCE_STORAGE_BACKEND: undefined,
+        S3_EVIDENCE_BUCKET: undefined,
+      },
+      () => {
+        _resetEvidenceAdaptersForTests();
+        check("default = filesystem", getActiveEvidenceAdapter().backend === "filesystem");
+      },
+    );
 
-    try {
+    withEnv({ FILE_STORAGE_PROVIDER: "local", EVIDENCE_STORAGE_BACKEND: undefined }, () => {
       _resetEvidenceAdaptersForTests();
-      delete process.env.EVIDENCE_STORAGE_BACKEND;
-      const def = getActiveEvidenceAdapter();
-      check("default = filesystem", def.backend === "filesystem");
+      check("FILE_STORAGE_PROVIDER=local", getActiveEvidenceAdapter().backend === "filesystem");
+    });
 
+    withEnv({ FILE_STORAGE_PROVIDER: undefined, EVIDENCE_STORAGE_BACKEND: "filesystem" }, () => {
       _resetEvidenceAdaptersForTests();
-      process.env.EVIDENCE_STORAGE_BACKEND = "filesystem";
-      const fs2 = getActiveEvidenceAdapter();
-      check("explicit filesystem", fs2.backend === "filesystem");
+      check(
+        "legacy alias EVIDENCE_STORAGE_BACKEND=filesystem still works",
+        getActiveEvidenceAdapter().backend === "filesystem",
+      );
+    });
 
-      _resetEvidenceAdaptersForTests();
-      process.env.EVIDENCE_STORAGE_BACKEND = "s3";
-      delete process.env.S3_EVIDENCE_BUCKET;
-      let threw = false;
-      try {
-        getActiveEvidenceAdapter();
-      } catch {
-        threw = true;
-      }
-      check("s3 without S3_EVIDENCE_BUCKET throws", threw);
+    withEnv(
+      { FILE_STORAGE_PROVIDER: "s3", EVIDENCE_STORAGE_BACKEND: undefined, S3_EVIDENCE_BUCKET: undefined },
+      () => {
+        _resetEvidenceAdaptersForTests();
+        let threw = false;
+        try {
+          getActiveEvidenceAdapter();
+        } catch {
+          threw = true;
+        }
+        check("s3 without S3_EVIDENCE_BUCKET throws", threw);
+      },
+    );
 
-      _resetEvidenceAdaptersForTests();
-      process.env.EVIDENCE_STORAGE_BACKEND = "s3";
-      process.env.S3_EVIDENCE_BUCKET = "test-bucket";
-      const s3 = getActiveEvidenceAdapter();
-      check("s3 backend selected when configured", s3.backend === "s3");
-    } finally {
-      _resetEvidenceAdaptersForTests();
-      if (prevFlag === undefined) delete process.env.EVIDENCE_STORAGE_BACKEND;
-      else process.env.EVIDENCE_STORAGE_BACKEND = prevFlag;
-      if (prevBucket === undefined) delete process.env.S3_EVIDENCE_BUCKET;
-      else process.env.S3_EVIDENCE_BUCKET = prevBucket;
-    }
+    withEnv(
+      {
+        FILE_STORAGE_PROVIDER: "s3",
+        EVIDENCE_STORAGE_BACKEND: undefined,
+        S3_EVIDENCE_BUCKET: "test-bucket",
+      },
+      () => {
+        _resetEvidenceAdaptersForTests();
+        check("s3 backend selected when configured", getActiveEvidenceAdapter().backend === "s3");
+      },
+    );
+
+    _resetEvidenceAdaptersForTests();
   });
 
   // ---------- getAdapterForStoragePath routing ----------
   await group("getAdapterForStoragePath() routes by key prefix", () => {
-    const prevBucket = process.env.S3_EVIDENCE_BUCKET;
-    try {
+    withEnv({ S3_EVIDENCE_BUCKET: "test-bucket" }, () => {
       _resetEvidenceAdaptersForTests();
-      process.env.S3_EVIDENCE_BUCKET = "test-bucket";
-      const fsA = getAdapterForStoragePath("uploads/abc.pdf");
-      check("uploads/ → filesystem", fsA.backend === "filesystem");
-      const s3A = getAdapterForStoragePath("tenants/9/evidence/x.pdf");
-      check("tenants/ → s3", s3A.backend === "s3");
-    } finally {
-      _resetEvidenceAdaptersForTests();
-      if (prevBucket === undefined) delete process.env.S3_EVIDENCE_BUCKET;
-      else process.env.S3_EVIDENCE_BUCKET = prevBucket;
-    }
+      check("uploads/ → filesystem", getAdapterForStoragePath("uploads/abc.pdf").backend === "filesystem");
+      check(
+        "tenants/ → s3",
+        getAdapterForStoragePath("tenants/9/evidence/2026/05/uuid-x.pdf").backend === "s3",
+      );
+      check(
+        "prefixed S3 key → s3",
+        getAdapterForStoragePath("cyberresilience360/tenants/9/evidence/x").backend === "s3",
+      );
+    });
+    _resetEvidenceAdaptersForTests();
+  });
+
+  // ---------- env-driven knobs ----------
+  await group("env-driven knobs", () => {
+    withEnv({ MAX_UPLOAD_SIZE_MB: undefined }, () => {
+      check("MAX_UPLOAD_SIZE_MB default = 25 MiB", getMaxUploadSizeBytes() === 25 * 1024 * 1024);
+    });
+    withEnv({ MAX_UPLOAD_SIZE_MB: "50" }, () => {
+      check("MAX_UPLOAD_SIZE_MB=50 honoured", getMaxUploadSizeBytes() === 50 * 1024 * 1024);
+    });
+    withEnv({ MAX_UPLOAD_SIZE_MB: "garbage" }, () => {
+      check("MAX_UPLOAD_SIZE_MB=garbage falls back to default", getMaxUploadSizeBytes() === 25 * 1024 * 1024);
+    });
+    withEnv({ S3_PRESIGNED_URL_EXPIRES_SECONDS: undefined }, () => {
+      check("presigned default = 300s", getPresignedUrlExpirySeconds() === 300);
+    });
+    withEnv({ S3_PRESIGNED_URL_EXPIRES_SECONDS: "60" }, () => {
+      check("presigned override = 60s", getPresignedUrlExpirySeconds() === 60);
+    });
   });
 
   // ---------- S3EvidenceAdapter with a fake client ----------
@@ -203,18 +267,22 @@ function group(name: string, fn: () => void | Promise<void>): Promise<void> {
       },
     } as any;
 
-    const adapter = new S3EvidenceAdapter(fakeClient, "my-bucket");
+    const adapter = new S3EvidenceAdapter({
+      client: fakeClient,
+      bucket: "my-bucket",
+      prefix: "cyberresilience360",
+    });
 
-    const stream = await adapter.getStream("tenants/1/evidence/x.bin");
+    const stream = await adapter.getStream("cyberresilience360/tenants/1/evidence/x.bin");
     check(
       "getStream issued GetObjectCommand with right bucket+key",
       calls[0].command === "GetObjectCommand" &&
         calls[0].input.Bucket === "my-bucket" &&
-        calls[0].input.Key === "tenants/1/evidence/x.bin",
+        calls[0].input.Key === "cyberresilience360/tenants/1/evidence/x.bin",
     );
     check("getStream reported contentLength", stream.contentLength === 7);
 
-    await adapter.delete("tenants/1/evidence/x.bin");
+    await adapter.delete("cyberresilience360/tenants/1/evidence/x.bin");
     check(
       "delete issued DeleteObjectCommand",
       calls.find((c) => c.command === "DeleteObjectCommand") !== undefined,

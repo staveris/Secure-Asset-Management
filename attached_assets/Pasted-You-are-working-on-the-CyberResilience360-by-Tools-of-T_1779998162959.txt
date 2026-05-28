@@ -1,0 +1,307 @@
+You are working on the CyberResilience360 by Tools of Tech application.
+
+Current migration-readiness result:
+- Backend: Node.js 20 + Express 4 + TypeScript
+- Frontend: React 18 + Vite 7 + TypeScript + Tailwind + shadcn/ui
+- Database: PostgreSQL with Drizzle ORM
+- Auth: express-session + connect-pg-simple, bcryptjs, TOTP 2FA
+- Build: esbuild to dist/index.cjs
+- Runtime target: AWS ECS Fargate
+- Database target: AWS RDS PostgreSQL 16 in eu-central-1
+- Current file storage: multer.diskStorage writing to ./uploads/
+- Blocker: ./uploads/ is not portable to AWS Fargate and must be replaced or extended with S3-backed storage before production cutover.
+
+Goal:
+Implement a safe, backward-compatible file/evidence storage abstraction that supports both:
+1. local storage for current Replit/dev compatibility, and
+2. AWS S3 storage for AWS staging/production.
+
+Important:
+Do not break existing NIS2, DORA, NIST CSF 2.0, cybersecurity risk register, controls, assessments, users, organizations, evidence metadata, dashboards, statuses, or applicability logic.
+
+Work on branch:
+aws-s3-evidence-storage
+
+Hard rules:
+1. Do not delete existing evidence records.
+2. Do not delete files from ./uploads/.
+3. Do not change existing control libraries.
+4. Do not change existing assessment statuses.
+5. Do not change organization/user data.
+6. Do not globally enable or disable any compliance module.
+7. Do not expose secrets in code, logs, documentation, or commits.
+8. Do not use public S3 objects.
+9. Do not use public-read ACLs.
+10. Do not store AWS access keys in code.
+11. Do not run production migration automatically.
+12. Make all database migrations non-destructive and idempotent.
+13. Keep local storage mode working so the existing Replit deployment does not break.
+
+Before coding:
+1. Inspect all existing upload/download/delete/evidence/report/import routes.
+2. Inspect multer usage.
+3. Inspect database schema for evidence/files/attachments/imports/reports.
+4. Identify all places where ./uploads/ is used.
+5. Identify whether uploaded files are linked to organizations, controls, risks, assessments, users, or evidence records.
+6. Prepare a brief implementation plan before making code changes.
+
+Required storage design:
+Create a reusable storage abstraction, for example:
+
+server/storage/fileStorage.ts
+or an equivalent path matching the current project structure.
+
+The abstraction should support:
+- saveFile
+- getDownloadUrl or getFileStream
+- deleteFile or markDeleted where applicable
+- fileExists where useful
+- getFileMetadata where useful
+
+Implement at least two providers:
+1. LocalFileStorageProvider
+2. S3FileStorageProvider
+
+Configuration:
+Add environment variables to .env.example and documentation:
+
+FILE_STORAGE_PROVIDER=local
+AWS_REGION=eu-central-1
+S3_EVIDENCE_BUCKET=
+S3_EVIDENCE_PREFIX=cyberresilience360
+S3_KMS_KEY_ID=
+S3_PRESIGNED_URL_EXPIRES_SECONDS=300
+MAX_UPLOAD_SIZE_MB=25
+
+Rules:
+- FILE_STORAGE_PROVIDER=local must preserve current Replit/dev behavior.
+- FILE_STORAGE_PROVIDER=s3 must store uploaded evidence/files in S3.
+- In ECS, use the ECS task role/IAM role for AWS credentials.
+- Do not require static AWS keys in production.
+- For local developer testing, allow the standard AWS SDK credential provider chain.
+- Do not print secret values.
+
+Dependencies:
+Use AWS SDK for JavaScript v3.
+Add only the required packages, likely:
+- @aws-sdk/client-s3
+- @aws-sdk/s3-request-presigner
+- optionally @aws-sdk/lib-storage if multipart upload is needed
+
+S3 object key design:
+Use an organization-scoped object key structure such as:
+
+{S3_EVIDENCE_PREFIX}/organizations/{organizationId}/evidence/{yyyy}/{mm}/{uuid}-{sanitizedOriginalFilename}
+
+Requirements:
+- sanitize file names
+- prevent path traversal
+- do not trust client-provided filenames for paths
+- store original filename separately as metadata
+- include organization ID in the key
+- preserve tenant isolation
+- do not allow one organization to download another organization’s files
+
+S3 upload requirements:
+When FILE_STORAGE_PROVIDER=s3:
+- avoid writing evidence files to local disk where practical
+- use multer.memoryStorage or streaming upload
+- enforce MAX_UPLOAD_SIZE_MB
+- store objects in private S3
+- do not set public-read ACL
+- use ServerSideEncryption: aws:kms when S3_KMS_KEY_ID is provided
+- include SSEKMSKeyId when S3_KMS_KEY_ID is provided
+- store content type
+- store file size
+- store checksum/hash if practical
+- log success/failure without sensitive data
+
+S3 download requirements:
+When FILE_STORAGE_PROVIDER=s3:
+- before generating any download link, verify:
+  - authenticated user
+  - user belongs to the organization
+  - user has permission to access the evidence/file
+- return either:
+  - a short-lived presigned GET URL, or
+  - a secure backend-proxied download stream
+- prefer presigned GET URL with expiration from S3_PRESIGNED_URL_EXPIRES_SECONDS
+- default expiration should be 300 seconds
+- do not expose raw bucket names unnecessarily in UI
+- do not expose files without authorization
+
+Local storage compatibility:
+When FILE_STORAGE_PROVIDER=local:
+- current ./uploads/ behavior should continue working
+- existing local evidence download routes should continue working
+- do not break existing Replit deployment
+- preserve current file paths unless a safer abstraction is possible without breaking compatibility
+
+Database migration:
+Inspect current schema before changing it.
+
+If file/evidence metadata columns are missing, add only non-destructive nullable columns, for example:
+- storage_provider
+- storage_bucket
+- storage_region
+- storage_key
+- storage_prefix
+- original_filename
+- stored_filename
+- mime_type
+- file_size_bytes
+- checksum_sha256
+- uploaded_at
+- migrated_to_s3_at
+- migration_source_path
+
+Use current naming conventions and Drizzle patterns.
+
+Do not make existing columns non-null if this would break existing data.
+Do not remove current local path columns.
+Do not overwrite existing metadata.
+
+Migration script:
+Create a dry-run-first migration script for moving existing local uploads to S3.
+
+Suggested file:
+scripts/migrate-local-uploads-to-s3.ts
+
+Requirements:
+- dry-run by default
+- require explicit flag to execute, for example --execute
+- require FILE_STORAGE_PROVIDER=s3 or explicit S3 configuration
+- scan existing evidence/file records that still point to local files
+- verify local file exists before upload
+- upload to S3 using the new key structure
+- update only storage metadata for successfully uploaded files
+- do not delete local files after upload
+- be idempotent
+- skip already migrated records
+- log counts:
+  - scanned
+  - uploaded
+  - skipped
+  - missing local file
+  - failed
+  - already migrated
+- produce a migration report
+- do not run automatically during app startup
+
+Routes:
+Update all relevant upload/download/delete routes to use the storage abstraction.
+
+Do not change user-facing behavior except where necessary.
+
+Evidence upload should still work from the current UI.
+Evidence download should still work from the current UI.
+If the app has report exports/imports/logos/attachments, inspect whether they also need the abstraction. If yes, implement safely or document as follow-up.
+
+Security:
+1. Keep S3 buckets private.
+2. No public ACLs.
+3. Use KMS encryption when configured.
+4. Enforce organization-level authorization before download.
+5. Enforce role-based access control where existing RBAC exists.
+6. Validate file size.
+7. Validate allowed file extensions/MIME types using current application policy or add a conservative default.
+8. Prevent path traversal.
+9. Do not expose local filesystem paths to the frontend.
+10. Do not log presigned URLs.
+11. Do not log secret values.
+12. Do not store evidence files in the Docker image.
+
+Documentation:
+Create or update:
+
+docs/s3-evidence-storage.md
+
+Include:
+- purpose
+- local mode
+- S3 mode
+- required environment variables
+- IAM permissions needed by ECS task role
+- KMS requirements
+- bucket requirements
+- migration script usage
+- dry-run example
+- execute example
+- rollback notes
+- verification checklist
+
+Update:
+
+docs/file-storage-migration-plan.md
+
+Add:
+- implemented storage abstraction
+- remaining migration steps
+- how to test S3 mode
+- production cutover notes
+
+Update:
+
+.env.example
+
+Add all required file-storage variables with placeholder values only.
+
+IAM documentation:
+Document least-privilege ECS task role permissions needed for S3, including:
+- s3:PutObject
+- s3:GetObject
+- s3:DeleteObject only if delete is actually implemented
+- s3:ListBucket only if required
+- kms:Encrypt
+- kms:Decrypt
+- kms:GenerateDataKey
+- kms:DescribeKey
+
+Scope permissions to the evidence bucket and object prefix where possible.
+
+Testing:
+Run existing checks:
+- npm run check
+- production build if available
+- app startup if practical
+
+Add or update smoke tests where practical:
+1. FILE_STORAGE_PROVIDER=local upload still works.
+2. FILE_STORAGE_PROVIDER=local download still works.
+3. S3 provider can be initialized without static AWS keys.
+4. Unauthorized users cannot download another organization’s evidence.
+5. Presigned URL generation requires authorization.
+6. Migration script dry-run does not modify data.
+7. Re-running migration script does not duplicate migration metadata.
+
+If no full automated test suite exists, document manual test steps in:
+
+docs/s3-evidence-storage-test-plan.md
+
+Manual test checklist:
+- local upload
+- local download
+- S3 upload in staging config
+- S3 download in staging config
+- invalid organization access
+- file size limit
+- unsupported file type if applicable
+- migration dry-run
+- migration execute on test file only
+
+Final output:
+Provide a clear summary:
+- files changed
+- new dependencies
+- database changes
+- environment variables added
+- upload/download routes updated
+- migration script path
+- tests/checks run
+- whether local mode still works
+- whether S3 mode is ready for AWS staging
+- any blockers
+
+Do not deploy to AWS.
+Do not run production migration.
+Do not delete local files.

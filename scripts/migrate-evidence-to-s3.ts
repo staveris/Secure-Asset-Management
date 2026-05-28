@@ -2,19 +2,26 @@
  * One-off migration: copy ./uploads/* into the S3 evidence bucket and
  * rewrite evidence_items.storage_path to the new S3 key.
  *
- * Run modes:
- *   # Plan only — prints what would happen, mutates nothing.
- *   tsx scripts/migrate-evidence-to-s3.ts --dry-run
+ * SAFETY: this script defaults to DRY-RUN. To actually copy + rewrite you
+ * must pass --execute. Old --dry-run flag is still accepted (no-op) so
+ * existing runbooks do not break.
  *
- *   # Actually copy + rewrite. Idempotent: rows already pointing at
- *   # tenants/* are skipped. Files missing on disk are reported and skipped.
+ * Run modes:
+ *   # Plan only — prints what would happen, mutates nothing. (default)
  *   tsx scripts/migrate-evidence-to-s3.ts
+ *   tsx scripts/migrate-evidence-to-s3.ts --dry-run    # same as default
+ *
+ *   # Actually copy + rewrite. Idempotent: rows already pointing at S3 are
+ *   # skipped. Files missing on disk are reported and skipped.
+ *   tsx scripts/migrate-evidence-to-s3.ts --execute
  *
  * Required env vars:
  *   DATABASE_URL
  *   S3_EVIDENCE_BUCKET
  *   AWS_REGION              (default: eu-central-1)
- *   S3_EVIDENCE_KMS_KEY_ID  (optional — enables SSE-KMS)
+ *   S3_EVIDENCE_PREFIX      (optional — wraps the key, e.g. "cyberresilience360")
+ *   S3_KMS_KEY_ID           (optional — enables SSE-KMS;
+ *                            S3_EVIDENCE_KMS_KEY_ID also accepted)
  *
  * Integrity contract:
  *   - sha256 of the local file is computed BEFORE upload.
@@ -26,7 +33,7 @@
  *   - Only then is evidence_items.storage_path rewritten.
  *
  * Safety:
- *   - The on-disk file is NOT deleted by this script. Confirm S3 contents,
+ *   - The on-disk file is NEVER deleted by this script. Confirm S3 contents,
  *     then delete ./uploads/ manually once cutover is verified.
  *   - Failures are reported per-row; the script continues with the rest.
  *   - Exit code is 1 if any row failed, otherwise 0.
@@ -38,14 +45,16 @@ import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { db, pool } from "../server/db";
 import { evidenceItems } from "../shared/schema";
-import { safeExtension } from "../server/evidence-storage";
+import { safeExtension, sanitizeOriginalFilename } from "../server/evidence-storage";
 import {
   S3Client,
   PutObjectCommand,
   HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 
-const DRY_RUN = process.argv.includes("--dry-run");
+const EXECUTE = process.argv.includes("--execute");
+// Accept --dry-run as a no-op alias so older runbooks keep working.
+const DRY_RUN = !EXECUTE;
 
 interface Report {
   total: number;
@@ -67,6 +76,27 @@ async function sha256OfFile(full: string): Promise<string> {
   });
 }
 
+function buildKey(tenantId: number, originalFilename: string): string {
+  const prefix = (process.env.S3_EVIDENCE_PREFIX || "").replace(/^\/+|\/+$/g, "");
+  const now = new Date();
+  const yyyy = String(now.getUTCFullYear());
+  const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const safeName = sanitizeOriginalFilename(originalFilename);
+  const ext = safeExtension(originalFilename);
+  const trailing = safeName.toLowerCase().endsWith(ext) ? safeName : `${safeName}${ext}`;
+  const uuid = crypto.randomUUID();
+  const segments = [
+    prefix || undefined,
+    "tenants",
+    String(tenantId),
+    "evidence",
+    yyyy,
+    mm,
+    `${uuid}-${trailing}`,
+  ].filter((s): s is string => !!s);
+  return segments.join("/");
+}
+
 async function main(): Promise<void> {
   const bucket = process.env.S3_EVIDENCE_BUCKET;
   if (!bucket) {
@@ -74,11 +104,13 @@ async function main(): Promise<void> {
     process.exit(2);
   }
   const region = process.env.AWS_REGION || "eu-central-1";
-  const kmsKeyId = process.env.S3_EVIDENCE_KMS_KEY_ID;
+  const kmsKeyId = process.env.S3_KMS_KEY_ID || process.env.S3_EVIDENCE_KMS_KEY_ID;
   const client = new S3Client({ region });
 
   console.log(
-    `[migrate] mode=${DRY_RUN ? "DRY-RUN" : "EXECUTE"} region=${region} bucket=${bucket} kms=${kmsKeyId ? "yes" : "no(SSE-S3)"}`,
+    `[migrate] mode=${DRY_RUN ? "DRY-RUN (default — pass --execute to apply)" : "EXECUTE"} ` +
+      `region=${region} bucket=${bucket} kms=${kmsKeyId ? "yes" : "no(SSE-S3)"} ` +
+      `prefix=${process.env.S3_EVIDENCE_PREFIX || "(none)"}`,
   );
 
   const rows = await db.select().from(evidenceItems);
@@ -95,7 +127,7 @@ async function main(): Promise<void> {
   for (const row of rows) {
     const storagePath = row.storagePath || "";
 
-    if (storagePath.startsWith("tenants/")) {
+    if (storagePath && !storagePath.startsWith("uploads/")) {
       report.skippedAlreadyS3++;
       continue;
     }
@@ -112,10 +144,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const ext = safeExtension(row.filename || "") || path.extname(storagePath);
-    const newKey = `tenants/${row.tenantId}/evidence/${crypto
-      .randomBytes(16)
-      .toString("hex")}${ext}`;
+    const newKey = buildKey(row.tenantId, row.filename || `evidence-${row.id}`);
 
     if (DRY_RUN) {
       console.log(`[migrate] PLAN #${row.id} ${storagePath} -> s3://${bucket}/${newKey}`);
@@ -133,7 +162,11 @@ async function main(): Promise<void> {
           Key: newKey,
           Body: buffer,
           ContentType: row.mimeType || "application/octet-stream",
-          Metadata: { sha256: sourceHash },
+          Metadata: {
+            sha256: sourceHash,
+            "original-filename": sanitizeOriginalFilename(row.filename || ""),
+            "tenant-id": String(row.tenantId),
+          },
           ...(kmsKeyId
             ? { ServerSideEncryption: "aws:kms" as const, SSEKMSKeyId: kmsKeyId }
             : { ServerSideEncryption: "AES256" as const }),

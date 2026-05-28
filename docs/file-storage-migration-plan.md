@@ -54,17 +54,50 @@ The application is multi-tenant with role-based access (PLATFORM_ADMIN / TENANT_
 4. Uploads use **presigned POST** (or server-side `Upload` from `@aws-sdk/lib-storage`) — the application validates size, mime, magic-bytes, and quota **before** generating the URL or accepting the stream.
 5. All presign + put/get operations must be audit-logged (the existing audit-log pattern already covers evidence-vault routes).
 
-## 5. Code-change scope (not in this readiness branch)
+## 5. Code-change scope — IMPLEMENTED on branch `aws-s3-evidence-storage`
 
-Tracked separately so this branch stays non-destructive. A future feature branch would:
+Implemented as a non-destructive, env-flag-driven backend abstraction. See
+`docs/s3-evidence-storage.md` for the full operator-facing reference.
 
-1. Add `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` as runtime dependencies.
-2. Replace `multer.diskStorage` with `multer.memoryStorage` (size-limited) and upload to S3 via `@aws-sdk/lib-storage`.
-3. Replace `fs.readFileSync(filePath)` in the download route with `getSignedUrl(...)`.
-4. Replace `fs.unlinkSync` in the delete route with `DeleteObjectCommand`.
-5. Replace SHA-256 computation against the local file with the streamed S3 upload hash (already computed in the async-hash refactor under task #39).
-6. Update `evidence_items.filePath` to store the S3 key (e.g. `tenants/27/evidence/123/abc__report.pdf`) rather than a filesystem path.
-7. Add an env var `S3_EVIDENCE_BUCKET` and (optionally) `AWS_REGION`. No new secrets — credentials come from the ECS task role.
+Summary of what shipped:
+
+1. ✅ Added `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`, and
+   `@aws-sdk/lib-storage` as runtime dependencies.
+2. ✅ `multer.diskStorage` replaced with `multer.memoryStorage`
+   (size-limited via `MAX_UPLOAD_SIZE_MB`, default 25 MB) and the buffer
+   is handed off to the active adapter via `@aws-sdk/lib-storage` `Upload`.
+3. ✅ The previously-501 `GET /api/evidence/:id/download` route now streams
+   the object via the active adapter, with `requireAuth` +
+   `requireFullAccess` + tenant ownership + audit log. Local-mode download
+   keeps working unchanged.
+4. ✅ `fs.unlinkSync` in the delete route replaced with adapter-routed
+   `delete()`; tenant cleanup in `server/storage.ts` likewise.
+5. ✅ SHA-256 is computed from the in-memory buffer on upload and stored in
+   `evidence_items.sha256` plus the audit log; the migration script
+   round-trips the hash through `x-amz-meta-sha256` and verifies it on
+   `HeadObject` before rewriting the DB.
+6. ✅ `evidence_items.storage_path` schema is unchanged (no migration
+   needed). Local rows continue to use `uploads/...`; S3 rows use
+   `{prefix}/tenants/{tenantId}/evidence/{yyyy}/{mm}/{uuid}-{sanitizedFilename}`.
+   Per-row routing in `getAdapterForStoragePath()` selects the right
+   backend, so historical filesystem rows keep working after the flag flips.
+7. ✅ Env vars added — see `.env.example`:
+   `FILE_STORAGE_PROVIDER` (canonical) and the legacy
+   `EVIDENCE_STORAGE_BACKEND` alias, `AWS_REGION`, `S3_EVIDENCE_BUCKET`,
+   `S3_EVIDENCE_PREFIX`, `S3_KMS_KEY_ID`,
+   `S3_PRESIGNED_URL_EXPIRES_SECONDS`, `MAX_UPLOAD_SIZE_MB`.
+
+Files of interest:
+
+- `server/evidence-storage.ts` — adapter interface + filesystem + S3 + env-driven config.
+- `server/evidence-storage.test.ts` — 40+ unit assertions, tsx-runnable.
+- `server/routes.ts` — `/api/evidence/upload`, `/api/evidence/:id`,
+  `/api/evidence/:id/download` reworked to the adapter.
+- `server/storage.ts` — tenant cleanup routes through the adapter.
+- `scripts/migrate-evidence-to-s3.ts` — dry-run-by-default, requires
+  `--execute`, end-to-end SHA-256 verification, idempotent.
+- `docs/s3-evidence-storage.md`, `docs/s3-evidence-storage-test-plan.md` —
+  operator + verifier documentation.
 
 ## 6. Migration verification steps (file copy)
 
