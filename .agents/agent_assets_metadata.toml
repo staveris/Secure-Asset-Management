@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "6TaLvWKgJg5LoiQw9HvIZ"
+uri = "file://migration-tmp/prod-to-azure-clone.sql.gz"
+type = "unspecified"
+title = "Production → Azure clone (1,735 rows, gzipped SQL)"
