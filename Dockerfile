@@ -44,6 +44,11 @@ COPY --from=builder --chown=app:nodejs /app/package.json  ./package.json
 # there for createTableIfMissing to work on a fresh database.
 COPY --from=builder --chown=app:nodejs /app/node_modules/connect-pg-simple/table.sql ./dist/table.sql
 
+# Seed/import data files read at runtime via process.cwd()/data (atomic controls,
+# DORA controls, cyber-risk library, legal sources). Required by the boot-time
+# auto-import and the admin "import from repo file" endpoints.
+COPY --from=builder --chown=app:nodejs /app/data ./data
+
 # Local evidence upload directory. NOTE: on AWS this directory must be
 # replaced with S3 (see docs/file-storage-migration-plan.md). The directory
 # is created here only so the container can boot in environments that have

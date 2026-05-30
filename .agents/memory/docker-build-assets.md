@@ -26,3 +26,26 @@ context, allowlist the imported image files rather than blanket-ignoring the dir
 cannot run from the runtime container. Schema provisioning must be a separate
 pre-deploy step (CI job / one-off task / migration image). The repo uses
 `drizzle-kit push` with no versioned migrations.
+
+## Runtime image must include `data/` and connect-pg-simple's `table.sql`
+The runtime stage copies only `dist/`, `node_modules`, `package.json` by default —
+that is NOT enough for this app. Two files are read from disk at runtime:
+
+1. **`data/*.json`** — server code reads these via `process.cwd()/data` (atomic
+   controls auto-import in `server/atomic-seed.ts`, DORA seed, cyber-risk library,
+   `legal_sources.json`, and the admin `GET /api/admin/atomic-import/repo-file`
+   endpoint). Without `COPY .../data ./data`, boot auto-import silently skips and
+   the admin "import from repo file" returns 404 "Repo file not found".
+2. **`connect-pg-simple/table.sql`** — with `createTableIfMissing: true`, the
+   session store reads `table.sql` to create the `session` table. After esbuild
+   bundling, `__dirname` becomes `/app/dist`, so it looks for `/app/dist/table.sql`
+   (NOT node_modules). Fix: `COPY .../connect-pg-simple/table.sql ./dist/table.sql`.
+
+**Why:** these are runtime-resolved file reads, invisible to `npm run build`, so
+local dev (cwd = repo root) works while the slim container fails at runtime only.
+
+**How to apply:** keep both COPY lines in the runtime stage. Quick unblock without
+rebuilding for the session crash: manually create the `session` table (sid pk /
+sess json / expire timestamptz) in the DB — connect-pg-simple skips table.sql when
+the table already exists. The `data/` 404 has no DB workaround; it requires the
+image rebuild.
