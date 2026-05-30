@@ -12,6 +12,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { getActiveEvidenceAdapter, getAdapterForStoragePath, getMaxUploadSizeBytes } from "./evidence-storage";
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
 import sanitizeHtml from "sanitize-html";
@@ -47,10 +48,10 @@ const CIR_SUBSECTOR_MAP: Record<string, string> = {
   "Social networking services platforms": "ONLINE_PLATFORM",
 };
 
-const UPLOAD_DIR = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+// Evidence storage is delegated to server/evidence-storage.ts. The
+// EVIDENCE_STORAGE_BACKEND env var selects filesystem (default) or s3.
+// Multer is switched to in-memory buffers so the upload pipeline does not
+// touch the local filesystem unless the filesystem backend is selected.
 
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
@@ -74,18 +75,17 @@ const TEXT_BASED_MIME_TYPES = new Set([
   "text/plain",
   "text/csv",
 ]);
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
+// MAX_UPLOAD_SIZE_MB env-overridable; defaults to 25 MB to preserve the
+// historical hard limit. The per-tenant maxFileSizeBytes check inside the
+// upload handler is the authoritative second defence.
+const MAX_FILE_SIZE = getMaxUploadSizeBytes();
 
-const uploadStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = crypto.randomBytes(16).toString("hex");
-    cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
-});
-
+// In-memory multer storage. The buffer is handed off to the active
+// evidence-storage adapter (filesystem or S3) after validation. The 25 MB
+// per-file cap below is the first defence; the per-tenant maxFileSizeBytes
+// check inside the upload handler is the authoritative second defence.
 const upload = multer({
-  storage: uploadStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
@@ -256,31 +256,18 @@ const FILE_MAGIC_BYTES: Record<string, Buffer[]> = {
   "application/x-7z-compressed": [Buffer.from([0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C])],
 };
 
-function validateFileMagicBytes(filePath: string, declaredMimeType: string): boolean {
+function validateFileMagicBytesBuffer(buf: Buffer, declaredMimeType: string): boolean {
   if (TEXT_BASED_MIME_TYPES.has(declaredMimeType)) {
-    try {
-      const sample = fs.readFileSync(filePath, { encoding: null }).subarray(0, 512);
-      for (let i = 0; i < sample.length; i++) {
-        const b = sample[i];
-        if (b === 0) return false;
-      }
-      return true;
-    } catch {
-      return false;
+    const sample = buf.subarray(0, 512);
+    for (let i = 0; i < sample.length; i++) {
+      if (sample[i] === 0) return false;
     }
+    return true;
   }
-
   const signatures = FILE_MAGIC_BYTES[declaredMimeType];
   if (!signatures) return false;
-  try {
-    const fd = fs.openSync(filePath, "r");
-    const buf = Buffer.alloc(8);
-    fs.readSync(fd, buf, 0, 8, 0);
-    fs.closeSync(fd);
-    return signatures.some(sig => buf.subarray(0, sig.length).equals(sig));
-  } catch {
-    return false;
-  }
+  const head = buf.subarray(0, 8);
+  return signatures.some((sig) => head.subarray(0, sig.length).equals(sig));
 }
 
 const PASSWORD_HISTORY_COUNT = 5;
@@ -1959,41 +1946,35 @@ export async function registerRoutes(
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
 
       const file = req.file;
-      if (!file) return res.status(400).json({ message: "No file provided" });
+      if (!file || !file.buffer) return res.status(400).json({ message: "No file provided" });
 
-      if (!validateFileMagicBytes(file.path, file.mimetype)) {
-        fs.unlinkSync(file.path);
+      if (!validateFileMagicBytesBuffer(file.buffer, file.mimetype)) {
         logSecurityEvent("FILE_UPLOAD_MAGIC_MISMATCH", { userId: user.id, declaredType: file.mimetype, filename: file.originalname, ip: req.ip });
         return res.status(400).json({ message: "File content does not match its declared type. Upload rejected for security." });
       }
 
       const tenant = await storage.getTenant(user.tenantId);
       if (!tenant) {
-        fs.unlinkSync(file.path);
         return res.status(400).json({ message: "Tenant not found" });
       }
 
       if (file.size > tenant.maxFileSizeBytes) {
-        fs.unlinkSync(file.path);
         const maxMB = (tenant.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
         return res.status(413).json({ message: `File exceeds maximum size of ${maxMB} MB per file` });
       }
 
       if (tenant.storageUsedBytes + file.size > tenant.storageQuotaBytes) {
-        fs.unlinkSync(file.path);
         const quotaGB = (tenant.storageQuotaBytes / (1024 * 1024 * 1024)).toFixed(1);
         return res.status(413).json({ message: `Upload would exceed your storage quota of ${quotaGB} GB. Free up space or contact your administrator.` });
       }
 
       const { relatedType, relatedId, assessmentId } = req.body;
       if (!relatedType || !relatedId) {
-        fs.unlinkSync(file.path);
         return res.status(400).json({ message: "relatedType and relatedId are required" });
       }
 
       const parsedRelatedId = parseInt(relatedId, 10);
       if (!Number.isInteger(parsedRelatedId) || parsedRelatedId <= 0) {
-        fs.unlinkSync(file.path);
         return res.status(400).json({ message: "relatedId must be a positive integer" });
       }
 
@@ -2001,36 +1982,58 @@ export async function registerRoutes(
       if (assessmentId !== undefined && assessmentId !== null && assessmentId !== "") {
         const parsedAssessmentId = parseInt(assessmentId, 10);
         if (!Number.isInteger(parsedAssessmentId) || parsedAssessmentId <= 0) {
-          fs.unlinkSync(file.path);
           return res.status(400).json({ message: "assessmentId must be a positive integer" });
         }
         const assessment = await storage.getAssessment(parsedAssessmentId);
         if (!assessment || assessment.tenantId !== user.tenantId) {
-          fs.unlinkSync(file.path);
           return res.status(400).json({ message: "Invalid or unauthorized assessment ID" });
         }
         validatedAssessmentId = parsedAssessmentId;
       }
 
-      const sha256 = await new Promise<string>((resolve, reject) => {
-        const hash = crypto.createHash("sha256");
-        const stream = fs.createReadStream(file.path);
-        stream.on("data", (chunk) => hash.update(chunk));
-        stream.on("end", () => resolve(hash.digest("hex")));
-        stream.on("error", reject);
-      });
+      const sha256 = crypto.createHash("sha256").update(file.buffer).digest("hex");
 
-      const evidenceItem = await storage.createEvidenceItem({
-        tenantId: user.tenantId,
-        relatedType,
-        relatedId: parsedRelatedId,
-        assessmentId: validatedAssessmentId,
-        filename: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-        storagePath: path.relative(process.cwd(), file.path),
-        uploadedBy: user.id,
-      });
+      // Hand off to the active storage adapter (filesystem or S3).
+      const adapter = getActiveEvidenceAdapter();
+      let put;
+      try {
+        put = await adapter.put({
+          tenantId: user.tenantId,
+          buffer: file.buffer,
+          contentType: file.mimetype,
+          originalFilename: file.originalname,
+        });
+      } catch (storageErr: any) {
+        console.error("[Evidence] storage adapter failed:", storageErr);
+        return res.status(500).json({ message: "Failed to store evidence file" });
+      }
+
+      let evidenceItem;
+      try {
+        evidenceItem = await storage.createEvidenceItem({
+          tenantId: user.tenantId,
+          relatedType,
+          relatedId: parsedRelatedId,
+          assessmentId: validatedAssessmentId,
+          filename: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+          storagePath: put.storagePath,
+          sha256,
+          uploadedBy: user.id,
+        });
+      } catch (dbErr: any) {
+        // DB insert failed after a successful object write — roll back the object.
+        try {
+          await adapter.delete(put.storagePath);
+        } catch (rollbackErr) {
+          console.error(
+            `[Evidence] Failed to roll back orphaned object ${put.storagePath} after DB error:`,
+            rollbackErr,
+          );
+        }
+        throw dbErr;
+      }
 
       await storage.recalculateTenantStorageUsed(user.tenantId);
 
@@ -2040,20 +2043,11 @@ export async function registerRoutes(
         action: "UPLOAD",
         entityType: "EVIDENCE",
         entityId: String(evidenceItem.id),
-        details: { filename: file.originalname, sha256, size: file.size },
+        details: { filename: file.originalname, sha256, size: file.size, backend: put.backend },
       });
 
       res.json(evidenceItem);
     } catch (err: any) {
-      if (req.file?.path) {
-        try {
-          if (fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-          }
-        } catch (cleanupErr) {
-          console.error("[Evidence] Failed to clean up orphaned upload file:", cleanupErr);
-        }
-      }
       res.status(500).json({ message: err.message });
     }
   });
@@ -2072,12 +2066,10 @@ export async function registerRoutes(
       const deletedItem = await storage.deleteEvidenceItem(id);
       if (deletedItem?.storagePath) {
         try {
-          const fullPath = path.join(process.cwd(), deletedItem.storagePath);
-          if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-          }
+          const adapter = getAdapterForStoragePath(deletedItem.storagePath);
+          await adapter.delete(deletedItem.storagePath);
         } catch (fileErr) {
-          console.error(`[Evidence] Failed to delete file from disk: ${deletedItem.storagePath}`, fileErr);
+          console.error(`[Evidence] Failed to delete object from storage: ${deletedItem.storagePath}`, fileErr);
         }
       }
       await storage.recalculateTenantStorageUsed(user.tenantId);
@@ -2169,11 +2161,70 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/evidence/:id/download", requireAuth, async (req, res) => {
-    const user = await getAuthUser(req);
-    if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
+  app.get("/api/evidence/:id/download", requireAuth, requireFullAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user || !user.tenantId) return res.status(401).json({ message: "Unauthorized" });
 
-    res.status(501).json({ message: "File download requires object storage configuration" });
+      const id = parseInt(req.params.id, 10);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ message: "Invalid evidence id" });
+      }
+
+      const evidence = await storage.getEvidenceByTenant(user.tenantId);
+      const item = evidence.find((e) => e.id === id);
+      if (!item) return res.status(404).json({ message: "Evidence not found" });
+      if (!item.storagePath) {
+        return res.status(404).json({ message: "Evidence has no stored object" });
+      }
+
+      const adapter = getAdapterForStoragePath(item.storagePath);
+      let obj;
+      try {
+        obj = await adapter.getStream(item.storagePath);
+      } catch (storageErr: any) {
+        console.error(`[Evidence] Failed to read ${item.storagePath}:`, storageErr);
+        return res.status(404).json({ message: "Evidence file is unavailable" });
+      }
+
+      // Audit the access.
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "DOWNLOAD",
+        entityType: "EVIDENCE",
+        entityId: String(id),
+        details: { filename: item.filename, backend: adapter.backend },
+      });
+
+      const safeFilename = (item.filename || `evidence-${id}`).replace(/"/g, "");
+      res.setHeader(
+        "Content-Type",
+        item.mimeType || obj.contentType || "application/octet-stream",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${safeFilename}"`,
+      );
+      if (obj.contentLength !== undefined) {
+        res.setHeader("Content-Length", String(obj.contentLength));
+      }
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+
+      obj.stream.on("error", (streamErr) => {
+        console.error(`[Evidence] stream error for #${id}:`, streamErr);
+        if (!res.headersSent) {
+          res.status(500).json({ message: "Stream error" });
+        } else {
+          res.destroy();
+        }
+      });
+      obj.stream.pipe(res);
+    } catch (err: any) {
+      console.error("[Evidence] download handler failed:", err);
+      if (!res.headersSent) res.status(500).json({ message: err.message });
+    }
   });
 
   app.get("/api/incidents", requireAuth, requireFullAccess, async (req, res) => {

@@ -1,0 +1,105 @@
+# CyberResilience360 — Azure Container App (staging) definition.
+#
+# Use with:
+#   az containerapp create -g <RG> -n cyberresilience360-staging \
+#     --yaml azure/containerapp-staging.yaml
+#
+# Replace every <...> placeholder before applying. Companion docs:
+#   docs/azure-staging-deployment.md   (full runbook)
+#   azure/azure-env-secrets-map.md     (env + secret rationale)
+#   azure/azure-files-evidence-guidance.md (file share mount)
+#
+# Notes:
+#  - The managed identity must have AcrPull on the registry and
+#    "Key Vault Secrets User" on the Key Vault (see runbook step 6).
+#  - The "evidence" storage name must already be linked to the Container Apps
+#    environment via `az containerapp env storage set` (runbook step 7).
+#  - Key Vault secret names use hyphens (DATABASE-URL, not DATABASE_URL).
+
+location: <LOCATION>                     # e.g. germanywestcentral
+identity:
+  type: UserAssigned
+  userAssignedIdentities:
+    ? <USER_ASSIGNED_IDENTITY_RESOURCE_ID>
+    : {}
+properties:
+  managedEnvironmentId: <CONTAINER_APPS_ENVIRONMENT_RESOURCE_ID>
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: true
+      targetPort: 5000
+      transport: auto
+      allowInsecure: false
+      traffic:
+        - latestRevision: true
+          weight: 100
+    registries:
+      - server: <ACR_NAME>.azurecr.io
+        identity: <USER_ASSIGNED_IDENTITY_RESOURCE_ID>
+    secrets:
+      - name: database-url
+        keyVaultUrl: https://<KEY_VAULT_NAME>.vault.azure.net/secrets/DATABASE-URL
+        identity: <USER_ASSIGNED_IDENTITY_RESOURCE_ID>
+      - name: session-secret
+        keyVaultUrl: https://<KEY_VAULT_NAME>.vault.azure.net/secrets/SESSION-SECRET
+        identity: <USER_ASSIGNED_IDENTITY_RESOURCE_ID>
+      - name: admin-email
+        keyVaultUrl: https://<KEY_VAULT_NAME>.vault.azure.net/secrets/ADMIN-EMAIL
+        identity: <USER_ASSIGNED_IDENTITY_RESOURCE_ID>
+      - name: admin-password
+        keyVaultUrl: https://<KEY_VAULT_NAME>.vault.azure.net/secrets/ADMIN-PASSWORD
+        identity: <USER_ASSIGNED_IDENTITY_RESOURCE_ID>
+  template:
+    containers:
+      - name: cyberresilience360
+        image: <ACR_NAME>.azurecr.io/cyberresilience360:staging-latest
+        resources:
+          cpu: 0.5
+          memory: 1.0Gi
+        env:
+          - name: NODE_ENV
+            value: production
+          - name: PORT
+            value: "5000"
+          - name: ALLOWED_HOST
+            value: <STAGING_FQDN>          # e.g. staging.cyres360.toolsoftech.eu
+          - name: APP_BASE_URL
+            value: https://<STAGING_FQDN>
+          - name: FILE_STORAGE_PROVIDER
+            value: local
+          - name: MAX_UPLOAD_SIZE_MB
+            value: "25"
+          - name: DATABASE_URL
+            secretRef: database-url
+          - name: SESSION_SECRET
+            secretRef: session-secret
+          - name: ADMIN_EMAIL
+            secretRef: admin-email
+          - name: ADMIN_PASSWORD
+            secretRef: admin-password
+        probes:
+          - type: Liveness
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+          - type: Readiness
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+        volumeMounts:
+          - volumeName: evidence
+            mountPath: /app/uploads
+    scale:
+      minReplicas: 1
+      maxReplicas: 2
+    volumes:
+      - name: evidence
+        storageType: AzureFile
+        storageName: evidence            # must match `az containerapp env storage set --storage-name`

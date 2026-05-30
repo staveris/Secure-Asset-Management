@@ -1,0 +1,304 @@
+You are working on the CyberResilience360 by Tools of Tech application.
+
+Current status:
+- AWS migration readiness branch completed.
+- Health endpoint exists at GET /health.
+- Dockerfile exists and builds the app to dist/index.cjs.
+- File/evidence storage now supports local mode and S3 mode.
+- Target AWS Region: eu-central-1.
+- Target runtime: ECS Fargate.
+- Target database: RDS PostgreSQL 16.
+- Target evidence storage: private S3 with KMS.
+- Target secrets: AWS Secrets Manager.
+- Target logs: CloudWatch Logs.
+
+Goal:
+Create the AWS EU staging deployment package.
+
+Important:
+Do not deploy production.
+Do not modify production data.
+Do not remove or disable the Replit deployment.
+Do not perform DNS cutover.
+Do not run production database migration.
+Do not run production file migration.
+
+Work on branch:
+aws-eu-staging-deployment
+
+Before creating files:
+1. Inspect the current Dockerfile, .env.example, health endpoint, database config, Drizzle config, and S3 storage implementation.
+2. Confirm required runtime environment variables.
+3. Confirm required secrets.
+4. Confirm app port is 5000 or environment-configurable.
+5. Confirm /health is suitable for ALB health checks.
+6. Confirm AWS staging can use FILE_STORAGE_PROVIDER=s3.
+
+Create the following deliverables.
+
+1. AWS staging deployment guide
+
+Create:
+
+docs/aws-staging-deployment.md
+
+Include step-by-step instructions for:
+- selecting AWS Region eu-central-1
+- creating or confirming VPC
+- creating private subnets for ECS tasks and RDS
+- creating public subnets for ALB
+- creating ECR repository
+- creating RDS PostgreSQL 16
+- creating S3 evidence bucket
+- creating KMS key
+- creating Secrets Manager secrets
+- creating ECS cluster
+- creating ECS task definition
+- creating ECS service
+- creating Application Load Balancer
+- configuring ALB health check to /health
+- configuring CloudWatch logs
+- configuring Route 53 staging DNS
+- configuring ACM certificate
+- testing the staging deployment
+
+2. ECS task definition template
+
+Create:
+
+aws/ecs-task-definition-staging.json
+
+Requirements:
+- launch type compatible with Fargate
+- container name: cyberresilience360
+- image placeholder for ECR image URI
+- container port: 5000 unless current app requires otherwise
+- environment variables for non-secret configuration
+- Secrets Manager references for secret values
+- CloudWatch log configuration
+- health check where appropriate
+- FILE_STORAGE_PROVIDER=s3
+- AWS_REGION=eu-central-1
+- S3 bucket/prefix configuration
+- NODE_ENV=production
+
+Use placeholders, not real values.
+
+3. AWS environment variables and secrets map
+
+Create:
+
+aws/aws-env-secrets-map.md
+
+Separate variables into:
+A. Non-secret ECS environment variables
+B. Secrets Manager secrets
+C. Build-time variables, if any
+D. Local-only variables
+
+Include likely values/placeholders for:
+- NODE_ENV
+- PORT
+- DATABASE_URL
+- SESSION_SECRET
+- JWT_SECRET or equivalent if used
+- FILE_STORAGE_PROVIDER
+- AWS_REGION
+- S3_EVIDENCE_BUCKET
+- S3_EVIDENCE_PREFIX
+- S3_KMS_KEY_ID
+- S3_PRESIGNED_URL_EXPIRES_SECONDS
+- email provider variables
+- any authentication/2FA/session variables detected by the app
+
+Do not include real secret values.
+
+4. IAM policy templates
+
+Create:
+
+aws/iam/
+
+Add:
+- ecs-task-role-policy-staging.json
+- ecs-task-execution-role-policy-staging.json
+
+The ECS task role should include least-privilege access for:
+- S3 evidence bucket prefix
+- KMS key usage for S3 encryption/decryption
+- any other runtime AWS service required by the app
+
+The ECS task execution role should include:
+- ECR image pull permissions
+- CloudWatch Logs write permissions
+- Secrets Manager read permissions for task secrets where required
+
+Use placeholders for ARNs.
+
+5. S3 bucket policy guidance
+
+Create:
+
+aws/s3-bucket-policy-guidance.md
+
+Include:
+- block public access
+- private bucket only
+- no public-read ACLs
+- KMS encryption
+- optional TLS-only bucket policy
+- object ownership recommendation
+- prefix structure:
+  cyberresilience360/organizations/{organizationId}/evidence/...
+- lifecycle/retention considerations
+- logging considerations
+
+6. RDS PostgreSQL staging guide
+
+Create:
+
+docs/aws-rds-postgresql-staging.md
+
+Include:
+- PostgreSQL 16 target
+- private subnet requirement
+- security group rules
+- SSL/TLS connection requirement
+- DATABASE_URL format
+- Drizzle migration command
+- backup configuration
+- point-in-time recovery
+- staging restore/import approach
+- row-count verification checklist
+
+7. Database migration scripts or commands
+
+Create or update:
+
+scripts/migration/
+
+Add documented scripts or shell files for:
+- exporting the Replit PostgreSQL database
+- importing into AWS RDS PostgreSQL staging
+- verifying row counts
+- checking main tables:
+  - users
+  - organizations
+  - sessions
+  - controls
+  - control assessments
+  - DORA controls
+  - NIS2 controls
+  - NIST mappings
+  - cybersecurity risk register
+  - evidence metadata
+  - audit logs
+  - uploaded-file metadata
+
+Do not include real credentials.
+
+8. S3 evidence migration scripts or commands
+
+Create or update:
+
+scripts/migration/
+
+Add documented commands for:
+- dry-running local upload migration
+- executing migration for staging only
+- verifying S3 objects
+- verifying evidence records point to S3 keys
+- rollback notes
+
+Do not delete local files.
+
+9. GitHub Actions staging deployment workflow
+
+If the repo uses GitHub, create:
+
+.github/workflows/deploy-aws-staging.yml
+
+Requirements:
+- run TypeScript check
+- run build
+- build Docker image
+- push image to ECR
+- deploy to ECS staging
+- use GitHub OIDC or role assumption where possible
+- do not hardcode AWS access keys
+- do not deploy production
+- use placeholders for AWS account ID, region, ECR repository, ECS cluster, ECS service
+
+10. Smoke test script
+
+Create:
+
+scripts/smoke-test-aws-staging.sh
+
+It should test:
+- staging base URL responds
+- /health returns status ok
+- login page or main route responds
+- no obvious 500 errors
+- optional authenticated check if test credentials are provided through environment variables
+
+11. AWS security and compliance checklist
+
+Create:
+
+docs/aws-staging-security-checklist.md
+
+Include:
+- AWS root MFA
+- IAM Identity Center or least privilege IAM
+- CloudTrail enabled
+- GuardDuty enabled
+- CloudWatch logs enabled
+- RDS in private subnet
+- RDS SSL/TLS
+- RDS backups and PITR
+- S3 public access blocked
+- S3 KMS encryption
+- Secrets Manager for secrets
+- no secrets in task definition plain environment variables
+- WAF plan
+- backup restore test
+- tenant isolation test
+- evidence access test
+- audit log test
+- GDPR EU data residency note
+- NIS2/DORA audit evidence benefit
+
+12. Final deployment checklist
+
+Create:
+
+docs/aws-staging-go-live-checklist.md
+
+Include:
+- staging infrastructure ready
+- secrets created
+- database imported
+- Drizzle migrations applied
+- S3 bucket created
+- S3 storage tested
+- ECS service healthy
+- ALB health check passing
+- CloudWatch logs visible
+- smoke test passed
+- app functional test passed
+- no production DNS cutover yet
+
+Final output:
+Provide a clear summary:
+- files created
+- AWS resources required
+- secrets required
+- staging deployment steps
+- blockers
+- what still needs manual AWS setup
+- whether the app is ready for AWS staging deployment
+
+Do not deploy production.
+Do not modify production data.
+Do not perform DNS cutover.

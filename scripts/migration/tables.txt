@@ -1,0 +1,18 @@
+# Core tables verified during migration. One table name per line.
+# Comments (#) and blank lines are ignored. Edit to match shared/schema.ts.
+users
+tenants
+session
+atomic_controls
+assessments
+atomic_assessments
+atomic_assessment_responses
+dora_regulatory_profile
+risk_library_entries
+tenant_risk_register_items
+evidence_items
+audit_logs
+suppliers
+supplier_assessments
+incidents
+tasks

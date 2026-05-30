@@ -1,0 +1,96 @@
+name: Deploy AWS Staging
+
+# Manual-only by default so this never deploys production or fires on every
+# push. Trigger from the Actions tab, or remove the comment on `push` once you
+# have a dedicated staging branch and are confident in the pipeline.
+on:
+  workflow_dispatch: {}
+  # push:
+  #   branches: [aws-eu-staging-deployment]
+
+# Required for GitHub OIDC -> AWS role assumption (no static AWS keys).
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-aws-staging
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPOSITORY: cyberresilience360
+  ECS_CLUSTER: cyberresilience360-staging
+  ECS_SERVICE: cyberresilience360-staging-svc
+  ECS_TASK_FAMILY: cyberresilience360-staging
+  CONTAINER_NAME: cyberresilience360
+
+jobs:
+  build-and-deploy:
+    name: Build, push, and deploy to ECS staging
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript check
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+
+      # Replace <AWS_ACCOUNT_ID> with your account ID and create the role with
+      # a trust policy for token.actions.githubusercontent.com (OIDC).
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::<AWS_ACCOUNT_ID>:role/cyberresilience360-staging-github-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+                       -t "$ECR_REGISTRY/$ECR_REPOSITORY:staging-latest" .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:staging-latest"
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Render new task definition with the pushed image
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: aws/ecs-task-definition-staging.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy to Amazon ECS (staging)
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Smoke test staging
+        if: ${{ vars.STAGING_BASE_URL != '' }}
+        env:
+          STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+        run: bash scripts/smoke-test-aws-staging.sh

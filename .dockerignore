@@ -1,0 +1,52 @@
+# --- VCS / IDE ---
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+
+# --- Replit-only ---
+.replit
+replit.nix
+.config
+.cache
+.upm
+.breakpoints
+.local
+# NOTE: attached_assets is intentionally NOT ignored — the frontend imports
+# logos from it via the "@assets" alias at build time (see vite.config.ts).
+# It is only needed in the builder stage; the runtime image never copies it.
+
+# --- Build / runtime artefacts (rebuilt inside the image) ---
+node_modules
+dist
+build
+coverage
+.nyc_output
+artifacts/mockup-sandbox/node_modules
+artifacts/mockup-sandbox/dist
+
+# --- Secrets — NEVER copy into the image ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+.local/.commit_message
+
+# --- Local data / logs ---
+uploads
+tmp
+*.log
+logs
+
+# --- Documentation (not needed at runtime; trim image size) ---
+docs
+*.md
+!replit.md
+threat_model.md
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db

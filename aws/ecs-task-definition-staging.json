@@ -1,0 +1,76 @@
+{
+  "family": "cyberresilience360-staging",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/cyberresilience360-staging-ecs-execution-role",
+  "taskRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/cyberresilience360-staging-ecs-task-role",
+  "containerDefinitions": [
+    {
+      "name": "cyberresilience360",
+      "image": "<AWS_ACCOUNT_ID>.dkr.ecr.eu-central-1.amazonaws.com/cyberresilience360:staging-latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 5000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "PORT", "value": "5000" },
+        { "name": "ALLOWED_HOST", "value": "staging.cyres360.toolsoftech.eu" },
+        { "name": "APP_BASE_URL", "value": "https://staging.cyres360.toolsoftech.eu" },
+        { "name": "FILE_STORAGE_PROVIDER", "value": "s3" },
+        { "name": "AWS_REGION", "value": "eu-central-1" },
+        { "name": "S3_EVIDENCE_BUCKET", "value": "cyberresilience360-evidence-staging" },
+        { "name": "S3_EVIDENCE_PREFIX", "value": "cyberresilience360" },
+        { "name": "S3_KMS_KEY_ID", "value": "arn:aws:kms:eu-central-1:<AWS_ACCOUNT_ID>:key/<EVIDENCE_KMS_KEY_ID>" },
+        { "name": "S3_PRESIGNED_URL_EXPIRES_SECONDS", "value": "300" },
+        { "name": "MAX_UPLOAD_SIZE_MB", "value": "25" }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:eu-central-1:<AWS_ACCOUNT_ID>:secret:cyberresilience360/staging/DATABASE_URL"
+        },
+        {
+          "name": "SESSION_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:eu-central-1:<AWS_ACCOUNT_ID>:secret:cyberresilience360/staging/SESSION_SECRET"
+        },
+        {
+          "name": "ADMIN_EMAIL",
+          "valueFrom": "arn:aws:secretsmanager:eu-central-1:<AWS_ACCOUNT_ID>:secret:cyberresilience360/staging/ADMIN_EMAIL"
+        },
+        {
+          "name": "ADMIN_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:eu-central-1:<AWS_ACCOUNT_ID>:secret:cyberresilience360/staging/ADMIN_PASSWORD"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/cyberresilience360-staging",
+          "awslogs-region": "eu-central-1",
+          "awslogs-stream-prefix": "cyberresilience360",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:'+(process.env.PORT||5000)+'/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      }
+    }
+  ]
+}

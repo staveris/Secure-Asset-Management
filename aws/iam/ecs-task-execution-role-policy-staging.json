@@ -1,0 +1,52 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcrAuthToken",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcrPullScopedRepo",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": "arn:aws:ecr:eu-central-1:<AWS_ACCOUNT_ID>:repository/cyberresilience360"
+    },
+    {
+      "Sid": "CloudWatchLogsWrite",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:eu-central-1:<AWS_ACCOUNT_ID>:log-group:/ecs/cyberresilience360-staging:*"
+    },
+    {
+      "Sid": "SecretsManagerRead",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:eu-central-1:<AWS_ACCOUNT_ID>:secret:cyberresilience360/staging/*"
+    },
+    {
+      "Sid": "SecretsManagerKmsDecrypt",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt"
+      ],
+      "Resource": "arn:aws:kms:eu-central-1:<AWS_ACCOUNT_ID>:key/<SECRETS_KMS_KEY_ID>",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": "secretsmanager.eu-central-1.amazonaws.com"
+        }
+      }
+    }
+  ]
+}

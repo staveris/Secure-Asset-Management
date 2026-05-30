@@ -2,6 +2,7 @@ import { eq, and, desc, sql, count, avg, ne, like, or, isNull, asc } from "drizz
 import { db } from "./db";
 import fs from "fs";
 import path from "path";
+import { getAdapterForStoragePath } from "./evidence-storage";
 import {
   tenants,
   users,
@@ -427,12 +428,10 @@ export class DatabaseStorage implements IStorage {
 
     for (const storagePath of filePaths) {
       try {
-        const fullPath = path.join(process.cwd(), storagePath);
-        if (fs.existsSync(fullPath)) {
-          fs.unlinkSync(fullPath);
-        }
+        const adapter = getAdapterForStoragePath(storagePath);
+        await adapter.delete(storagePath);
       } catch (err) {
-        console.error(`[Tenant Cleanup] Failed to delete file: ${storagePath}`, err);
+        console.error(`[Tenant Cleanup] Failed to delete object: ${storagePath}`, err);
       }
     }
   }

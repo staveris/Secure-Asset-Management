@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EvidenceObjectReadWrite",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:HeadObject"
+      ],
+      "Resource": "arn:aws:s3:::cyberresilience360-evidence-staging/cyberresilience360/*"
+    },
+    {
+      "Sid": "EvidenceKmsUsage",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey",
+        "kms:DescribeKey"
+      ],
+      "Resource": "arn:aws:kms:eu-central-1:<AWS_ACCOUNT_ID>:key/<EVIDENCE_KMS_KEY_ID>",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": "s3.eu-central-1.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
