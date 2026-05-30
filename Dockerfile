@@ -39,6 +39,11 @@ COPY --from=builder --chown=app:nodejs /app/dist          ./dist
 COPY --from=builder --chown=app:nodejs /app/node_modules  ./node_modules
 COPY --from=builder --chown=app:nodejs /app/package.json  ./package.json
 
+# connect-pg-simple resolves its table.sql relative to the bundled dist/index.cjs
+# (__dirname becomes /app/dist after esbuild bundling), so place the schema file
+# there for createTableIfMissing to work on a fresh database.
+COPY --from=builder --chown=app:nodejs /app/node_modules/connect-pg-simple/table.sql ./dist/table.sql
+
 # Local evidence upload directory. NOTE: on AWS this directory must be
 # replaced with S3 (see docs/file-storage-migration-plan.md). The directory
 # is created here only so the container can boot in environments that have
