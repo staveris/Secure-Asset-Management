@@ -1,0 +1,19 @@
+Creating PostgreSQL Server 'cyres360-stg-pg' in group 'cyberresilience360-staging'...
+Your server 'cyres360-stg-pg' is using sku 'Standard_B1ms' (Paid Tier). Please refer to https://aka.ms/postgres-pricing for pricing details
+(MissingSubscriptionRegistration) The subscription is not registered to use namespace 'Microsoft.DBforPostgreSQL'. See https://aka.ms/rps-not-found for how to register subscriptions.
+Code: MissingSubscriptionRegistration
+Message: The subscription is not registered to use namespace 'Microsoft.DBforPostgreSQL'. See https://aka.ms/rps-not-found for how to register subscriptions.
+Exception Details:      (MissingSubscriptionRegistration) The subscription is not registered to use namespace 'Microsoft.DBforPostgreSQL'. See https://aka.ms/rps-not-found for how to register subscriptions.
+        Code: MissingSubscriptionRegistration
+        Message: The subscription is not registered to use namespace 'Microsoft.DBforPostgreSQL'. See https://aka.ms/rps-not-found for how to register subscriptions.
+        Target: Microsoft.DBforPostgreSQL
+The --database-name/-d argument has been deprecated and will be removed in next breaking change release(2.86.0) scheduled for May 2026.
+The --name/-n argument will be repurposed to specify the database name. The --server-name/-s argument will be introduced to specify the server name in next breaking change release(2.86.0) scheduled for May 2026.
+(ResourceNotFound) The Resource 'Microsoft.DBforPostgreSQL/flexibleServers/cyres360-stg-pg' under resource group 'cyberresilience360-staging' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.DBforPostgreSQL/flexibleServers/cyres360-stg-pg' under resource group 'cyberresilience360-staging' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+The --name/-n argument will be repurposed to specify the firewall rule name. The --server-name/-s argument will be introduced to specify the server name in next breaking change release(2.86.0) scheduled for May 2026.
+The --rule-name/-r argument has been deprecated and will be removed in next breaking change release(2.86.0) scheduled for May 2026.
+(ResourceNotFound) The Resource 'Microsoft.DBforPostgreSQL/flexibleServers/cyres360-stg-pg' under resource group 'cyberresilience360-staging' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.DBforPostgreSQL/flexibleServers/cyres360-stg-pg' under resource group 'cyberresilience360-staging' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
