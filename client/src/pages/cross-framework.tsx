@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Network, Check, X, Inbox, Grid3X3, ArrowRight, Loader2 } from "lucide-react";
+import { Network, Check, X, Inbox, Grid3X3, ArrowRight, Loader2, AlertTriangle } from "lucide-react";
 
 interface SuggestionRow {
   id: number;
@@ -28,6 +28,11 @@ interface SuggestionRow {
   targetControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
   targetAssessmentName: string | null;
   crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null } | null;
+}
+
+interface ReviewInfo {
+  reviewStatus: "DRAFT" | "APPROVED";
+  reviewNote: string | null;
 }
 
 interface CoverageRow {
@@ -253,6 +258,13 @@ function CoverageMatrix() {
 }
 
 export default function CrossFramework() {
+  // Review status is a property of the whole crosswalk library; the suggestions
+  // endpoint carries it alongside its payload, so a light query here drives the badge.
+  const { data: reviewData } = useQuery<{ review?: ReviewInfo }>({
+    queryKey: ["/api/cross-framework/suggestions"],
+  });
+  const review = reviewData?.review;
+
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-3">
@@ -260,7 +272,20 @@ export default function CrossFramework() {
           <Network className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold" data-testid="text-page-title">Cross-Framework Mapping</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold" data-testid="text-page-title">Cross-Framework Mapping</h1>
+            {review?.reviewStatus === "DRAFT" && (
+              <Badge
+                variant="outline"
+                className="border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] uppercase tracking-wide"
+                title={review.reviewNote || "Mappings pending SME sign-off"}
+                data-testid="badge-crosswalk-draft"
+              >
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                Draft mappings — pending SME review
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
             Advisory mappings between NIS2, CIR and DORA, with outbound references to ISO 27001:2022 and NIST CSF 2.0.
           </p>

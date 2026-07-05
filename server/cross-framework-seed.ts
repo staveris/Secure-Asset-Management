@@ -58,7 +58,42 @@ interface CrosswalkEdgeEntry {
 interface CrosswalkSeedFile {
   libraryCode: string;
   provenance: string;
+  reviewStatus?: string;
+  reviewNote?: string;
   edges: CrosswalkEdgeEntry[];
+}
+
+export interface CrosswalkReviewInfo {
+  /** "DRAFT" until a qualified compliance SME signs the mappings off, then "APPROVED". */
+  reviewStatus: "DRAFT" | "APPROVED";
+  reviewNote: string | null;
+}
+
+const VALID_REVIEW_STATUSES = new Set(["DRAFT", "APPROVED"]);
+let cachedReviewInfo: CrosswalkReviewInfo | null = null;
+
+/**
+ * Review status of the crosswalk library (a property of the whole editorial
+ * data set, not of individual edges). Read lazily from the seed file and
+ * cached; defaults to DRAFT — the safe assumption — if the field is missing
+ * or the file is unreadable. Surfaced in the cross-framework API responses
+ * and stamped into the audit log when a suggestion is accepted.
+ */
+export function getCrosswalkReviewInfo(): CrosswalkReviewInfo {
+  if (cachedReviewInfo) return cachedReviewInfo;
+  let status: "DRAFT" | "APPROVED" = "DRAFT";
+  let note: string | null = null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(CROSSWALKS_JSON_PATH, "utf-8")) as CrosswalkSeedFile;
+    if (raw.reviewStatus && VALID_REVIEW_STATUSES.has(raw.reviewStatus)) {
+      status = raw.reviewStatus as "DRAFT" | "APPROVED";
+    }
+    note = raw.reviewNote || null;
+  } catch {
+    // Unreadable file => keep the safe DRAFT default.
+  }
+  cachedReviewInfo = { reviewStatus: status, reviewNote: note };
+  return cachedReviewInfo;
 }
 
 export interface CrossFrameworkSeedReport {
@@ -326,7 +361,7 @@ export async function seedCrossFrameworkData(): Promise<CrossFrameworkSeedReport
         generator: "cross-framework-seed.ts",
         hash: packHash,
         controlCount: externalSeed.controls.length,
-        notes: `Cross-framework seed: ext +${report.externalImported} ~${report.externalUpdated} =${report.externalUnchanged}; edges +${report.edgesImported} ~${report.edgesUpdated} =${report.edgesUnchanged}; skipped=${report.skipped} failed=${report.failed}`,
+        notes: `review=${getCrosswalkReviewInfo().reviewStatus}; Cross-framework seed: ext +${report.externalImported} ~${report.externalUpdated} =${report.externalUnchanged}; edges +${report.edgesImported} ~${report.edgesUpdated} =${report.edgesUnchanged}; skipped=${report.skipped} failed=${report.failed}`,
       });
     } catch {
       // Non-fatal.

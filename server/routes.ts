@@ -5541,7 +5541,8 @@ export async function registerRoutes(
       const id = parseInt(String(req.params.atomicControlId));
       if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid control id" });
       const crosswalks = await storage.getCrosswalksForControl(id);
-      res.json({ crosswalks });
+      const { getCrosswalkReviewInfo } = await import("./cross-framework-seed");
+      res.json({ crosswalks, review: getCrosswalkReviewInfo() });
     } catch (err: any) {
       console.error("[GET /api/crosswalks/:id] failed:", err);
       res.status(500).json({ message: err?.message || "Failed to load crosswalks" });
@@ -5554,7 +5555,8 @@ export async function registerRoutes(
       const user = await getAuthUser(req);
       if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
       const suggestions = await storage.listPendingSuggestions(user.tenantId);
-      res.json({ suggestions });
+      const { getCrosswalkReviewInfo } = await import("./cross-framework-seed");
+      res.json({ suggestions, review: getCrosswalkReviewInfo() });
     } catch (err: any) {
       console.error("[GET /api/cross-framework/suggestions] failed:", err);
       res.status(500).json({ message: err?.message || "Failed to load suggestions" });
@@ -5630,6 +5632,7 @@ export async function registerRoutes(
           relationship: edge?.relationship ?? null,
           crosswalkConfidence: edge?.confidence ?? null,
           provenance: edge?.provenance ?? null,
+          crosswalkReviewStatus: (await import("./cross-framework-seed")).getCrosswalkReviewInfo().reviewStatus,
           sourceAtomicControlId: suggestion.sourceAtomicControlId,
           sourceResponseId: suggestion.sourceResponseId,
           targetAtomicAssessmentId: suggestion.targetAtomicAssessmentId,
@@ -5693,7 +5696,8 @@ export async function registerRoutes(
       const user = await getAuthUser(req);
       if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
       const coverage = await storage.getCrossFrameworkCoverage(user.tenantId);
-      res.json({ coverage });
+      const { getCrosswalkReviewInfo } = await import("./cross-framework-seed");
+      res.json({ coverage, review: getCrosswalkReviewInfo() });
     } catch (err: any) {
       console.error("[GET /api/cross-framework/coverage] failed:", err);
       res.status(500).json({ message: err?.message || "Failed to compute coverage" });
