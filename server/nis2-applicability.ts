@@ -45,10 +45,13 @@ export interface Nis2ApplicabilityDecision {
 
 /**
  * EU SME size derivation (Recommendation 2003/361/EC as used by NIS2 Art. 2):
- * staff headcount is mandatory for each band; for the financial ceilings the
- * standard reading is AND at micro/small (must stay under both) and OR at
- * medium (either turnover or balance sheet under the ceiling keeps the entity
- * at medium). Missing inputs => null (size indeterminate — never guess).
+ * the staff-headcount ceiling is the only hard AND requirement for each band;
+ * the financial test is a single OR limb at every level — an entity stays in a
+ * band if EITHER its annual turnover OR its balance-sheet total is at/under the
+ * band's ceiling (medium ceilings: turnover <= EUR 50M, balance sheet <= EUR 43M).
+ * Using AND here would over-classify (e.g. a genuine small entity as medium) and
+ * wrongly pull it into NIS2 scope at the small/medium boundary. Missing inputs =>
+ * null (size indeterminate — never guess).
  */
 export function deriveSizeClass(
   p: Pick<Partial<Nis2RegulatoryProfile>, "employeeCount" | "annualTurnoverMeur" | "balanceSheetMeur">,
@@ -62,8 +65,8 @@ export function deriveSizeClass(
   const t = turnover ?? Number.POSITIVE_INFINITY;
   const b = balance ?? Number.POSITIVE_INFINITY;
 
-  if (staff < 10 && t <= 2 && b <= 2) return "MICRO";
-  if (staff < 50 && t <= 10 && b <= 10) return "SMALL";
+  if (staff < 10 && (t <= 2 || b <= 2)) return "MICRO";
+  if (staff < 50 && (t <= 10 || b <= 10)) return "SMALL";
   if (staff < 250 && (t <= 50 || b <= 43)) return "MEDIUM";
   return "LARGE";
 }

@@ -51,6 +51,34 @@ describe("deriveSizeClass (EU SME thresholds)", () => {
     expect(deriveSizeClass({ employeeCount: 250, annualTurnoverMeur: 10, balanceSheetMeur: 10 } as any)).toBe("LARGE");
     expect(deriveSizeClass({ employeeCount: 100, annualTurnoverMeur: 51, balanceSheetMeur: 44 } as any)).toBe("LARGE");
   });
+
+  // --- Regression: financial test is OR at every level (Recommendation 2003/361/EC) ---
+  // Previously micro/small used AND, which promoted these entities a band too high.
+  it("stays SMALL when turnover is within the ceiling even though balance sheet exceeds it", () => {
+    // 40 staff, turnover EUR 8M (<=10), balance sheet EUR 45M (>10). One limb satisfied => SMALL, not MEDIUM.
+    expect(deriveSizeClass({ employeeCount: 40, annualTurnoverMeur: 8, balanceSheetMeur: 45 } as any)).toBe("SMALL");
+  });
+
+  it("stays SMALL when balance sheet is within the ceiling even though turnover exceeds it", () => {
+    expect(deriveSizeClass({ employeeCount: 40, annualTurnoverMeur: 45, balanceSheetMeur: 8 } as any)).toBe("SMALL");
+  });
+
+  it("stays MICRO when only one financial limb is within the micro ceiling", () => {
+    // 5 staff, turnover EUR 1M (<=2), balance sheet EUR 5M (>2). One limb satisfied => MICRO, not SMALL.
+    expect(deriveSizeClass({ employeeCount: 5, annualTurnoverMeur: 1, balanceSheetMeur: 5 } as any)).toBe("MICRO");
+  });
+
+  it("satisfies the financial limb from a single provided value (other missing)", () => {
+    // Only turnover supplied and within the small ceiling => SMALL (missing balance must not force promotion).
+    expect(deriveSizeClass({ employeeCount: 40, annualTurnoverMeur: 8 } as any)).toBe("SMALL");
+  });
+
+  it("is LARGE only when BOTH financial limbs exceed the medium ceilings", () => {
+    // 100 staff, turnover EUR 60M (>50) AND balance EUR 45M (>43) => neither limb satisfied => LARGE.
+    expect(deriveSizeClass({ employeeCount: 100, annualTurnoverMeur: 60, balanceSheetMeur: 45 } as any)).toBe("LARGE");
+    // Same headcount, but balance within EUR 43M keeps it MEDIUM.
+    expect(deriveSizeClass({ employeeCount: 100, annualTurnoverMeur: 60, balanceSheetMeur: 40 } as any)).toBe("MEDIUM");
+  });
 });
 
 describe("decideNis2Applicability — scope gates", () => {
@@ -95,6 +123,52 @@ describe("decideNis2Applicability — scope gates", () => {
     expect(d.inScope).toBe(false);
     expect(d.sizeClass).toBe("MICRO");
     expect(d.reason).toMatch(/Below size threshold/i);
+  });
+
+  // --- Regression: small/medium scope boundary (the case the AND bug wrongly pulled in) ---
+  it("small Annex I entity (turnover within ceiling, balance over it) stays OUT of scope", () => {
+    // 40 staff, turnover EUR 8M, balance EUR 45M => SMALL => below the size threshold.
+    // Under the previous AND logic this was misclassified MEDIUM and wrongly pulled in scope.
+    const d = decideNis2Applicability({
+      ...baseInScope,
+      sector: "Energy",
+      employeeCount: 40,
+      annualTurnoverMeur: 8,
+      balanceSheetMeur: 45,
+    } as any);
+    expect(d.sizeClass).toBe("SMALL");
+    expect(d.inScope).toBe(false);
+    expect(d.reason).toMatch(/Below size threshold/i);
+  });
+
+  it("genuinely MEDIUM Annex I entity is IN scope as IMPORTANT", () => {
+    // 100 staff, both financials within medium ceilings => MEDIUM => in scope, important.
+    const d = decideNis2Applicability({
+      ...baseInScope,
+      sector: "Energy",
+      employeeCount: 100,
+      annualTurnoverMeur: 30,
+      balanceSheetMeur: 40,
+    } as any);
+    expect(d.sizeClass).toBe("MEDIUM");
+    expect(d.inScope).toBe(true);
+    expect(d.entityClass).toBe("IMPORTANT");
+  });
+
+  it("a small entity below threshold still comes IN scope via a size-independent trigger", () => {
+    // Same small financials, but a DNS-provider trigger overrides the size gate.
+    const d = decideNis2Applicability({
+      ...baseInScope,
+      sector: "Energy",
+      employeeCount: 40,
+      annualTurnoverMeur: 8,
+      balanceSheetMeur: 45,
+      sizeIndependentEntity: true,
+      sizeIndependentReason: "DNS_PROVIDER",
+    } as any);
+    expect(d.sizeClass).toBe("SMALL");
+    expect(d.inScope).toBe(true);
+    expect(d.entityClass).toBe("ESSENTIAL");
   });
 });
 
