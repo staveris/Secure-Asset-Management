@@ -198,6 +198,16 @@ app.use((req, res, next) => {
     } catch (err) {
       console.error("NIS2 Art.21 risk library auto-seed error:", err);
     }
+
+    try {
+      const { seedCrossFrameworkData } = await import("./cross-framework-seed");
+      const cfReport = await seedCrossFrameworkData();
+      console.log(
+        `Cross-framework auto-seed: ext imported=${cfReport.externalImported} updated=${cfReport.externalUpdated} unchanged=${cfReport.externalUnchanged}; edges imported=${cfReport.edgesImported} updated=${cfReport.edgesUpdated} unchanged=${cfReport.edgesUnchanged}; skipped=${cfReport.skipped} failed=${cfReport.failed}`,
+      );
+    } catch (err) {
+      console.error("Cross-framework auto-seed error:", err);
+    }
   } catch (err) {
     console.error("Post-seed setup error:", err);
   }

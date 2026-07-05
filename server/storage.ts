@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, count, avg, ne, like, or, isNull, asc } from "drizzle-orm";
+import { eq, and, desc, sql, count, avg, ne, like, or, isNull, asc, inArray } from "drizzle-orm";
 import { db } from "./db";
 import fs from "fs";
 import path from "path";
@@ -138,6 +138,12 @@ import {
   nis2RegulatoryProfile,
   type Nis2RegulatoryProfile,
   type InsertNis2RegulatoryProfile,
+  externalFrameworkControls,
+  controlCrosswalks,
+  crossFrameworkSuggestions,
+  type ExternalFrameworkControl,
+  type ControlCrosswalk,
+  type CrossFrameworkSuggestion,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -367,6 +373,45 @@ export interface IStorage {
 
   getImportRuns(sourceKey?: string, limit?: number): Promise<ImportRun[]>;
   getImportRun(id: number): Promise<ImportRun | undefined>;
+
+  getCrosswalksForControl(atomicControlId: number): Promise<EnrichedCrosswalk[]>;
+  enqueueCrossFrameworkSuggestions(tenantId: number, savedResponse: AtomicAssessmentResponse): Promise<number>;
+  listPendingSuggestions(tenantId: number): Promise<EnrichedSuggestion[]>;
+  getSuggestion(tenantId: number, id: number): Promise<CrossFrameworkSuggestion | undefined>;
+  decideSuggestion(tenantId: number, id: number, decision: "ACCEPTED" | "REJECTED", decidedBy: number): Promise<CrossFrameworkSuggestion | undefined>;
+  getCrossFrameworkCoverage(tenantId: number): Promise<CoverageMatrixRow[]>;
+}
+
+export interface EnrichedCrosswalk extends ControlCrosswalk {
+  targetKind: "atomic" | "external";
+  target: {
+    controlId?: string;
+    controlRef?: string;
+    frameworkKey: string;
+    title: string;
+  } | null;
+  /** Relationship as seen from the queried control (inverted for reverse traversal). */
+  effectiveRelationship: string;
+}
+
+export interface EnrichedSuggestion extends CrossFrameworkSuggestion {
+  sourceControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
+  targetControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
+  targetAssessmentName: string | null;
+  crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null } | null;
+}
+
+export interface CoverageMatrixRow {
+  frameworkKey: string;
+  label: string;
+  isExternal: boolean;
+  totalControls: number;
+  mappable: number;
+  alreadyAnswered: number;
+  potentialFromMapping: number;
+  mappablePct: number;
+  answeredPct: number;
+  potentialPct: number;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1940,6 +1985,342 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tenantRiskRegisterItems.id, id))
       .returning();
     return updated;
+  }
+
+  // ==================== CROSS-FRAMEWORK MAPPING (Phase B) ====================
+
+  async getCrosswalksForControl(atomicControlId: number): Promise<EnrichedCrosswalk[]> {
+    const edges = await db
+      .select()
+      .from(controlCrosswalks)
+      .where(
+        or(
+          eq(controlCrosswalks.fromAtomicControlId, atomicControlId),
+          and(
+            eq(controlCrosswalks.toAtomicControlId, atomicControlId),
+            eq(controlCrosswalks.direction, "BIDIRECTIONAL"),
+          ),
+        ),
+      );
+    if (edges.length === 0) return [];
+
+    const atomicIds = new Set<number>();
+    const externalIds = new Set<number>();
+    for (const e of edges) {
+      if (e.fromAtomicControlId !== atomicControlId) atomicIds.add(e.fromAtomicControlId);
+      if (e.toAtomicControlId != null && e.toAtomicControlId !== atomicControlId) atomicIds.add(e.toAtomicControlId);
+      if (e.toExternalControlId != null) externalIds.add(e.toExternalControlId);
+    }
+    const atomicRows = atomicIds.size
+      ? await db.select().from(atomicControls).where(inArray(atomicControls.id, Array.from(atomicIds)))
+      : [];
+    const externalRows = externalIds.size
+      ? await db.select().from(externalFrameworkControls).where(inArray(externalFrameworkControls.id, Array.from(externalIds)))
+      : [];
+    const atomicById = new Map(atomicRows.map((r) => [r.id, r]));
+    const externalById = new Map(externalRows.map((r) => [r.id, r]));
+
+    const invert = (rel: string) => (rel === "SUPERSET" ? "SUBSET" : rel === "SUBSET" ? "SUPERSET" : rel);
+
+    return edges.map((e) => {
+      const isForward = e.fromAtomicControlId === atomicControlId;
+      let targetKind: "atomic" | "external" = "atomic";
+      let target: EnrichedCrosswalk["target"] = null;
+      if (isForward && e.toExternalControlId != null) {
+        targetKind = "external";
+        const ext = externalById.get(e.toExternalControlId);
+        target = ext ? { controlRef: ext.controlRef, frameworkKey: ext.frameworkKey, title: ext.title } : null;
+      } else {
+        const otherId = isForward ? e.toAtomicControlId : e.fromAtomicControlId;
+        const ac = otherId != null ? atomicById.get(otherId) : undefined;
+        target = ac ? { controlId: ac.controlId, frameworkKey: ac.sourceKey, title: ac.shortTitle } : null;
+      }
+      return {
+        ...e,
+        targetKind,
+        target,
+        effectiveRelationship: isForward ? e.relationship : invert(e.relationship),
+      };
+    });
+  }
+
+  async enqueueCrossFrameworkSuggestions(tenantId: number, savedResponse: AtomicAssessmentResponse): Promise<number> {
+    const enabled = await this.isFeatureEnabled(tenantId, "CROSS_FRAMEWORK_MAPPING");
+    if (!enabled) return 0;
+
+    const { planSuggestions, isPositiveSource } = await import("./cross-framework");
+
+    const facts = {
+      atomicControlId: savedResponse.atomicControlId,
+      implementationStatus: savedResponse.implementationStatus as any,
+      maturityLevel: savedResponse.maturityLevel,
+      confidence: savedResponse.confidence as any,
+      responseId: savedResponse.id,
+    };
+    if (!isPositiveSource(facts)) return 0;
+
+    const edges = await db
+      .select()
+      .from(controlCrosswalks)
+      .where(
+        or(
+          eq(controlCrosswalks.fromAtomicControlId, savedResponse.atomicControlId),
+          and(
+            eq(controlCrosswalks.toAtomicControlId, savedResponse.atomicControlId),
+            eq(controlCrosswalks.direction, "BIDIRECTIONAL"),
+          ),
+        ),
+      );
+    if (edges.length === 0) return 0;
+
+    // Candidate internal target control ids
+    const targetControlIds = new Set<number>();
+    for (const e of edges) {
+      if (e.fromAtomicControlId === savedResponse.atomicControlId && e.toAtomicControlId != null) {
+        targetControlIds.add(e.toAtomicControlId);
+      } else if (e.toAtomicControlId === savedResponse.atomicControlId) {
+        targetControlIds.add(e.fromAtomicControlId);
+      }
+    }
+    targetControlIds.delete(savedResponse.atomicControlId);
+    if (targetControlIds.size === 0) return 0;
+
+    // Tenant's other assessments and which controls they contain
+    const assessments = await db
+      .select({ id: atomicAssessments.id })
+      .from(atomicAssessments)
+      .where(eq(atomicAssessments.tenantId, tenantId));
+    const otherAssessmentIds = assessments
+      .map((a) => a.id)
+      .filter((id) => id !== savedResponse.atomicAssessmentId);
+    if (otherAssessmentIds.length === 0) return 0;
+
+    const otherResponses = await db
+      .select({
+        atomicAssessmentId: atomicAssessmentResponses.atomicAssessmentId,
+        atomicControlId: atomicAssessmentResponses.atomicControlId,
+      })
+      .from(atomicAssessmentResponses)
+      .where(inArray(atomicAssessmentResponses.atomicAssessmentId, otherAssessmentIds));
+
+    const controlsByAssessment = new Map<number, Set<number>>();
+    for (const r of otherResponses) {
+      if (!controlsByAssessment.has(r.atomicAssessmentId)) controlsByAssessment.set(r.atomicAssessmentId, new Set());
+      controlsByAssessment.get(r.atomicAssessmentId)!.add(r.atomicControlId);
+    }
+
+    // A slot exists only when the assessment already contains the exact mapped
+    // target control. This keeps suggestions inside each assessment's designed
+    // control set (e.g. scoped assessments never gain out-of-scope controls).
+    const slots: Array<{ atomicAssessmentId: number; atomicControlId: number }> = [];
+    for (const assessmentId of otherAssessmentIds) {
+      const controls = controlsByAssessment.get(assessmentId);
+      if (!controls) continue;
+      for (const targetId of Array.from(targetControlIds)) {
+        if (controls.has(targetId)) {
+          slots.push({ atomicAssessmentId: assessmentId, atomicControlId: targetId });
+        }
+      }
+    }
+    if (slots.length === 0) return 0;
+
+    const candidates = planSuggestions(facts, edges as any, slots);
+    if (candidates.length === 0) return 0;
+
+    // Upsert PENDING rows (dedup on the unique constraint; refresh stale PENDING ones)
+    let written = 0;
+    for (const c of candidates) {
+      const [existing] = await db
+        .select()
+        .from(crossFrameworkSuggestions)
+        .where(
+          and(
+            eq(crossFrameworkSuggestions.tenantId, tenantId),
+            eq(crossFrameworkSuggestions.targetAtomicAssessmentId, c.targetAtomicAssessmentId),
+            eq(crossFrameworkSuggestions.targetAtomicControlId, c.targetAtomicControlId),
+            eq(crossFrameworkSuggestions.crosswalkId, c.crosswalkId),
+          ),
+        );
+      if (!existing) {
+        await db.insert(crossFrameworkSuggestions).values({
+          tenantId,
+          crosswalkId: c.crosswalkId,
+          sourceAtomicControlId: c.sourceAtomicControlId,
+          sourceResponseId: c.sourceResponseId,
+          targetAtomicAssessmentId: c.targetAtomicAssessmentId,
+          targetAtomicControlId: c.targetAtomicControlId,
+          suggestedStatus: c.suggestedStatus as any,
+          suggestedMaturity: c.suggestedMaturity,
+          suggestedConfidence: c.suggestedConfidence as any,
+          status: "PENDING",
+          reason: c.reason,
+        });
+        written++;
+      } else if (existing.status === "PENDING") {
+        const changed =
+          existing.suggestedStatus !== c.suggestedStatus ||
+          existing.suggestedMaturity !== c.suggestedMaturity ||
+          existing.suggestedConfidence !== c.suggestedConfidence ||
+          existing.reason !== c.reason ||
+          existing.sourceResponseId !== c.sourceResponseId;
+        if (changed) {
+          await db
+            .update(crossFrameworkSuggestions)
+            .set({
+              suggestedStatus: c.suggestedStatus as any,
+              suggestedMaturity: c.suggestedMaturity,
+              suggestedConfidence: c.suggestedConfidence as any,
+              reason: c.reason,
+              sourceResponseId: c.sourceResponseId,
+            })
+            .where(eq(crossFrameworkSuggestions.id, existing.id));
+          written++;
+        }
+      }
+      // ACCEPTED/REJECTED/SUPERSEDED rows are never overwritten — human decisions stand.
+    }
+    return written;
+  }
+
+  async listPendingSuggestions(tenantId: number): Promise<EnrichedSuggestion[]> {
+    const rows = await db
+      .select()
+      .from(crossFrameworkSuggestions)
+      .where(
+        and(
+          eq(crossFrameworkSuggestions.tenantId, tenantId),
+          eq(crossFrameworkSuggestions.status, "PENDING"),
+        ),
+      )
+      .orderBy(desc(crossFrameworkSuggestions.createdAt));
+    if (rows.length === 0) return [];
+
+    const controlIds = new Set<number>();
+    const assessmentIds = new Set<number>();
+    const crosswalkIds = new Set<number>();
+    for (const r of rows) {
+      controlIds.add(r.sourceAtomicControlId);
+      controlIds.add(r.targetAtomicControlId);
+      assessmentIds.add(r.targetAtomicAssessmentId);
+      crosswalkIds.add(r.crosswalkId);
+    }
+    const [controls, assessments, walks] = await Promise.all([
+      db.select().from(atomicControls).where(inArray(atomicControls.id, Array.from(controlIds))),
+      db.select().from(atomicAssessments).where(inArray(atomicAssessments.id, Array.from(assessmentIds))),
+      db.select().from(controlCrosswalks).where(inArray(controlCrosswalks.id, Array.from(crosswalkIds))),
+    ]);
+    const controlById = new Map(controls.map((c) => [c.id, c]));
+    const assessmentById = new Map(assessments.map((a) => [a.id, a]));
+    const walkById = new Map(walks.map((w) => [w.id, w]));
+
+    return rows.map((r) => {
+      const src = controlById.get(r.sourceAtomicControlId);
+      const tgt = controlById.get(r.targetAtomicControlId);
+      const asmt = assessmentById.get(r.targetAtomicAssessmentId);
+      const cw = walkById.get(r.crosswalkId);
+      return {
+        ...r,
+        sourceControl: src ? { controlId: src.controlId, shortTitle: src.shortTitle, sourceKey: src.sourceKey } : null,
+        targetControl: tgt ? { controlId: tgt.controlId, shortTitle: tgt.shortTitle, sourceKey: tgt.sourceKey } : null,
+        targetAssessmentName: asmt?.name ?? null,
+        crosswalk: cw
+          ? { relationship: cw.relationship, confidence: cw.confidence, rationale: cw.rationale, provenance: cw.provenance }
+          : null,
+      };
+    });
+  }
+
+  async getSuggestion(tenantId: number, id: number): Promise<CrossFrameworkSuggestion | undefined> {
+    const [row] = await db
+      .select()
+      .from(crossFrameworkSuggestions)
+      .where(and(eq(crossFrameworkSuggestions.id, id), eq(crossFrameworkSuggestions.tenantId, tenantId)));
+    return row;
+  }
+
+  async decideSuggestion(
+    tenantId: number,
+    id: number,
+    decision: "ACCEPTED" | "REJECTED",
+    decidedBy: number,
+  ): Promise<CrossFrameworkSuggestion | undefined> {
+    const [updated] = await db
+      .update(crossFrameworkSuggestions)
+      .set({ status: decision, decidedBy, decidedAt: new Date() })
+      .where(
+        and(
+          eq(crossFrameworkSuggestions.id, id),
+          eq(crossFrameworkSuggestions.tenantId, tenantId),
+          eq(crossFrameworkSuggestions.status, "PENDING"),
+        ),
+      )
+      .returning();
+    return updated;
+  }
+
+  async getCrossFrameworkCoverage(tenantId: number): Promise<CoverageMatrixRow[]> {
+    const { computeCoverage, isPositiveSource } = await import("./cross-framework");
+
+    const [allWalks, allAtomic, allExternal, tenantAssessments] = await Promise.all([
+      db.select().from(controlCrosswalks),
+      db.select({ id: atomicControls.id, sourceKey: atomicControls.sourceKey }).from(atomicControls).where(eq(atomicControls.isActive, true)),
+      db.select({ id: externalFrameworkControls.id, frameworkKey: externalFrameworkControls.frameworkKey }).from(externalFrameworkControls),
+      db.select({ id: atomicAssessments.id }).from(atomicAssessments).where(eq(atomicAssessments.tenantId, tenantId)),
+    ]);
+
+    const assessmentIds = tenantAssessments.map((a) => a.id);
+    const responses = assessmentIds.length
+      ? await db
+          .select()
+          .from(atomicAssessmentResponses)
+          .where(inArray(atomicAssessmentResponses.atomicAssessmentId, assessmentIds))
+      : [];
+    const answeredIds = new Set<number>();
+    for (const r of responses) {
+      if (
+        isPositiveSource({
+          atomicControlId: r.atomicControlId,
+          implementationStatus: r.implementationStatus as any,
+          maturityLevel: r.maturityLevel,
+          confidence: r.confidence as any,
+        })
+      ) {
+        answeredIds.add(r.atomicControlId);
+      }
+    }
+    const answeredList = Array.from(answeredIds);
+
+    const internalFrameworks: Array<{ key: string; label: string }> = [
+      { key: "NIS2_2022_2555", label: "NIS2 (EU 2022/2555)" },
+      { key: "CIR_2024_2690", label: "CIR (EU 2024/2690)" },
+      { key: "DORA_2022_2554", label: "DORA (EU 2022/2554)" },
+    ];
+    const externalFrameworks: Array<{ key: string; label: string }> = [
+      { key: "ISO_27001_2022", label: "ISO/IEC 27001:2022 Annex A" },
+      { key: "NIST_CSF_2_0", label: "NIST CSF 2.0" },
+    ];
+
+    const out: CoverageMatrixRow[] = [];
+    for (const fw of internalFrameworks) {
+      const ids = allAtomic.filter((c) => c.sourceKey === fw.key).map((c) => c.id);
+      const result = computeCoverage(answeredList, allWalks as any, {
+        frameworkKey: fw.key,
+        isExternal: false,
+        controlIds: ids,
+        answeredControlIds: ids.filter((id) => answeredIds.has(id)),
+      });
+      out.push({ ...result, label: fw.label, isExternal: false });
+    }
+    for (const fw of externalFrameworks) {
+      const ids = allExternal.filter((c) => c.frameworkKey === fw.key).map((c) => c.id);
+      const result = computeCoverage(answeredList, allWalks as any, {
+        frameworkKey: fw.key,
+        isExternal: true,
+        controlIds: ids,
+      });
+      out.push({ ...result, label: fw.label, isExternal: true });
+    }
+    return out;
   }
 }
 

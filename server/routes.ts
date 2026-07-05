@@ -4683,6 +4683,13 @@ export async function registerRoutes(
       notes: notes || null,
       answeredBy: user.id,
     });
+    // Cross-framework mapping hook (Phase B): non-blocking, inert when the
+    // CROSS_FRAMEWORK_MAPPING flag is off (checked inside the storage helper).
+    if (assessment.tenantId) {
+      storage.enqueueCrossFrameworkSuggestions(assessment.tenantId, response).catch((err) => {
+        console.error("[cross-framework] suggestion enqueue failed (non-blocking):", err?.message || err);
+      });
+    }
     res.json(response);
   });
 
@@ -5497,6 +5504,199 @@ export async function registerRoutes(
     } catch (err: any) {
       console.error("[POST /api/nis2/scoped-assessments] failed:", err);
       return res.status(500).json({ message: err?.message || "Failed to create NIS2 scoped assessment" });
+    }
+  });
+
+  // ==================== CROSS-FRAMEWORK MAPPING (Phase B) ====================
+  // Advisory-only crosswalks between NIS2 / CIR / DORA (internal) and outbound
+  // read-only mappings to ISO 27001:2022 Annex A and NIST CSF 2.0. All routes are
+  // gated on the per-tenant CROSS_FRAMEWORK_MAPPING feature flag (default off).
+
+  const CROSS_FRAMEWORK_FLAG = "CROSS_FRAMEWORK_MAPPING";
+
+  async function requireCrossFramework(req: Request, res: Response, next: NextFunction) {
+    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    if (user.role === "PLATFORM_ADMIN") return next();
+    if (!user.tenantId) return res.status(403).json({ message: "Cross-framework mapping not enabled" });
+    const enabled = await storage.isFeatureEnabled(user.tenantId, CROSS_FRAMEWORK_FLAG);
+    if (!enabled) return res.status(403).json({ message: "Cross-framework mapping not enabled for this organisation" });
+    next();
+  }
+
+  // GET /api/cross-framework/module-enabled — whether the tenant can see the module
+  app.get("/api/cross-framework/module-enabled", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    if (user.role === "PLATFORM_ADMIN") return res.json({ enabled: true });
+    if (!user.tenantId) return res.json({ enabled: false });
+    const enabled = await storage.isFeatureEnabled(user.tenantId, CROSS_FRAMEWORK_FLAG);
+    res.json({ enabled });
+  });
+
+  // GET /api/crosswalks/:atomicControlId — mappings touching one control (read-only)
+  app.get("/api/crosswalks/:atomicControlId", requireAuth, requireCrossFramework, async (req, res) => {
+    try {
+      const id = parseInt(String(req.params.atomicControlId));
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid control id" });
+      const crosswalks = await storage.getCrosswalksForControl(id);
+      res.json({ crosswalks });
+    } catch (err: any) {
+      console.error("[GET /api/crosswalks/:id] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to load crosswalks" });
+    }
+  });
+
+  // GET /api/cross-framework/suggestions — tenant's pending suggestion inbox
+  app.get("/api/cross-framework/suggestions", requireAuth, requireCrossFramework, requireFullAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+      const suggestions = await storage.listPendingSuggestions(user.tenantId);
+      res.json({ suggestions });
+    } catch (err: any) {
+      console.error("[GET /api/cross-framework/suggestions] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to load suggestions" });
+    }
+  });
+
+  // POST /api/cross-framework/suggestions/:id/accept — human accepts a suggestion.
+  // Applies the suggested values to the target response (never downgrades a stronger
+  // existing answer) and records full provenance in the audit log.
+  app.post("/api/cross-framework/suggestions/:id/accept", requireAuth, requireCrossFramework, requireWriteAccess, requireFullAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+      const id = parseInt(String(req.params.id));
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid suggestion id" });
+      const suggestion = await storage.getSuggestion(user.tenantId, id);
+      if (!suggestion) return res.status(404).json({ message: "Suggestion not found" });
+      if (suggestion.status !== "PENDING") {
+        return res.status(409).json({ message: `Suggestion already ${suggestion.status.toLowerCase()}` });
+      }
+
+      // Never auto-apply RELATED edges — they are informational only.
+      const crosswalks = await storage.getCrosswalksForControl(suggestion.sourceAtomicControlId);
+      const edge = crosswalks.find((c) => c.id === suggestion.crosswalkId);
+      if (edge && edge.relationship === "RELATED") {
+        return res.status(400).json({ message: "RELATED mappings are informational and cannot be accepted" });
+      }
+
+      // Verify the target assessment belongs to this tenant.
+      const targetAssessment = await storage.getAtomicAssessment(suggestion.targetAtomicAssessmentId);
+      if (!targetAssessment || targetAssessment.tenantId !== user.tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Apply, but never downgrade a stronger existing answer.
+      const statusRank: Record<string, number> = { NOT_STARTED: 0, IN_PROGRESS: 1, IMPLEMENTED: 2, VERIFIED: 3 };
+      const existingResponses = await storage.getAtomicAssessmentResponses(suggestion.targetAtomicAssessmentId);
+      const existing = existingResponses.find((r) => r.atomicControlId === suggestion.targetAtomicControlId);
+      const suggestedStatus = suggestion.suggestedStatus || "IN_PROGRESS";
+      const wouldDowngrade =
+        existing &&
+        (statusRank[existing.implementationStatus] > statusRank[suggestedStatus] ||
+          (statusRank[existing.implementationStatus] === statusRank[suggestedStatus] &&
+            existing.maturityLevel > (suggestion.suggestedMaturity ?? 0)));
+
+      let applied = false;
+      if (!wouldDowngrade) {
+        const provenanceNote = `[Cross-framework] Propagated from control #${suggestion.sourceAtomicControlId} via crosswalk #${suggestion.crosswalkId}${suggestion.reason ? ` — ${suggestion.reason}` : ""}`;
+        const mergedNotes = existing?.notes ? `${existing.notes}\n${provenanceNote}` : provenanceNote;
+        await storage.upsertAtomicAssessmentResponse({
+          atomicAssessmentId: suggestion.targetAtomicAssessmentId,
+          atomicControlId: suggestion.targetAtomicControlId,
+          implementationStatus: suggestedStatus,
+          maturityLevel: suggestion.suggestedMaturity ?? existing?.maturityLevel ?? 0,
+          confidence: suggestion.suggestedConfidence || existing?.confidence || "NONE",
+          notes: mergedNotes,
+          answeredBy: user.id,
+        });
+        applied = true;
+      }
+
+      const decided = await storage.decideSuggestion(user.tenantId, id, "ACCEPTED", user.id);
+      if (!decided) return res.status(409).json({ message: "Suggestion was already decided" });
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "ACCEPT_CROSS_FRAMEWORK_SUGGESTION",
+        entityType: "CrossFrameworkSuggestion",
+        entityId: String(id),
+        details: {
+          crosswalkId: suggestion.crosswalkId,
+          relationship: edge?.relationship ?? null,
+          crosswalkConfidence: edge?.confidence ?? null,
+          provenance: edge?.provenance ?? null,
+          sourceAtomicControlId: suggestion.sourceAtomicControlId,
+          sourceResponseId: suggestion.sourceResponseId,
+          targetAtomicAssessmentId: suggestion.targetAtomicAssessmentId,
+          targetAtomicControlId: suggestion.targetAtomicControlId,
+          suggestedStatus: suggestion.suggestedStatus,
+          suggestedMaturity: suggestion.suggestedMaturity,
+          suggestedConfidence: suggestion.suggestedConfidence,
+          reason: suggestion.reason,
+          applied,
+          notAppliedReason: applied ? null : "Existing answer was stronger; suggestion accepted without overwriting",
+        },
+      });
+
+      res.json({ suggestion: decided, applied });
+    } catch (err: any) {
+      console.error("[POST /api/cross-framework/suggestions/:id/accept] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to accept suggestion" });
+    }
+  });
+
+  // POST /api/cross-framework/suggestions/:id/reject — human rejects a suggestion
+  app.post("/api/cross-framework/suggestions/:id/reject", requireAuth, requireCrossFramework, requireWriteAccess, requireFullAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+      const id = parseInt(String(req.params.id));
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid suggestion id" });
+      const suggestion = await storage.getSuggestion(user.tenantId, id);
+      if (!suggestion) return res.status(404).json({ message: "Suggestion not found" });
+      if (suggestion.status !== "PENDING") {
+        return res.status(409).json({ message: `Suggestion already ${suggestion.status.toLowerCase()}` });
+      }
+      const decided = await storage.decideSuggestion(user.tenantId, id, "REJECTED", user.id);
+      if (!decided) return res.status(409).json({ message: "Suggestion was already decided" });
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "REJECT_CROSS_FRAMEWORK_SUGGESTION",
+        entityType: "CrossFrameworkSuggestion",
+        entityId: String(id),
+        details: {
+          crosswalkId: suggestion.crosswalkId,
+          sourceAtomicControlId: suggestion.sourceAtomicControlId,
+          targetAtomicAssessmentId: suggestion.targetAtomicAssessmentId,
+          targetAtomicControlId: suggestion.targetAtomicControlId,
+          reason: suggestion.reason,
+        },
+      });
+
+      res.json({ suggestion: decided });
+    } catch (err: any) {
+      console.error("[POST /api/cross-framework/suggestions/:id/reject] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to reject suggestion" });
+    }
+  });
+
+  // GET /api/cross-framework/coverage — read-only coverage matrix across frameworks
+  app.get("/api/cross-framework/coverage", requireAuth, requireCrossFramework, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+      const coverage = await storage.getCrossFrameworkCoverage(user.tenantId);
+      res.json({ coverage });
+    } catch (err: any) {
+      console.error("[GET /api/cross-framework/coverage] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to compute coverage" });
     }
   });
 

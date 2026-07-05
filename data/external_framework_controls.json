@@ -1,0 +1,1411 @@
+{
+  "libraryCode": "EXTERNAL_FRAMEWORK_CONTROLS_V1",
+  "generatedAt": "2026-07-05",
+  "frameworks": [
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "title": "ISO/IEC 27001:2022 Annex A",
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "title": "NIST Cybersecurity Framework 2.0",
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    }
+  ],
+  "controls": [
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.1",
+      "title": "Policies for information security",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.2",
+      "title": "Information security roles and responsibilities",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.3",
+      "title": "Segregation of duties",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.4",
+      "title": "Management responsibilities",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.5",
+      "title": "Contact with authorities",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.6",
+      "title": "Contact with special interest groups",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.7",
+      "title": "Threat intelligence",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.8",
+      "title": "Information security in project management",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.9",
+      "title": "Inventory of information and other associated assets",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.10",
+      "title": "Acceptable use of information and other associated assets",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.11",
+      "title": "Return of assets",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.12",
+      "title": "Classification of information",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.13",
+      "title": "Labelling of information",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.14",
+      "title": "Information transfer",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.15",
+      "title": "Access control",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.16",
+      "title": "Identity management",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.17",
+      "title": "Authentication information",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.18",
+      "title": "Access rights",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.19",
+      "title": "Information security in supplier relationships",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.20",
+      "title": "Addressing information security within supplier agreements",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.21",
+      "title": "Managing information security in the ICT supply chain",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.22",
+      "title": "Monitoring, review and change management of supplier services",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.23",
+      "title": "Information security for use of cloud services",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.24",
+      "title": "Information security incident management planning and preparation",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.25",
+      "title": "Assessment and decision on information security events",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.26",
+      "title": "Response to information security incidents",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.27",
+      "title": "Learning from information security incidents",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.28",
+      "title": "Collection of evidence",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.29",
+      "title": "Information security during disruption",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.30",
+      "title": "ICT readiness for business continuity",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.31",
+      "title": "Legal, statutory, regulatory and contractual requirements",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.32",
+      "title": "Intellectual property rights",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.33",
+      "title": "Protection of records",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.34",
+      "title": "Privacy and protection of PII",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.35",
+      "title": "Independent review of information security",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.36",
+      "title": "Compliance with policies, rules and standards for information security",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.5.37",
+      "title": "Documented operating procedures",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.6.1",
+      "title": "Screening",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.6.2",
+      "title": "Terms and conditions of employment",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.6.3",
+      "title": "Information security awareness, education and training",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.6.4",
+      "title": "Disciplinary process",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.6.5",
+      "title": "Responsibilities after termination or change of employment",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.6.6",
+      "title": "Confidentiality or non-disclosure agreements",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.6.7",
+      "title": "Remote working",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.6.8",
+      "title": "Information security event reporting",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.1",
+      "title": "Physical security perimeters",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.2",
+      "title": "Physical entry",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.3",
+      "title": "Securing offices, rooms and facilities",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.4",
+      "title": "Physical security monitoring",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.5",
+      "title": "Protecting against physical and environmental threats",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.6",
+      "title": "Working in secure areas",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.7",
+      "title": "Clear desk and clear screen",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.8",
+      "title": "Equipment siting and protection",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.9",
+      "title": "Security of assets off-premises",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.10",
+      "title": "Storage media",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.11",
+      "title": "Supporting utilities",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.12",
+      "title": "Cabling security",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.13",
+      "title": "Equipment maintenance",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.7.14",
+      "title": "Secure disposal or re-use of equipment",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.1",
+      "title": "User endpoint devices",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.2",
+      "title": "Privileged access rights",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.3",
+      "title": "Information access restriction",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.4",
+      "title": "Access to source code",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.5",
+      "title": "Secure authentication",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.6",
+      "title": "Capacity management",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.7",
+      "title": "Protection against malware",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.8",
+      "title": "Management of technical vulnerabilities",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.9",
+      "title": "Configuration management",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.10",
+      "title": "Information deletion",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.11",
+      "title": "Data masking",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.12",
+      "title": "Data leakage prevention",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.13",
+      "title": "Information backup",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.14",
+      "title": "Redundancy of information processing facilities",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.15",
+      "title": "Logging",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.16",
+      "title": "Monitoring activities",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.17",
+      "title": "Clock synchronization",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.18",
+      "title": "Use of privileged utility programs",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.19",
+      "title": "Installation of software on operational systems",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.20",
+      "title": "Networks security",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.21",
+      "title": "Security of network services",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.22",
+      "title": "Segregation of networks",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.23",
+      "title": "Web filtering",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.24",
+      "title": "Use of cryptography",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.25",
+      "title": "Secure development life cycle",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.26",
+      "title": "Application security requirements",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.27",
+      "title": "Secure system architecture and engineering principles",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.28",
+      "title": "Secure coding",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.29",
+      "title": "Security testing in development and acceptance",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.30",
+      "title": "Outsourced development",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.31",
+      "title": "Separation of development, test and production environments",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.32",
+      "title": "Change management",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.33",
+      "title": "Test information",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "ISO_27001_2022",
+      "controlRef": "A.8.34",
+      "title": "Protection of information systems during audit testing",
+      "description": null,
+      "sourceUrl": "https://www.iso.org/standard/27001"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.OC-01",
+      "title": "The organizational mission is understood and informs cybersecurity risk management",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.OC-02",
+      "title": "Internal and external stakeholders are understood, and their needs and expectations are considered",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.OC-03",
+      "title": "Legal, regulatory, and contractual requirements regarding cybersecurity are understood and managed",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.OC-04",
+      "title": "Critical objectives, capabilities, and services that external stakeholders depend on are understood and communicated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.OC-05",
+      "title": "Outcomes, capabilities, and services that the organization depends on are understood and communicated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RM-01",
+      "title": "Risk management objectives are established and agreed to by organizational stakeholders",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RM-02",
+      "title": "Risk appetite and risk tolerance statements are established, communicated, and maintained",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RM-03",
+      "title": "Cybersecurity risk management activities and outcomes are included in enterprise risk management processes",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RM-04",
+      "title": "Strategic direction that describes appropriate risk response options is established and communicated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RM-05",
+      "title": "Lines of communication across the organization are established for cybersecurity risks",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RM-06",
+      "title": "A standardized method for calculating, documenting, categorizing, and prioritizing cybersecurity risks is established",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RM-07",
+      "title": "Strategic opportunities (positive risks) are characterized and are included in organizational cybersecurity risk discussions",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RR-01",
+      "title": "Organizational leadership is responsible and accountable for cybersecurity risk and fosters a risk-aware culture",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RR-02",
+      "title": "Roles, responsibilities, and authorities related to cybersecurity risk management are established, communicated, understood, and enforced",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RR-03",
+      "title": "Adequate resources are allocated commensurate with the cybersecurity risk strategy, roles, responsibilities, and policies",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.RR-04",
+      "title": "Cybersecurity is included in human resources practices",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.PO-01",
+      "title": "Policy for managing cybersecurity risks is established based on organizational context and communicated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.PO-02",
+      "title": "Policy for managing cybersecurity risks is reviewed, updated, communicated, and enforced to reflect changes",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.OV-01",
+      "title": "Cybersecurity risk management strategy outcomes are reviewed to inform and adjust strategy and direction",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.OV-02",
+      "title": "The cybersecurity risk management strategy is reviewed and adjusted to ensure coverage of organizational requirements and risks",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.OV-03",
+      "title": "Organizational cybersecurity risk management performance is evaluated and reviewed for adjustments needed",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-01",
+      "title": "A cybersecurity supply chain risk management program, strategy, objectives, policies, and processes are established and agreed to",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-02",
+      "title": "Cybersecurity roles and responsibilities for suppliers, customers, and partners are established, communicated, and coordinated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-03",
+      "title": "Cybersecurity supply chain risk management is integrated into cybersecurity and enterprise risk management",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-04",
+      "title": "Suppliers are known and prioritized by criticality",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-05",
+      "title": "Requirements to address cybersecurity risks in supply chains are established, prioritized, and integrated into contracts",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-06",
+      "title": "Planning and due diligence are performed to reduce risks before entering into formal supplier relationships",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-07",
+      "title": "The risks posed by a supplier, their products and services, and other third parties are understood, recorded, prioritized, assessed, responded to, and monitored",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-08",
+      "title": "Relevant suppliers and other third parties are included in incident planning, response, and recovery activities",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-09",
+      "title": "Supply chain security practices are integrated into cybersecurity and enterprise risk management programs",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "GV.SC-10",
+      "title": "Cybersecurity supply chain risk management plans include provisions for activities that occur after the conclusion of a partnership or service agreement",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.AM-01",
+      "title": "Inventories of hardware managed by the organization are maintained",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.AM-02",
+      "title": "Inventories of software, services, and systems managed by the organization are maintained",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.AM-03",
+      "title": "Representations of the organization's authorized network communication and internal and external network data flows are maintained",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.AM-04",
+      "title": "Inventories of services provided by suppliers are maintained",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.AM-05",
+      "title": "Assets are prioritized based on classification, criticality, resources, and impact on the mission",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.AM-07",
+      "title": "Inventories of data and corresponding metadata for designated data types are maintained",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.AM-08",
+      "title": "Systems, hardware, software, services, and data are managed throughout their life cycles",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-01",
+      "title": "Vulnerabilities in assets are identified, validated, and recorded",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-02",
+      "title": "Cyber threat intelligence is received from information sharing forums and sources",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-03",
+      "title": "Internal and external threats to the organization are identified and recorded",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-04",
+      "title": "Potential impacts and likelihoods of threats exploiting vulnerabilities are identified and recorded",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-05",
+      "title": "Threats, vulnerabilities, likelihoods, and impacts are used to understand inherent risk and inform risk response prioritization",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-06",
+      "title": "Risk responses are chosen, prioritized, planned, tracked, and communicated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-07",
+      "title": "Changes and exceptions are managed, assessed for risk impact, recorded, and tracked",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-08",
+      "title": "Processes for receiving, analyzing, and responding to vulnerability disclosures are established",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-09",
+      "title": "The authenticity and integrity of hardware and software are assessed prior to acquisition and use",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.RA-10",
+      "title": "Critical suppliers are assessed prior to acquisition",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.IM-01",
+      "title": "Improvements are identified from evaluations",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.IM-02",
+      "title": "Improvements are identified from security tests and exercises, including those done in coordination with suppliers and relevant third parties",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.IM-03",
+      "title": "Improvements are identified from execution of operational processes, procedures, and activities",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "ID.IM-04",
+      "title": "Incident response plans and other cybersecurity plans that affect operations are established, communicated, maintained, and improved",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.AA-01",
+      "title": "Identities and credentials for authorized users, services, and hardware are managed by the organization",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.AA-02",
+      "title": "Identities are proofed and bound to credentials based on the context of interactions",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.AA-03",
+      "title": "Users, services, and hardware are authenticated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.AA-04",
+      "title": "Identity assertions are protected, conveyed, and verified",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.AA-05",
+      "title": "Access permissions, entitlements, and authorizations are defined in a policy, managed, enforced, and reviewed, and incorporate the principles of least privilege and separation of duties",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.AA-06",
+      "title": "Physical access to assets is managed, monitored, and enforced commensurate with risk",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.AT-01",
+      "title": "Personnel are provided with awareness and training so that they possess the knowledge and skills to perform general tasks with cybersecurity risks in mind",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.AT-02",
+      "title": "Individuals in specialized roles are provided with awareness and training so that they possess the knowledge and skills to perform relevant tasks with cybersecurity risks in mind",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.DS-01",
+      "title": "The confidentiality, integrity, and availability of data-at-rest are protected",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.DS-02",
+      "title": "The confidentiality, integrity, and availability of data-in-transit are protected",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.DS-10",
+      "title": "The confidentiality, integrity, and availability of data-in-use are protected",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.DS-11",
+      "title": "Backups of data are created, protected, maintained, and tested",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.PS-01",
+      "title": "Configuration management practices are established and applied",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.PS-02",
+      "title": "Software is maintained, replaced, and removed commensurate with risk",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.PS-03",
+      "title": "Hardware is maintained, replaced, and removed commensurate with risk",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.PS-04",
+      "title": "Log records are generated and made available for continuous monitoring",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.PS-05",
+      "title": "Installation and execution of unauthorized software are prevented",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.PS-06",
+      "title": "Secure software development practices are integrated, and their performance is monitored throughout the software development life cycle",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.IR-01",
+      "title": "Networks and environments are protected from unauthorized logical access and usage",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.IR-02",
+      "title": "The organization's technology assets are protected from environmental threats",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.IR-03",
+      "title": "Mechanisms are implemented to achieve resilience requirements in normal and adverse situations",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "PR.IR-04",
+      "title": "Adequate resource capacity to ensure availability is maintained",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.CM-01",
+      "title": "Networks and network services are monitored to find potentially adverse events",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.CM-02",
+      "title": "The physical environment is monitored to find potentially adverse events",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.CM-03",
+      "title": "Personnel activity and technology usage are monitored to find potentially adverse events",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.CM-06",
+      "title": "External service provider activities and services are monitored to find potentially adverse events",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.CM-09",
+      "title": "Computing hardware and software, runtime environments, and their data are monitored to find potentially adverse events",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.AE-02",
+      "title": "Potentially adverse events are analyzed to better understand associated activities",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.AE-03",
+      "title": "Information is correlated from multiple sources",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.AE-04",
+      "title": "The estimated impact and scope of adverse events are understood",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.AE-06",
+      "title": "Information on adverse events is provided to authorized staff and tools",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.AE-07",
+      "title": "Cyber threat intelligence and other contextual information are integrated into the analysis",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "DE.AE-08",
+      "title": "Incidents are declared when adverse events meet the defined incident criteria",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.MA-01",
+      "title": "The incident response plan is executed in coordination with relevant third parties once an incident is declared",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.MA-02",
+      "title": "Incident reports are triaged and validated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.MA-03",
+      "title": "Incidents are categorized and prioritized",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.MA-04",
+      "title": "Incidents are escalated or elevated as needed",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.MA-05",
+      "title": "The criteria for initiating incident recovery are applied",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.AN-03",
+      "title": "Analysis is performed to establish what has taken place during an incident and the root cause of the incident",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.AN-06",
+      "title": "Actions performed during an investigation are recorded, and the records' integrity and provenance are preserved",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.AN-07",
+      "title": "Incident data and metadata are collected, and their integrity and provenance are preserved",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.AN-08",
+      "title": "An incident's magnitude is estimated and validated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.CO-02",
+      "title": "Internal and external stakeholders are notified of incidents",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.CO-03",
+      "title": "Information is shared with designated internal and external stakeholders",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.MI-01",
+      "title": "Incidents are contained",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RS.MI-02",
+      "title": "Incidents are eradicated",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RC.RP-01",
+      "title": "The recovery portion of the incident response plan is executed once initiated from the incident response process",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RC.RP-02",
+      "title": "Recovery actions are selected, scoped, prioritized, and performed",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RC.RP-03",
+      "title": "The integrity of backups and other restoration assets is verified before using them for restoration",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RC.RP-04",
+      "title": "Critical mission functions and cybersecurity risk management are considered to establish post-incident operational norms",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RC.RP-05",
+      "title": "The integrity of restored assets is verified, systems and services are restored, and normal operating status is confirmed",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RC.RP-06",
+      "title": "The end of incident recovery is declared based on criteria, and incident-related documentation is completed",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RC.CO-03",
+      "title": "Recovery activities and progress in restoring operational capabilities are communicated to designated internal and external stakeholders",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    },
+    {
+      "frameworkKey": "NIST_CSF_2_0",
+      "controlRef": "RC.CO-04",
+      "title": "Public updates on incident recovery are shared using approved methods and messaging",
+      "description": null,
+      "sourceUrl": "https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final"
+    }
+  ]
+}

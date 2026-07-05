@@ -393,6 +393,8 @@ function ControlResponseCard({
               <p className="text-xs text-muted-foreground italic">{control.legalRef}</p>
             </div>
 
+            <CrosswalkPanel controlId={control.id} />
+
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Status</Label>
@@ -617,6 +619,67 @@ const STEP_DESCRIPTIONS: Record<string, { title: string; help: string }> = {
     help: "Add any relevant details about how this control is implemented, planned actions, blockers, or references to internal documentation. These notes will appear in compliance reports.",
   },
 };
+
+interface CrosswalkEntry {
+  id: number;
+  relationship: string;
+  effectiveRelationship: string;
+  confidence: number;
+  rationale: string | null;
+  provenance: string | null;
+  targetKind: "atomic" | "external";
+  target: { controlId?: string; controlRef?: string; frameworkKey: string; title: string } | null;
+}
+
+const relationshipStyles: Record<string, string> = {
+  EQUIVALENT: "bg-green-500/10 text-green-600 dark:text-green-400",
+  SUPERSET: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  SUBSET: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  PARTIAL: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  RELATED: "bg-muted text-muted-foreground",
+};
+
+const frameworkLabels: Record<string, string> = {
+  NIS2_2022_2555: "NIS2",
+  CIR_2024_2690: "CIR",
+  DORA_2022_2554: "DORA",
+  ISO_27001_2022: "ISO 27001",
+  NIST_CSF_2_0: "NIST CSF",
+};
+
+function CrosswalkPanel({ controlId }: { controlId: number }) {
+  const { data: moduleData } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/cross-framework/module-enabled"],
+    staleTime: 5 * 60 * 1000,
+  });
+  const enabled = !!moduleData?.enabled;
+  const { data } = useQuery<{ crosswalks: CrosswalkEntry[] }>({
+    queryKey: ["/api/crosswalks", controlId],
+    enabled,
+  });
+  const crosswalks = data?.crosswalks || [];
+  if (!enabled || crosswalks.length === 0) return null;
+  return (
+    <div className="rounded-md border bg-muted/20 p-3 space-y-2" data-testid={`crosswalk-panel-${controlId}`}>
+      <p className="text-xs font-medium text-muted-foreground">Mapped controls in other frameworks</p>
+      <div className="space-y-1.5">
+        {crosswalks.map((cw) => (
+          <div key={cw.id} className="flex items-center gap-2 flex-wrap text-xs" data-testid={`crosswalk-entry-${controlId}-${cw.id}`}>
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${relationshipStyles[cw.effectiveRelationship] || "bg-muted text-muted-foreground"}`}>
+              {cw.effectiveRelationship}
+            </span>
+            <Badge variant="outline" className="text-[10px]">
+              {frameworkLabels[cw.target?.frameworkKey || ""] || cw.target?.frameworkKey}
+            </Badge>
+            <span className="font-mono text-[11px]">{cw.target?.controlId || cw.target?.controlRef}</span>
+            <span className="text-muted-foreground truncate max-w-[280px]">{cw.target?.title}</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">{cw.confidence}% confidence</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function AtomicFocusModeView({
   controls,
@@ -875,6 +938,7 @@ function AtomicFocusModeView({
               <h2 className="text-lg font-semibold leading-snug" data-testid="focus-control-title">{control.shortTitle}</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">{control.obligationText}</p>
               <p className="text-xs text-muted-foreground italic">{control.legalRef}</p>
+              <CrosswalkPanel controlId={control.id} />
             </div>
           </div>
 

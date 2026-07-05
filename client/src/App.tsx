@@ -39,6 +39,7 @@ import DoraControls from "@/pages/dora-controls";
 import Nis2ScopingDashboard from "@/pages/nis2-scoping-dashboard";
 import Nis2ScopingWizard from "@/pages/nis2-scoping-wizard";
 import Nis2ScopingControls from "@/pages/nis2-scoping-controls";
+import CrossFramework from "@/pages/cross-framework";
 import Onboarding from "@/pages/onboarding";
 import VerifyEmail from "@/pages/verify-email";
 import VerificationPending from "@/pages/verification-pending";
@@ -59,6 +60,10 @@ function useDoraEnabled() {
 
 function useNis2ScopingEnabled() {
   return useQuery<{ enabled: boolean }>({ queryKey: ["/api/nis2/module-enabled"] });
+}
+
+function useCrossFrameworkEnabled() {
+  return useQuery<{ enabled: boolean }>({ queryKey: ["/api/cross-framework/module-enabled"] });
 }
 
 function RestrictedPage() {
@@ -115,6 +120,14 @@ function WithNis2Scoping({ component: Component }: { component: React.ComponentT
   return <Component />;
 }
 
+function WithCrossFramework({ component: Component }: { component: React.ComponentType }) {
+  const { hasFullAccess } = useAuth();
+  const { data, isLoading } = useCrossFrameworkEnabled();
+  if (isLoading) return null;
+  if (!data?.enabled || !hasFullAccess) return <RestrictedPage />;
+  return <Component />;
+}
+
 function AdminRouter() {
   return (
     <Switch>
@@ -157,6 +170,7 @@ function TenantRouter() {
       <Route path="/nis2-scoping">{() => <WithNis2Scoping component={Nis2ScopingDashboard} />}</Route>
       <Route path="/nis2-scoping/wizard">{() => <WithNis2Scoping component={Nis2ScopingWizard} />}</Route>
       <Route path="/nis2-scoping/controls">{() => <WithNis2Scoping component={Nis2ScopingControls} />}</Route>
+      <Route path="/cross-framework">{() => <WithCrossFramework component={CrossFramework} />}</Route>
       <Route path="/tasks">{() => <WithFullAccess component={Tasks} />}</Route>
       <Route path="/evidence">{() => <WithFullAccess component={Evidence} />}</Route>
       <Route path="/incidents">{() => <WithFullAccess component={Incidents} />}</Route>

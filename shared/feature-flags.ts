@@ -30,6 +30,12 @@ export const FEATURE_FLAG_REGISTRY: FeatureFlagDefinition[] = [
     description: "Enables the NIS2 scoping wizard and applicability-filtered NIS2 control set for this tenant.",
     icon: "shield",
   },
+  {
+    key: "CROSS_FRAMEWORK_MAPPING",
+    label: "Cross-Framework Mapping",
+    description: "Maps controls across NIS2, DORA, CIR, ISO 27001 and NIST CSF; suggests answers across frameworks.",
+    icon: "atom",
+  },
 ];
 
 export function getFeatureFlagDefinition(key: string): FeatureFlagDefinition | undefined {

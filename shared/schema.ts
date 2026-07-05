@@ -13,6 +13,7 @@ import {
   date,
   real,
   uniqueIndex,
+  unique,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1171,6 +1172,91 @@ export const insertTenantRiskRegisterItemSchema = createInsertSchema(tenantRiskR
 });
 export type TenantRiskRegisterItem = typeof tenantRiskRegisterItems.$inferSelect;
 export type InsertTenantRiskRegisterItem = z.infer<typeof insertTenantRiskRegisterItemSchema>;
+
+// ----- Cross-Framework Mapping module (Phase B) -----
+export const crosswalkRelationshipEnum = pgEnum("crosswalk_relationship", [
+  "EQUIVALENT",
+  "SUPERSET",
+  "SUBSET",
+  "PARTIAL",
+  "RELATED",
+]);
+export const crossSuggestionStatusEnum = pgEnum("cross_suggestion_status", [
+  "PENDING",
+  "ACCEPTED",
+  "REJECTED",
+  "SUPERSEDED",
+]);
+
+// Reference catalog for external frameworks (ISO 27001:2022, NIST CSF 2.0). Global, not tenant-scoped.
+export const externalFrameworkControls = pgTable("external_framework_controls", {
+  id: serial("id").primaryKey(),
+  frameworkKey: text("framework_key").notNull(), // "ISO_27001_2022" | "NIST_CSF_2_0"
+  controlRef: text("control_ref").notNull(), // "A.5.7" | "GV.OC-01"
+  title: text("title").notNull(),
+  description: text("description"),
+  sourceUrl: text("source_url"),
+  contentHash: text("content_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({ uniqueRef: unique().on(t.frameworkKey, t.controlRef) }));
+
+// Crosswalk edges. Exactly one of (toAtomicControlId, toExternalControlId) is set.
+export const controlCrosswalks = pgTable("control_crosswalks", {
+  id: serial("id").primaryKey(),
+  fromAtomicControlId: integer("from_atomic_control_id").references(() => atomicControls.id).notNull(),
+  toAtomicControlId: integer("to_atomic_control_id").references(() => atomicControls.id),
+  toExternalControlId: integer("to_external_control_id").references(() => externalFrameworkControls.id),
+  relationship: crosswalkRelationshipEnum("relationship").notNull(),
+  confidence: integer("confidence").notNull().default(50), // 0..100
+  direction: text("direction").notNull().default("BIDIRECTIONAL"), // "BIDIRECTIONAL" | "FORWARD"
+  rationale: text("rationale"),
+  provenance: text("provenance"), // where the mapping came from (e.g. "editorial_v1")
+  contentHash: text("content_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tenant-scoped propagation suggestions produced when a response is saved.
+export const crossFrameworkSuggestions = pgTable("cross_framework_suggestions", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  crosswalkId: integer("crosswalk_id").references(() => controlCrosswalks.id).notNull(),
+  sourceAtomicControlId: integer("source_atomic_control_id").references(() => atomicControls.id).notNull(),
+  sourceResponseId: integer("source_response_id").references(() => atomicAssessmentResponses.id),
+  targetAtomicAssessmentId: integer("target_atomic_assessment_id").references(() => atomicAssessments.id).notNull(),
+  targetAtomicControlId: integer("target_atomic_control_id").references(() => atomicControls.id).notNull(),
+  suggestedStatus: atomicImplementationStatusEnum("suggested_status"),
+  suggestedMaturity: integer("suggested_maturity"),
+  suggestedConfidence: atomicConfidenceEnum("suggested_confidence"),
+  status: crossSuggestionStatusEnum("status").notNull().default("PENDING"),
+  reason: text("reason"),
+  decidedBy: integer("decided_by").references(() => users.id),
+  decidedAt: timestamp("decided_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  // one live suggestion per (tenant, target response slot, crosswalk)
+  uniqueLive: unique().on(t.tenantId, t.targetAtomicAssessmentId, t.targetAtomicControlId, t.crosswalkId),
+}));
+
+export const insertExternalFrameworkControlSchema = createInsertSchema(externalFrameworkControls).omit({
+  id: true,
+  createdAt: true,
+});
+export type ExternalFrameworkControl = typeof externalFrameworkControls.$inferSelect;
+export type InsertExternalFrameworkControl = z.infer<typeof insertExternalFrameworkControlSchema>;
+
+export const insertControlCrosswalkSchema = createInsertSchema(controlCrosswalks).omit({
+  id: true,
+  createdAt: true,
+});
+export type ControlCrosswalk = typeof controlCrosswalks.$inferSelect;
+export type InsertControlCrosswalk = z.infer<typeof insertControlCrosswalkSchema>;
+
+export const insertCrossFrameworkSuggestionSchema = createInsertSchema(crossFrameworkSuggestions).omit({
+  id: true,
+  createdAt: true,
+});
+export type CrossFrameworkSuggestion = typeof crossFrameworkSuggestions.$inferSelect;
+export type InsertCrossFrameworkSuggestion = z.infer<typeof insertCrossFrameworkSuggestionSchema>;
 
 export const loginSchema = z.object({
   email: z.string().email(),

@@ -49,6 +49,7 @@ import {
   AlertTriangle,
   Banknote,
   Radar,
+  Network,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -100,6 +101,12 @@ export function AppSidebar() {
   });
   const nis2ScopingEnabled = !!nis2ScopingModule?.enabled;
 
+  const { data: crossFrameworkModule } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/cross-framework/module-enabled"],
+    enabled: !!user && !isPlatformAdmin,
+  });
+  const crossFrameworkEnabled = !!crossFrameworkModule?.enabled;
+
   const initials = user?.fullName
     ?.split(" ")
     .map((n) => n[0])
@@ -138,6 +145,9 @@ export function AppSidebar() {
                     : []),
                   ...(nis2ScopingEnabled
                     ? [{ title: "NIS2 Scoping", url: "/nis2-scoping", icon: Radar, requiresFullAccess: false }]
+                    : []),
+                  ...(crossFrameworkEnabled
+                    ? [{ title: "Framework Mapping", url: "/cross-framework", icon: Network, requiresFullAccess: true }]
                     : []),
                   ...tenantMenuItems.slice(2),
                 ].map((item) => {
