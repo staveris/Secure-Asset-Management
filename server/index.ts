@@ -180,6 +180,16 @@ app.use((req, res, next) => {
     }
 
     try {
+      const { seedNis2ApplicabilityTags } = await import("./nis2-tags-seed");
+      const tagsReport = await seedNis2ApplicabilityTags();
+      console.log(
+        `NIS2 applicability tags auto-seed: imported=${tagsReport.imported} updated=${tagsReport.updated} unchanged=${tagsReport.unchanged} skipped=${tagsReport.skipped} failed=${tagsReport.failed}`,
+      );
+    } catch (err) {
+      console.error("NIS2 applicability tags auto-seed error:", err);
+    }
+
+    try {
       const { seedNis2Art21Risks } = await import("./cyber-risks-seed");
       const riskReport = await seedNis2Art21Risks();
       console.log(

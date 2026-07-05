@@ -5230,6 +5230,276 @@ export async function registerRoutes(
     res.json({ enabled });
   });
 
+  // ==================== NIS2 APPLICABILITY / SCOPING MODULE ====================
+  // Refs: https://eur-lex.europa.eu/eli/dir/2022/2555/oj/eng (NIS2 Directive)
+  //       Art. 2 (scope & size-cap), Art. 3 (essential/important), Annex I/II sectors
+
+  const NIS2_SCOPING_FLAG = "NIS2_SCOPING";
+
+  // Server-side enforcement of the per-tenant NIS2_SCOPING feature flag.
+  // PLATFORM_ADMINs bypass. Tenants without the flag get a 403 — no scoping
+  // routes are reachable without the flag, even via direct API calls.
+  async function requireNis2ScopingModule(req: Request, res: Response, next: NextFunction) {
+    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    if (user.role === "PLATFORM_ADMIN") return next();
+    if (!user.tenantId) return res.status(403).json({ message: "NIS2 scoping module not enabled" });
+    const enabled = await storage.isFeatureEnabled(user.tenantId, NIS2_SCOPING_FLAG);
+    if (!enabled) return res.status(403).json({ message: "NIS2 scoping module not enabled for this organisation" });
+    next();
+  }
+
+  function emptyNis2Profile(tenantId: number) {
+    return {
+      tenantId,
+      nis2ScopeConfirmed: false,
+      establishedInEuEea: true,
+      country: null,
+      competentAuthority: null,
+      sectorGroup: null,
+      sector: null,
+      subsector: null,
+      employeeCount: null,
+      annualTurnoverMeur: null,
+      balanceSheetMeur: null,
+      sizeClass: null,
+      sizeIndependentEntity: false,
+      sizeIndependentReason: null,
+      publicAdministrationEntity: false,
+      soleProviderInMemberState: false,
+      memberStateDesignatedInScope: false,
+      explicitlyExcludedByMemberState: false,
+      operatesInMultipleMemberStates: false,
+      adminOverrideEnabled: false,
+      adminOverrideEntityClass: null,
+      adminOverrideReason: null,
+      computedInScope: false,
+      computedEntityClass: null,
+      computedReason: null,
+      nis2ApplicabilityNotes: null,
+      nis2LastScopeReviewDate: null,
+      nis2ScopeReviewedBy: null,
+    };
+  }
+
+  async function loadNis2Profile(tenantId: number) {
+    return (await storage.getNis2Profile(tenantId)) || null;
+  }
+
+  // GET /api/nis2/module-enabled — whether tenant can see the scoping module at all
+  app.get("/api/nis2/module-enabled", requireAuth, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    if (user.role === "PLATFORM_ADMIN") return res.json({ enabled: true });
+    if (!user.tenantId) return res.json({ enabled: false });
+    const enabled = await storage.isFeatureEnabled(user.tenantId, NIS2_SCOPING_FLAG);
+    res.json({ enabled });
+  });
+
+  // GET /api/nis2/profile — get this tenant's NIS2 regulatory profile (defaults if absent)
+  app.get("/api/nis2/profile", requireAuth, requireNis2ScopingModule, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+    const profile = (await loadNis2Profile(user.tenantId)) || emptyNis2Profile(user.tenantId);
+    res.json(profile);
+  });
+
+  // PUT /api/nis2/profile — upsert wizard answers; derives sizeClass and caches the decision
+  app.put("/api/nis2/profile", requireAuth, requireNis2ScopingModule, requireWriteAccess, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+    const { decideNis2Applicability, deriveSizeClass } = await import("./nis2-applicability");
+    const { insertNis2RegulatoryProfileSchema } = await import("@shared/schema");
+
+    const allowedFields = new Set([
+      "nis2ScopeConfirmed",
+      "establishedInEuEea",
+      "country",
+      "competentAuthority",
+      "sectorGroup",
+      "sector",
+      "subsector",
+      "employeeCount",
+      "annualTurnoverMeur",
+      "balanceSheetMeur",
+      "sizeIndependentEntity",
+      "sizeIndependentReason",
+      "publicAdministrationEntity",
+      "soleProviderInMemberState",
+      "memberStateDesignatedInScope",
+      "explicitlyExcludedByMemberState",
+      "operatesInMultipleMemberStates",
+      "nis2ApplicabilityNotes",
+    ]);
+    const raw: Record<string, any> = {};
+    for (const k of Object.keys(req.body || {})) {
+      if (allowedFields.has(k)) raw[k] = (req.body as any)[k];
+    }
+
+    // Zod-validate the whitelisted patch (partial — wizard saves step by step).
+    const parsed = insertNis2RegulatoryProfileSchema
+      .omit({ tenantId: true })
+      .partial()
+      .safeParse(raw);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid profile data", errors: parsed.error.flatten().fieldErrors });
+    }
+    const patch = parsed.data as Record<string, any>;
+
+    const existing = await loadNis2Profile(user.tenantId);
+    const merged: any = { ...(existing || emptyNis2Profile(user.tenantId)), ...patch };
+
+    // Admin override: only PLATFORM_ADMIN or TENANT_ADMIN can flip override flags
+    const isAdmin = user.role === "PLATFORM_ADMIN" || user.role === "TENANT_ADMIN";
+    if (typeof req.body?.adminOverrideEnabled === "boolean") {
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Only admins can set the override flag" });
+      }
+      if (req.body.adminOverrideEnabled && !req.body?.adminOverrideReason?.trim()) {
+        return res.status(400).json({ message: "adminOverrideReason is required when adminOverrideEnabled=true" });
+      }
+      const cls = req.body?.adminOverrideEntityClass;
+      if (req.body.adminOverrideEnabled && cls != null && cls !== "ESSENTIAL" && cls !== "IMPORTANT") {
+        return res.status(400).json({ message: "adminOverrideEntityClass must be ESSENTIAL or IMPORTANT" });
+      }
+      merged.adminOverrideEnabled = req.body.adminOverrideEnabled;
+      merged.adminOverrideReason = req.body.adminOverrideEnabled ? (req.body.adminOverrideReason || null) : null;
+      merged.adminOverrideEntityClass = req.body.adminOverrideEnabled ? (cls ?? merged.adminOverrideEntityClass ?? null) : null;
+    }
+
+    // Derive size class from raw inputs, then compute the final decision AFTER
+    // applying every mutation (incl. override) so what we persist, log, and
+    // return all reflect the same authoritative outcome.
+    merged.sizeClass = deriveSizeClass(merged);
+    const finalDecision = decideNis2Applicability(merged);
+    merged.computedInScope = finalDecision.inScope;
+    merged.computedEntityClass = finalDecision.entityClass;
+    merged.computedReason = finalDecision.reason;
+    merged.nis2LastScopeReviewDate = new Date();
+    merged.nis2ScopeReviewedBy = user.id;
+
+    const { createdAt, updatedAt, ...toPersist } = merged;
+    await storage.upsertNis2Profile(user.tenantId, toPersist);
+
+    await storage.createAuditLog({
+      actorUserId: user.id,
+      tenantId: user.tenantId,
+      action: "UPDATE_NIS2_PROFILE",
+      entityType: "Nis2RegulatoryProfile",
+      entityId: String(user.tenantId),
+      details: {
+        inScope: finalDecision.inScope,
+        entityClass: finalDecision.entityClass,
+        sizeClass: finalDecision.sizeClass,
+        reason: finalDecision.reason,
+        overridden: !!merged.adminOverrideEnabled,
+      },
+    });
+
+    const fresh = await loadNis2Profile(user.tenantId);
+    res.json({ profile: fresh, decision: finalDecision });
+  });
+
+  // GET /api/nis2/controls — ALL NIS2 controls annotated with per-control applicability
+  app.get("/api/nis2/controls", requireAuth, requireNis2ScopingModule, async (req, res) => {
+    const user = await getAuthUser(req);
+    if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+    const { decideNis2Applicability, isControlApplicable } = await import("./nis2-applicability");
+
+    const profile = (await loadNis2Profile(user.tenantId)) || emptyNis2Profile(user.tenantId);
+    const decision = decideNis2Applicability(profile);
+    const all = await storage.getNis2AtomicControls();
+
+    const controls = all.map((c) => {
+      const verdict = isControlApplicable(profile, c);
+      return { ...c, applicable: verdict.applicable, applicabilityReason: verdict.reason };
+    });
+    const applicableCount = controls.filter((c) => c.applicable).length;
+    res.json({
+      inScope: decision.inScope,
+      entityClass: decision.entityClass,
+      sizeClass: decision.sizeClass,
+      reason: decision.reason,
+      controls,
+      totalControls: all.length,
+      applicableCount,
+      excludedCount: all.length - applicableCount,
+    });
+  });
+
+  // POST /api/nis2/scoped-assessments — create an atomic assessment pre-scoped to the
+  // tenant's applicable NIS2 controls (shared atomic-assessment workspace, no new table).
+  app.post("/api/nis2/scoped-assessments", requireAuth, requireNis2ScopingModule, requireWriteAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+      const { decideNis2Applicability, computeApplicableNis2Controls } = await import("./nis2-applicability");
+
+      const profile = (await loadNis2Profile(user.tenantId)) || emptyNis2Profile(user.tenantId);
+      const decision = decideNis2Applicability(profile);
+      if (!decision.inScope) {
+        return res.status(400).json({
+          message: "NIS2 is not currently applicable to this organisation. Complete the scoping wizard first.",
+          reason: decision.reason,
+        });
+      }
+
+      const allNis2 = await storage.getNis2AtomicControls();
+      const applicable = computeApplicableNis2Controls(profile, allNis2);
+      if (applicable.length === 0) {
+        return res.status(400).json({ message: "No NIS2 controls are applicable to this organisation's profile." });
+      }
+
+      const rawName = (req.body?.name || "").toString().trim();
+      const name = rawName || `NIS2 Scoped Assessment — ${new Date().toISOString().slice(0, 10)}`;
+      const scopeNote = `NIS2 ${decision.entityClass} entity scope (${applicable.length} of ${allNis2.length} controls)`;
+      const scope = (req.body?.scope || "").toString().trim() || scopeNote;
+
+      const assessment = await storage.createAtomicAssessment({
+        tenantId: user.tenantId,
+        name,
+        scope,
+        createdBy: user.id,
+        status: "DRAFT",
+      });
+
+      // Pre-seed one response row per applicable control in a single batched insert so
+      // the assessment detail page renders the right control set immediately.
+      const rows = applicable.map((c: any) => ({
+        atomicAssessmentId: assessment.id,
+        atomicControlId: c.id,
+        implementationStatus: "NOT_STARTED" as const,
+        maturityLevel: 0,
+        confidence: "NONE" as const,
+        notes: null,
+        answeredBy: user.id,
+      }));
+      if (rows.length > 0) {
+        await db.insert(atomicAssessmentResponses).values(rows);
+      }
+
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "NIS2_SCOPED_ASSESSMENT_CREATED",
+        entityType: "AtomicAssessment",
+        entityId: String(assessment.id),
+        details: {
+          name,
+          scope,
+          controlCount: applicable.length,
+          entityClass: decision.entityClass,
+        },
+      });
+
+      return res.status(200).json({ assessment, controlCount: applicable.length });
+    } catch (err: any) {
+      console.error("[POST /api/nis2/scoped-assessments] failed:", err);
+      return res.status(500).json({ message: err?.message || "Failed to create NIS2 scoped assessment" });
+    }
+  });
+
   app.get("/api/admin/atomic-import/repo-file", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || user.role !== "PLATFORM_ADMIN") return res.status(403).json({ message: "Admin only" });

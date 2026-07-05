@@ -1,0 +1,633 @@
+{
+  "libraryCode": "NIS2_APPLICABILITY_TAGS_V1",
+  "generatedAt": "2026-07-05T15:50:38.549Z",
+  "entries": {
+    "NIS2-3-4-a": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-3-4-b": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-20-1-a": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-20-1-b": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-20-1-c": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-20-2-a": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-20-2-b": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-20-2-c": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-1-a": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-1-b": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-a-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-a-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-a-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-a-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-a-v": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-b-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-b-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-b-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-b-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-b-v": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-b-vi": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-c-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-c-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-c-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-c-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-c-v": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-d-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-d-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-d-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-d-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-e-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-e-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-e-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-e-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-e-v": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-f-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-f-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-f-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-f-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-g-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-g-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-g-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-h-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-h-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-h-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-i-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-i-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-i-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-i-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-i-v": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-i-vi": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-j-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-j-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-j-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-j-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-3": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-4": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-5": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-1": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-3": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-a-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-a-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-a-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-b-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-b-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-b-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-c": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-d-i": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-d-ii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-d-iii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-d-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-d-v": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-e": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-5": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-6": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-7": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-8": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-25-1": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-25-2": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-26-1": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-26-2": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-27-1": {
+      "tags": [
+        "SUBSECTOR_DNS_PROVIDER",
+        "SUBSECTOR_TLD_REGISTRY"
+      ]
+    },
+    "NIS2-27-2": {
+      "tags": [
+        "SUBSECTOR_DNS_PROVIDER",
+        "SUBSECTOR_TLD_REGISTRY"
+      ]
+    },
+    "NIS2-27-3": {
+      "tags": [
+        "SUBSECTOR_DNS_PROVIDER",
+        "SUBSECTOR_TLD_REGISTRY"
+      ]
+    },
+    "NIS2-27-4": {
+      "tags": [
+        "SUBSECTOR_DNS_PROVIDER",
+        "SUBSECTOR_TLD_REGISTRY"
+      ]
+    },
+    "NIS2-28-1": {
+      "tags": [
+        "SUBSECTOR_DNS_PROVIDER",
+        "SUBSECTOR_TLD_REGISTRY"
+      ]
+    },
+    "NIS2-28-3": {
+      "tags": [
+        "SUBSECTOR_DNS_PROVIDER",
+        "SUBSECTOR_TLD_REGISTRY"
+      ]
+    },
+    "NIS2-28-6": {
+      "tags": [
+        "SUBSECTOR_DNS_PROVIDER",
+        "SUBSECTOR_TLD_REGISTRY"
+      ]
+    },
+    "NIS2-29-1": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-29-2": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-29-4": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-32-2-a": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-2-b": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-2-c": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-2-d": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-2-e": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-2-f": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-2-g": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-4-a": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-33-2-a": {
+      "tags": [
+        "IMPORTANT_ONLY"
+      ]
+    },
+    "NIS2-33-2-b": {
+      "tags": [
+        "IMPORTANT_ONLY"
+      ]
+    },
+    "NIS2-33-2-c": {
+      "tags": [
+        "IMPORTANT_ONLY"
+      ]
+    },
+    "NIS2-33-2-d": {
+      "tags": [
+        "IMPORTANT_ONLY"
+      ]
+    },
+    "NIS2-33-4-a": {
+      "tags": [
+        "IMPORTANT_ONLY"
+      ]
+    },
+    "NIS2-33-4-b": {
+      "tags": [
+        "IMPORTANT_ONLY"
+      ]
+    },
+    "NIS2-32-4-b": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-4-c": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-4-d": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-4-e": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-32-4-f": {
+      "tags": [
+        "ESSENTIAL_ONLY"
+      ]
+    },
+    "NIS2-33-4-c": {
+      "tags": [
+        "IMPORTANT_ONLY"
+      ]
+    },
+    "NIS2-33-4-d": {
+      "tags": [
+        "IMPORTANT_ONLY"
+      ]
+    },
+    "NIS2-21-2-a-vi": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-b-vii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-c-vi": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-d-v": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-e-vi": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-e-vii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-f-v": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-i-vii": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-20-2-d": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-2-g-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-23-4-b-iv": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    },
+    "NIS2-21-1-c": {
+      "tags": [
+        "ALL_NIS2_ENTITIES"
+      ]
+    }
+  }
+}

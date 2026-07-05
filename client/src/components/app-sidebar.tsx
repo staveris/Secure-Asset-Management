@@ -48,6 +48,7 @@ import {
   ArrowDownToLine,
   AlertTriangle,
   Banknote,
+  Radar,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -93,6 +94,12 @@ export function AppSidebar() {
   });
   const doraEnabled = !!doraModule?.enabled;
 
+  const { data: nis2ScopingModule } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/nis2/module-enabled"],
+    enabled: !!user && !isPlatformAdmin,
+  });
+  const nis2ScopingEnabled = !!nis2ScopingModule?.enabled;
+
   const initials = user?.fullName
     ?.split(" ")
     .map((n) => n[0])
@@ -128,6 +135,9 @@ export function AppSidebar() {
                   ...tenantMenuItems.slice(0, 2),
                   ...(doraEnabled
                     ? [{ title: "DORA", url: "/dora", icon: Banknote, requiresFullAccess: false }]
+                    : []),
+                  ...(nis2ScopingEnabled
+                    ? [{ title: "NIS2 Scoping", url: "/nis2-scoping", icon: Radar, requiresFullAccess: false }]
                     : []),
                   ...tenantMenuItems.slice(2),
                 ].map((item) => {

@@ -1094,6 +1094,68 @@ export const insertDoraRegulatoryProfileSchema = createInsertSchema(doraRegulato
 export type DoraRegulatoryProfile = typeof doraRegulatoryProfile.$inferSelect;
 export type InsertDoraRegulatoryProfile = z.infer<typeof insertDoraRegulatoryProfileSchema>;
 
+// ----- NIS2 Applicability & Scoping module -----
+export const nis2EntityClassEnum = pgEnum("nis2_entity_class", ["ESSENTIAL", "IMPORTANT"]);
+export const nis2SizeClassEnum = pgEnum("nis2_size_class", ["MICRO", "SMALL", "MEDIUM", "LARGE"]);
+
+export const nis2RegulatoryProfile = pgTable("nis2_regulatory_profile", {
+  tenantId: integer("tenant_id").primaryKey().references(() => tenants.id, { onDelete: "cascade" }),
+
+  // Scope machinery
+  nis2ScopeConfirmed: boolean("nis2_scope_confirmed").notNull().default(false),
+  establishedInEuEea: boolean("established_in_eu_eea").notNull().default(true),
+  country: text("country"),
+  competentAuthority: text("competent_authority"),
+
+  // Sector (authoritative scoping copy; mirrors tenants.sectorGroup/sector/subsector)
+  sectorGroup: text("sector_group"), // "ANNEX_I" | "ANNEX_II"
+  sector: text("sector"),
+  subsector: text("subsector"),
+
+  // Size (Art. 2 size-cap rule). Store the raw inputs AND the derived class.
+  employeeCount: integer("employee_count"),
+  annualTurnoverMeur: integer("annual_turnover_meur"), // € millions
+  balanceSheetMeur: integer("balance_sheet_meur"), // € millions
+  sizeClass: nis2SizeClassEnum("size_class"), // engine-derived; persisted for reporting
+
+  // Size-independent / special triggers (in scope regardless of size)
+  sizeIndependentEntity: boolean("size_independent_entity").notNull().default(false),
+  sizeIndependentReason: text("size_independent_reason"), // e.g. "DNS_PROVIDER", "TLD_REGISTRY", "TRUST_SERVICE", "PUBLIC_COMMS", "SOLE_PROVIDER"
+  publicAdministrationEntity: boolean("public_administration_entity").notNull().default(false),
+  soleProviderInMemberState: boolean("sole_provider_in_member_state").notNull().default(false),
+
+  // Member-state extensions / exclusions
+  memberStateDesignatedInScope: boolean("member_state_designated_in_scope").notNull().default(false),
+  explicitlyExcludedByMemberState: boolean("explicitly_excluded_by_member_state").notNull().default(false),
+
+  // Cross-border footprint (affects jurisdiction, surfaced in reason strings)
+  operatesInMultipleMemberStates: boolean("operates_in_multiple_member_states").notNull().default(false),
+
+  // Admin override (authoritative once set; explicit exclusion still wins — mirrors DORA precedence)
+  adminOverrideEnabled: boolean("admin_override_enabled").notNull().default(false),
+  adminOverrideEntityClass: nis2EntityClassEnum("admin_override_entity_class"),
+  adminOverrideReason: text("admin_override_reason"),
+
+  // Engine outputs cached for dashboard/report (recomputed on every profile write)
+  computedInScope: boolean("computed_in_scope").notNull().default(false),
+  computedEntityClass: nis2EntityClassEnum("computed_entity_class"),
+  computedReason: text("computed_reason"),
+
+  nis2ApplicabilityNotes: text("nis2_applicability_notes"),
+  nis2LastScopeReviewDate: timestamp("nis2_last_scope_review_date"),
+  nis2ScopeReviewedBy: integer("nis2_scope_reviewed_by").references(() => users.id),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertNis2RegulatoryProfileSchema = createInsertSchema(nis2RegulatoryProfile).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+export type Nis2RegulatoryProfile = typeof nis2RegulatoryProfile.$inferSelect;
+export type InsertNis2RegulatoryProfile = z.infer<typeof insertNis2RegulatoryProfileSchema>;
+
 export const insertRiskLibraryEntrySchema = createInsertSchema(riskLibraryEntries).omit({
   id: true,
   createdAt: true,

@@ -69,6 +69,12 @@ interface DashboardData {
   cirImplemented?: number;
   doraControls?: number;
   doraImplemented?: number;
+  nis2ScopedInScope?: boolean;
+  nis2ScopedEntityClass?: string | null;
+  nis2ScopedApplicableCount?: number;
+  nis2ScopedControls?: number;
+  nis2ScopedImplemented?: number;
+  nis2ScopedMaturity?: number;
   activeTasks: number;
   overdueTasks: number;
   evidenceCount: number;
@@ -298,6 +304,10 @@ export default function Dashboard() {
   const doraCompletionPct = (data.doraControls ?? 0) > 0
     ? Math.round(((data.doraImplemented ?? 0) / (data.doraControls ?? 1)) * 100)
     : 0;
+  const hasNis2Scoped = !!data.nis2ScopedInScope;
+  const nis2ScopedCompletionPct = (data.nis2ScopedControls ?? 0) > 0
+    ? Math.round(((data.nis2ScopedImplemented ?? 0) / (data.nis2ScopedControls ?? 1)) * 100)
+    : 0;
 
   return (
     <div className="p-6 space-y-6" data-testid="dashboard-page">
@@ -323,7 +333,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {(hasAtomicControls || hasCir || hasDora) && (
+      {(hasAtomicControls || hasCir || hasDora || hasNis2Scoped) && (
         <div data-testid="nis2-cir-breakdown">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
@@ -488,6 +498,43 @@ export default function Dashboard() {
                         total={data.doraControls ?? 0}
                       />
                     )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {hasNis2Scoped && (
+                <Card className="border-cyan-200 dark:border-cyan-800/50" data-testid="card-nis2-scoped">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="p-2 rounded-md bg-cyan-500/10 shrink-0">
+                          <Radar className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-semibold text-sm" data-testid="text-nis2-scoped-title">NIS2 Scoped Controls</h4>
+                            <Badge variant="outline" className="text-[10px]">EU 2022/2555</Badge>
+                            {data.nis2ScopedEntityClass && (
+                              <Badge variant="outline" className="text-[10px]" data-testid="badge-nis2-scoped-entity-class">{data.nis2ScopedEntityClass}</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            NIS2 controls activated by your applicability/scoping profile (entity class, size and size-independent triggers). {data.nis2ScopedApplicableCount ?? 0} controls applicable to your organisation.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-bold" data-testid="text-nis2-scoped-pct">{nis2ScopedCompletionPct}%</div>
+                        <div className="text-[10px] text-muted-foreground">{data.nis2ScopedImplemented ?? 0}/{data.nis2ScopedControls ?? 0}</div>
+                      </div>
+                    </div>
+                    <Progress value={nis2ScopedCompletionPct} className="h-2" />
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <BarChart3 className="w-3 h-3" />
+                        Maturity: {(data.nis2ScopedMaturity ?? 0).toFixed(1)}/5.0
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               )}

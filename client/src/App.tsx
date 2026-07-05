@@ -36,6 +36,9 @@ import AtomicAssessmentDetail from "@/pages/atomic-assessment-detail";
 import DoraDashboard from "@/pages/dora-dashboard";
 import DoraWizard from "@/pages/dora-wizard";
 import DoraControls from "@/pages/dora-controls";
+import Nis2ScopingDashboard from "@/pages/nis2-scoping-dashboard";
+import Nis2ScopingWizard from "@/pages/nis2-scoping-wizard";
+import Nis2ScopingControls from "@/pages/nis2-scoping-controls";
 import Onboarding from "@/pages/onboarding";
 import VerifyEmail from "@/pages/verify-email";
 import VerificationPending from "@/pages/verification-pending";
@@ -52,6 +55,10 @@ import { useQuery } from "@tanstack/react-query";
 
 function useDoraEnabled() {
   return useQuery<{ enabled: boolean }>({ queryKey: ["/api/dora/module-enabled"] });
+}
+
+function useNis2ScopingEnabled() {
+  return useQuery<{ enabled: boolean }>({ queryKey: ["/api/nis2/module-enabled"] });
 }
 
 function RestrictedPage() {
@@ -101,6 +108,13 @@ function WithDoraModule({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
+function WithNis2Scoping({ component: Component }: { component: React.ComponentType }) {
+  const { data, isLoading } = useNis2ScopingEnabled();
+  if (isLoading) return null;
+  if (!data?.enabled) return <RestrictedPage />;
+  return <Component />;
+}
+
 function AdminRouter() {
   return (
     <Switch>
@@ -140,6 +154,9 @@ function TenantRouter() {
       <Route path="/dora">{() => <WithDoraModule component={DoraDashboard} />}</Route>
       <Route path="/dora/wizard">{() => <WithDoraModule component={DoraWizard} />}</Route>
       <Route path="/dora/controls">{() => <WithDoraModule component={DoraControls} />}</Route>
+      <Route path="/nis2-scoping">{() => <WithNis2Scoping component={Nis2ScopingDashboard} />}</Route>
+      <Route path="/nis2-scoping/wizard">{() => <WithNis2Scoping component={Nis2ScopingWizard} />}</Route>
+      <Route path="/nis2-scoping/controls">{() => <WithNis2Scoping component={Nis2ScopingControls} />}</Route>
       <Route path="/tasks">{() => <WithFullAccess component={Tasks} />}</Route>
       <Route path="/evidence">{() => <WithFullAccess component={Evidence} />}</Route>
       <Route path="/incidents">{() => <WithFullAccess component={Incidents} />}</Route>

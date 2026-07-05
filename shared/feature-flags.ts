@@ -24,6 +24,12 @@ export const FEATURE_FLAG_REGISTRY: FeatureFlagDefinition[] = [
     description: "Adds the NIS2 Article 21 cybersecurity risk register tab on the Risks page for this tenant.",
     icon: "shield",
   },
+  {
+    key: "NIS2_SCOPING",
+    label: "NIS2 Applicability & Scoping",
+    description: "Enables the NIS2 scoping wizard and applicability-filtered NIS2 control set for this tenant.",
+    icon: "shield",
+  },
 ];
 
 export function getFeatureFlagDefinition(key: string): FeatureFlagDefinition | undefined {

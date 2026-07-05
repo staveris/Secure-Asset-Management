@@ -1,0 +1,465 @@
+You are extending an existing, production, multi-tenant compliance SaaS. Study these files first
+and mirror their conventions exactly. Do not invent new patterns.
+
+
+server/dora-applicability.ts — the reference pure applicability engine (deterministic, unit-tested). Both new engines must follow this shape.
+server/dora-seed.ts — the reference idempotent, content-hash seeder. All new data loading must follow this shape (imported / updated / unchanged / skipped / failed report; never destructive).
+server/routes.ts — auth middleware (requireAuth, requireWriteAccess, requireFullAccess, requirePlatformAdmin, requireDoraModule), the /api/dora/* route group (profile GET/PUT, controls, assessments, module-enabled), the emptyDoraProfile() / loadDoraProfile() helpers, logSecurityEvent, and the storage.createAuditLog({ tenantId, actorUserId, action, entityType, entityId, details }) pattern.
+shared/schema.ts — Drizzle table style, especially doraRegulatoryProfile, atomicControls, atomicAssessments, atomicAssessmentResponses, legalSources, controlPackVersions, and the enums (atomicImplementationStatusEnum, atomicConfidenceEnum, assessmentStatusEnum).
+shared/feature-flags.ts — the FEATURE_FLAG_REGISTRY array. New flags are added here.
+server/storage.ts — the isFeatureEnabled(tenantId, flagKey) helper and the storage-method style.
+server/nis2-sectors.ts — the Annex I / Annex II sector + subsector taxonomy.
+data/atomic_controls_nis2_optionB.json — the 124 NIS2 atomic controls (each has controlId, legalRef, clausePath, tags, applicability, etc.).
+
+
+Non-negotiable engineering guardrails (apply to BOTH phases)
+
+
+Additive only. Do not modify, rename, or drop any existing table, column, control, assessment, or route. No data-destructive migrations. Existing NIS2/CIR/DORA assessments must behave identically after this work.
+Tenant isolation. Every new read/write of tenant data must be scoped by tenantId derived server-side from the session (never from the request body). Follow the existing fetch-scoped-by-tenant or fetch-then-verify-tenant patterns. Return 404 (not 403) for cross-tenant object access by non-platform-admins.
+Feature-flag gated. Each feature is off by default and gated by its own flag via a requireX middleware that mirrors requireDoraModule. Platform admins bypass the flag (as DORA does).
+Pure, tested engines. All applicability/mapping decision logic goes into pure functions in dedicated files with no DB or Express imports, each returning a human-readable reason. Ship Vitest unit tests alongside (mirror server/dora-applicability.test.ts).
+Idempotent seeding. All data loads are content-hash based, rerun-safe, and never overwrite tenant-authored data. Log an imported / updated / unchanged / skipped / failed report. Register a controlPackVersions / legalSources row where appropriate.
+Audit everything sensitive. Scope confirmations, tag regenerations, and any acceptance of a cross-framework suggestion must write an audit log with actor, tenant, target, timestamp, and a required reason where the DORA/Art.21 modules already require one.
+Server-authoritative validation. All request bodies validated with Zod. Reject unknown/extra fields for privileged inputs (no mass assignment).
+Type-safe. npm run check (tsc) must pass with zero errors. No any on new public function signatures except where mirroring the existing applicability jsonb accessor.
+No secrets, no new external network calls at runtime. Framework reference data ships as static JSON in data/.
+Stop at each verification gate and report results before continuing.
+
+
+
+PHASE A — NIS2 Applicability Engine
+
+Goal. Give NIS2 the same tailored, defensible, "why-is-this-control-in-scope" scoping that DORA
+already has. A tenant answers a short scoping wizard; a pure engine decides (a) whether NIS2 applies,
+(b) whether the entity is essential or important, and (c) which NIS2 atomic controls apply —
+each with a stated reason. Existing free-form NIS2 assessments are untouched; this adds a scoped
+control set on top of the same atomic_controls substrate, exactly as DORA did.
+
+A.1 Feature flag
+
+In shared/feature-flags.ts, append to FEATURE_FLAG_REGISTRY:
+
+ts{
+  key: "NIS2_SCOPING",
+  label: "NIS2 Applicability & Scoping",
+  description: "Enables the NIS2 scoping wizard and applicability-filtered NIS2 control set for this tenant.",
+  icon: "shield",
+},
+
+A.2 Schema — per-tenant NIS2 regulatory profile
+
+Add to shared/schema.ts, modelled directly on doraRegulatoryProfile (per-tenant PK, cascade delete,
+createdAt/updatedAt, scope-review fields, admin override). Also add matching insert/select
+Zod schemas and types via drizzle-zod, exactly as the DORA profile does.
+
+tsexport const nis2EntityClassEnum = pgEnum("nis2_entity_class", ["ESSENTIAL", "IMPORTANT"]);
+export const nis2SizeClassEnum = pgEnum("nis2_size_class", ["MICRO", "SMALL", "MEDIUM", "LARGE"]);
+
+export const nis2RegulatoryProfile = pgTable("nis2_regulatory_profile", {
+  tenantId: integer("tenant_id").primaryKey().references(() => tenants.id, { onDelete: "cascade" }),
+
+  // Scope machinery
+  nis2ScopeConfirmed: boolean("nis2_scope_confirmed").notNull().default(false),
+  establishedInEuEea: boolean("established_in_eu_eea").notNull().default(true),
+  country: text("country"),
+  competentAuthority: text("competent_authority"),
+
+  // Sector (mirrors tenants.sectorGroup/sector/subsector but is the authoritative scoping copy)
+  sectorGroup: text("sector_group"),            // "ANNEX_I" | "ANNEX_II"
+  sector: text("sector"),
+  subsector: text("subsector"),
+
+  // Size (Art. 2 size-cap rule). Store the raw inputs AND the derived class.
+  employeeCount: integer("employee_count"),
+  annualTurnoverMeur: integer("annual_turnover_meur"),        // € millions
+  balanceSheetMeur: integer("balance_sheet_meur"),            // € millions
+  sizeClass: nis2SizeClassEnum("size_class"),                 // engine-derived; persisted for reporting
+
+  // Size-independent / special triggers (in scope regardless of size)
+  sizeIndependentEntity: boolean("size_independent_entity").notNull().default(false),
+  sizeIndependentReason: text("size_independent_reason"),      // e.g. "DNS_PROVIDER", "TLD_REGISTRY", "TRUST_SERVICE", "PUBLIC_COMMS", "SOLE_PROVIDER"
+  publicAdministrationEntity: boolean("public_administration_entity").notNull().default(false),
+  soleProviderInMemberState: boolean("sole_provider_in_member_state").notNull().default(false),
+
+  // Member-state extensions / exclusions
+  memberStateDesignatedInScope: boolean("member_state_designated_in_scope").notNull().default(false),
+  explicitlyExcludedByMemberState: boolean("explicitly_excluded_by_member_state").notNull().default(false),
+
+  // Cross-border footprint (affects jurisdiction, surfaced in reason strings)
+  operatesInMultipleMemberStates: boolean("operates_in_multiple_member_states").notNull().default(false),
+
+  // Admin override (authoritative once set; explicit exclusion still wins — mirror DORA precedence)
+  adminOverrideEnabled: boolean("admin_override_enabled").notNull().default(false),
+  adminOverrideEntityClass: nis2EntityClassEnum("admin_override_entity_class"),
+  adminOverrideReason: text("admin_override_reason"),
+
+  // Engine outputs cached for dashboard/report (recomputed on every profile write)
+  computedInScope: boolean("computed_in_scope").notNull().default(false),
+  computedEntityClass: nis2EntityClassEnum("computed_entity_class"),
+  computedReason: text("computed_reason"),
+
+  nis2ApplicabilityNotes: text("nis2_applicability_notes"),
+  nis2LastScopeReviewDate: timestamp("nis2_last_scope_review_date"),
+  nis2ScopeReviewedBy: integer("nis2_scope_reviewed_by").references(() => users.id),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+Run npm run db:push after adding. Confirm no diff touches existing tables.
+
+A.3 Pure engine — server/nis2-applicability.ts
+
+Mirror dora-applicability.ts (no DB/Express imports; return a reason everywhere).
+
+Regulatory logic to implement (NIS2 Directive (EU) 2022/2555):
+
+
+deriveSizeClass(profile) → MICRO/SMALL/MEDIUM/LARGE using the EU SME definition:
+
+MICRO: < 10 staff and ≤ €2M turnover and ≤ €2M balance sheet.
+SMALL: < 50 staff and ≤ €10M turnover and ≤ €10M balance sheet.
+MEDIUM: < 250 staff and (≤ €50M turnover or ≤ €43M balance sheet).
+LARGE: otherwise.
+(Use the standard "and for the ceilings, or between turnover/balance sheet" reading. If inputs are missing, return null and treat size as indeterminate — see rule 3.)
+
+
+
+decideNis2Applicability(profile) → { inScope: boolean, entityClass: "ESSENTIAL" | "IMPORTANT" | null, sizeClass, reason: string }. Precedence, top to bottom:
+
+If explicitlyExcludedByMemberState → not in scope, reason "Explicitly excluded by Member State".
+If adminOverrideEnabled → in scope, entityClass = adminOverrideEntityClass ?? computed, reason "Manual admin override".
+If !nis2ScopeConfirmed → not in scope (undetermined), reason "Scope not confirmed".
+If !establishedInEuEea and not memberStateDesignatedInScope → not in scope, reason "Not established in EU/EEA and not designated".
+Sector gate: if sectorGroup/sector is not a recognised Annex I or II sector (validate against NIS2_SECTORS) and not memberStateDesignatedInScope → not in scope, reason "Sector not in Annex I or II".
+Size gate with size-independent carve-outs:
+
+In scope regardless of size if any of: sizeIndependentEntity (DNS providers, TLD name registries, trust service providers, providers of public electronic communications networks/services, top-level registrars), publicAdministrationEntity, soleProviderInMemberState, memberStateDesignatedInScope.
+Otherwise require MEDIUM or LARGE size. If MICRO/SMALL and no carve-out → not in scope, reason "Below size threshold (micro/small) and no size-independent trigger".
+If size indeterminate (missing inputs) and no carve-out → in scope = false with undetermined note, reason "Size undetermined — provide headcount/turnover to complete scoping". (Do not guess.)
+
+
+
+Essential vs Important classification (when in scope):
+
+ESSENTIAL if: LARGE entity in an Annex I sector; or any size-independent essential type (DNS/TLD/trust/public-comms per the Directive); or central public administration; or the entity qualifies as essential under a Member-State designation flag.
+IMPORTANT otherwise (e.g. MEDIUM Annex I entities, and Annex II entities not otherwise essential).
+Always populate reason with the deciding facts (sector group, size class, trigger).
+
+
+
+
+
+
+getControlTags(ctrl) — reuse the same accessor shape as DORA (reads ctrl.applicability.tags, returns string[]).
+isControlApplicable(profile, ctrl) → { applicable, reason }:
+
+If !decideNis2Applicability(profile).inScope → not applicable, propagate the reason.
+Tag gates (a control applies if it matches the entity’s class/sector; see tag taxonomy A.4):
+
+ALL_NIS2_ENTITIES → always applies when in scope.
+ESSENTIAL_ONLY → applies only if entityClass === "ESSENTIAL" (e.g. ex-ante supervision, mandatory audits).
+IMPORTANT_ONLY → applies only if entityClass === "IMPORTANT" (ex-post supervision specifics).
+Sector tags (e.g. SECTOR_DIGITAL_INFRASTRUCTURE, SUBSECTOR_DNS_PROVIDER) → apply only if the tenant’s sector/subsector matches.
+SIZE_INDEPENDENT_ONLY → applies only if a size-independent trigger is set.
+
+
+
+A control with no class/sector tag defaults to applicable-when-in-scope (backwards compatible with today’s ALL_NIS2_ENTITIES default).
+
+
+
+computeApplicableNis2Controls(profile, controls) — filter helper mirroring computeApplicableDoraControls.
+
+
+A.4 Control tag augmentation (non-destructive)
+
+The existing NIS2 atomic controls mostly carry only ALL_NIS2_ENTITIES. Do not hand-edit control
+obligation text. Instead:
+
+
+Author a new file data/nis2_applicability_tags.json keyed by controlId, e.g.
+
+
+json  {
+    "libraryCode": "NIS2_APPLICABILITY_TAGS_V1",
+    "generatedAt": "<ISO date>",
+    "entries": {
+      "NIS2-21-2-a": { "tags": ["ALL_NIS2_ENTITIES"] },
+      "NIS2-23-1":   { "tags": ["ALL_NIS2_ENTITIES"] },
+      "NIS2-32-x":   { "tags": ["ESSENTIAL_ONLY"] },
+      "NIS2-33-x":   { "tags": ["IMPORTANT_ONLY"] }
+    }
+  }
+
+Populate it by classifying each of the 124 controls. Base rule: Article 21 risk-management
+measures and Article 23 incident-notification duties apply to ALL_NIS2_ENTITIES. Differentiate
+only where the Directive itself differentiates — chiefly the supervisory regime: Article 32
+(supervision/enforcement of essential entities — ex-ante, regular audits) → ESSENTIAL_ONLY;
+Article 33 (supervision of important entities — ex-post) → IMPORTANT_ONLY. Sector-specific
+obligations get the matching sector/subsector tag. When in doubt, keep ALL_NIS2_ENTITIES (safe,
+inclusive default — never under-scope a compliance obligation).
+
+
+Add server/nis2-tags-seed.ts (mirror dora-seed.ts): idempotent, content-hash based. For each
+entry it merges the tags into the existing control’s applicability.tags (union, de-duplicated),
+without clearing tags that are already present and without touching any non-NIS2 sourceKey.
+Emit the standard report. Register a controlPackVersions row (generator: "nis2-tags-seed").
+Wire it into the existing startup seed block in server/index.ts alongside the DORA/Art.21 auto-seeds,
+guarded by try/catch with a console report, matching the current style.
+
+
+A.5 Storage + middleware helpers
+
+
+In server/storage.ts, add: getNis2Profile(tenantId), upsertNis2Profile(tenantId, values),
+and getNis2AtomicControls() (i.e. active atomic_controls where sourceKey is the NIS2 source key,
+matching how DORA controls are fetched). Follow the existing method signatures/return typing.
+In server/routes.ts, add requireNis2ScopingModule mirroring requireDoraModule (uses
+storage.isFeatureEnabled(tenantId, "NIS2_SCOPING"), platform-admin bypass), plus
+emptyNis2Profile(tenantId) and loadNis2Profile(tenantId) mirroring the DORA equivalents.
+
+
+A.6 API routes (mirror the /api/dora/* group)
+
+All under requireAuth + requireNis2ScopingModule; writes also require requireWriteAccess
+(and requireFullAccess where the DORA equivalents do). All mutations write audit logs.
+
+
+GET  /api/nis2/module-enabled → { enabled: boolean } (no module guard; mirror /api/dora/module-enabled).
+GET  /api/nis2/profile → returns stored profile or emptyNis2Profile defaults.
+PUT  /api/nis2/profile → Zod-validate wizard answers, derive sizeClass, run decideNis2Applicability,
+persist inputs and the cached computedInScope/computedEntityClass/computedReason, stamp
+nis2LastScopeReviewDate + nis2ScopeReviewedBy, audit UPDATE_NIS2_PROFILE with the decision in details.
+GET  /api/nis2/controls → { inScope, entityClass, reason, controls: [...] } where each control carries
+its own { applicable, reason }. Return all NIS2 controls annotated (so the UI can show
+included and excluded with rationale), plus counts.
+POST /api/nis2/scoped-assessments → create an atomic_assessments row pre-scoped to the applicable
+NIS2 controls (mirror POST /api/dora/assessments: seed atomic_assessment_responses only for
+applicable controls, NOT_STARTED). Reuse the shared atomic-assessment workspace. Do not create a
+new assessment table.
+
+
+A.7 Frontend (follow existing DORA pages/components)
+
+
+Sidebar entry "NIS2 Scoping" appears only when NIS2_SCOPING is enabled (reuse the DORA sidebar-gating pattern).
+/nis2/wizard — stepper for sector → size (headcount/turnover/balance sheet) → size-independent triggers →
+public-admin/sole-provider → member-state designation/exclusion → review & confirm. Show the live
+applicability decision (in scope?, essential/important, reason) before confirming. Reuse the DORA wizard components.
+/nis2/controls — table of controls with an "Applicable / Excluded" filter and the per-control reason (this
+is the auditor-facing "why" view).
+/nis2 dashboard card — in-scope status, entity class, applicable-control count, and maturity for the
+scoped set. Extend GET /api/dashboard to add nis2ScopedControls / nis2ScopedImplemented buckets
+additively (do not alter existing dashboard buckets).
+
+
+A.8 Tests (Vitest) — server/nis2-applicability.test.ts
+
+Cover at minimum: SME size derivation at each boundary; medium Annex I → IMPORTANT; large Annex I → ESSENTIAL;
+micro Annex II with no trigger → out of scope; micro DNS provider → in scope + ESSENTIAL via
+SIZE_INDEPENDENT_ONLY; explicit MS exclusion beats everything; admin override beats scope-not-confirmed
+but not explicit exclusion; ESSENTIAL_ONLY/IMPORTANT_ONLY/sector-tag gating; untagged control stays
+applicable when in scope; size-indeterminate returns the "provide inputs" reason. Aim for parity with the
+23-test DORA suite.
+
+✅ Phase A verification gate (agent must stop and report)
+
+
+npm run check passes (0 TS errors); npm run db:push shows only the new table.
+New Vitest suite passes.
+With NIS2_SCOPING off, the app is byte-for-byte unchanged (no new sidebar entry, existing NIS2/CIR/DORA assessments identical).
+With it on for a test tenant: wizard persists, /api/nis2/controls returns annotated controls with reasons, a scoped assessment can be created and edited in the existing atomic workspace, and an audit log row is written on profile save.
+Report the tag-seed imported/updated/unchanged/skipped/failed counts.
+
+
+
+PHASE B — Cross-Framework Mapping ("Answer once, satisfy many")
+
+Goal. Let evidence and answers captured once flow as suggestions to equivalent controls in other
+frameworks (NIS2 ↔ DORA ↔ CIR internally, plus outbound mapping to ISO/IEC 27001:2022 Annex A and
+NIST CSF 2.0 as reference targets), and give subscribers a coverage matrix showing how much of one
+framework is already satisfiable from what they’ve answered elsewhere.
+
+
+Compliance-integrity rule (highest priority for this phase): cross-framework propagation is
+advisory only. Nothing is ever auto-marked implemented/compliant. Every propagated answer is a
+PENDING suggestion that a full-access human must explicitly accept, and every acceptance is
+audit-logged with the complete provenance chain (source control → crosswalk → target control). Only
+EQUIVALENT relationships may pre-fill a status at equal strength; SUPERSET/SUBSET/PARTIAL may
+suggest but must down-rank confidence and must not pre-fill a terminal "compliant" status.
+
+
+
+B.1 Feature flag
+
+Append to FEATURE_FLAG_REGISTRY:
+
+ts{
+  key: "CROSS_FRAMEWORK_MAPPING",
+  label: "Cross-Framework Mapping",
+  description: "Maps controls across NIS2, DORA, CIR, ISO 27001 and NIST CSF; suggests answers across frameworks.",
+  icon: "atom",
+},
+
+B.2 Schema (all additive)
+
+tsexport const crosswalkRelationshipEnum = pgEnum("crosswalk_relationship", [
+  "EQUIVALENT", "SUPERSET", "SUBSET", "PARTIAL", "RELATED",
+]);
+export const crossSuggestionStatusEnum = pgEnum("cross_suggestion_status", [
+  "PENDING", "ACCEPTED", "REJECTED", "SUPERSEDED",
+]);
+
+// Reference catalog for external frameworks (ISO 27001:2022, NIST CSF 2.0). Global, not tenant-scoped.
+export const externalFrameworkControls = pgTable("external_framework_controls", {
+  id: serial("id").primaryKey(),
+  frameworkKey: text("framework_key").notNull(),   // "ISO_27001_2022" | "NIST_CSF_2_0"
+  controlRef: text("control_ref").notNull(),        // "A.5.7" | "GV.OC-01"
+  title: text("title").notNull(),
+  description: text("description"),
+  sourceUrl: text("source_url"),
+  contentHash: text("content_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({ uniqueRef: unique().on(t.frameworkKey, t.controlRef) }));
+
+// Crosswalk edges. Exactly one of (toAtomicControlId, toExternalControlId) is set.
+export const controlCrosswalks = pgTable("control_crosswalks", {
+  id: serial("id").primaryKey(),
+  fromAtomicControlId: integer("from_atomic_control_id").references(() => atomicControls.id).notNull(),
+  toAtomicControlId: integer("to_atomic_control_id").references(() => atomicControls.id),
+  toExternalControlId: integer("to_external_control_id").references(() => externalFrameworkControls.id),
+  relationship: crosswalkRelationshipEnum("relationship").notNull(),
+  confidence: integer("confidence").notNull().default(50),   // 0..100
+  direction: text("direction").notNull().default("BIDIRECTIONAL"), // "BIDIRECTIONAL" | "FORWARD"
+  rationale: text("rationale"),
+  provenance: text("provenance"),   // where the mapping came from (e.g. "editorial_v1")
+  contentHash: text("content_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tenant-scoped propagation suggestions produced when a response is saved.
+export const crossFrameworkSuggestions = pgTable("cross_framework_suggestions", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  crosswalkId: integer("crosswalk_id").references(() => controlCrosswalks.id).notNull(),
+  sourceAtomicControlId: integer("source_atomic_control_id").references(() => atomicControls.id).notNull(),
+  sourceResponseId: integer("source_response_id").references(() => atomicAssessmentResponses.id),
+  targetAtomicAssessmentId: integer("target_atomic_assessment_id").references(() => atomicAssessments.id).notNull(),
+  targetAtomicControlId: integer("target_atomic_control_id").references(() => atomicControls.id).notNull(),
+  suggestedStatus: atomicImplementationStatusEnum("suggested_status"),
+  suggestedMaturity: integer("suggested_maturity"),
+  suggestedConfidence: atomicConfidenceEnum("suggested_confidence"),
+  status: crossSuggestionStatusEnum("status").notNull().default("PENDING"),
+  reason: text("reason"),
+  decidedBy: integer("decided_by").references(() => users.id),
+  decidedAt: timestamp("decided_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  // one live suggestion per (tenant, target response slot, crosswalk)
+  uniqueLive: unique().on(t.tenantId, t.targetAtomicAssessmentId, t.targetAtomicControlId, t.crosswalkId),
+}));
+
+Run npm run db:push; confirm additive-only.
+
+B.3 Reference + crosswalk data (idempotent seeds)
+
+
+data/external_framework_controls.json — ISO/IEC 27001:2022 Annex A (93 controls) and NIST CSF 2.0
+subcategories, each { frameworkKey, controlRef, title, description, sourceUrl }. Ship a real starter
+set; it can be expanded later. Source URLs only (no scraping at runtime).
+data/control_crosswalks.json — editorial mapping edges. Author a high-confidence starter set for
+the highest-value overlaps first: NIS2 Art.21 ↔ DORA ICT-RMF ↔ ISO 27001 Annex A ↔ NIST CSF, and
+NIS2 Art.23 ↔ DORA incident-reporting. Every edge needs relationship, confidence, direction,
+and a one-line rationale citing the article/clause. Mark only genuine one-to-one matches as
+EQUIVALENT; use PARTIAL/SUPERSET/SUBSET honestly.
+server/cross-framework-seed.ts — idempotent, content-hash based, mirroring dora-seed.ts. Resolves
+controlId/controlRef strings to FK ids at load time; skips edges whose endpoints don’t resolve
+(report them as skipped with the unresolved key). Register controlPackVersions rows.
+Wire into server/index.ts startup seeds (guarded, with report), alongside the others.
+
+
+B.4 Pure engine — server/cross-framework.ts (no DB/Express imports)
+
+
+type SavedResponseFacts = { atomicControlId, implementationStatus, maturityLevel, confidence }.
+planSuggestions(sourceFacts, crosswalks, targetSlots) → returns candidate suggestion objects. Rules:
+
+Only generate a suggestion when the source response is meaningfully positive (e.g. status is
+IMPLEMENTED or maturity ≥ a threshold constant) — never propagate "not started".
+EQUIVALENT (confidence ≥ 80): may suggest the same status, maturity, and confidence.
+SUPERSET (source covers more than target): may suggest status but cap suggested maturity/confidence one level below source; never a terminal "fully implemented" without human review.
+SUBSET / PARTIAL: suggest only as "review — partially covered", never pre-fill an affirmative status; set suggestedStatus to a non-terminal value and low confidence.
+RELATED: informational only; do not create an actionable suggestion (surface in coverage matrix only).
+Every candidate carries a reason string with the provenance chain and relationship.
+
+
+
+computeCoverage(answeredControlIds, crosswalks, frameworkKey) → per-target-framework { mappable, alreadyAnswered, potentialFromMapping, percentages } for the matrix.
+Unit-test this file heavily (server/cross-framework.test.ts): positive/negative propagation, each relationship’s down-ranking, idempotent suggestion identity, coverage math.
+
+
+B.5 Wiring, storage, routes
+
+
+Hook (non-blocking): in the existing atomic-response save path (the route that writes
+atomic_assessment_responses), after a successful save call a enqueueCrossFrameworkSuggestions(tenantId, savedResponse) storage helper inside a try/catch that never fails the original request. It looks up crosswalks for the saved control, finds the tenant’s other atomic assessments containing the mapped target controls, runs planSuggestions, and upserts PENDING rows (dedup on the unique constraint; supersede stale ones). This must add negligible latency and must not throw into the response path.
+Storage helpers: getCrosswalksForControl(atomicControlId), enqueueCrossFrameworkSuggestions(...), listPendingSuggestions(tenantId), getSuggestion(tenantId, id), decideSuggestion(...).
+Routes (all requireAuth; the module guard requireCrossFrameworkModule mirrors requireDoraModule; accept/reject also require requireWriteAccess + requireFullAccess):
+
+GET  /api/cross-framework/module-enabled
+GET  /api/crosswalks/:atomicControlId → edges for a control (with target titles/framework refs), for the "also satisfies…" panel on a control card.
+GET  /api/cross-framework/suggestions → tenant’s PENDING suggestions, enriched with source/target titles, relationship, confidence, reason.
+POST /api/cross-framework/suggestions/:id/accept → validate the suggestion belongs to the tenant, apply the target atomic_assessment_responses value, set suggestion ACCEPTED + decidedBy/decidedAt, and write an audit log (ACCEPT_CROSS_FRAMEWORK_SUGGESTION) with the full provenance in details. Never accept RELATED.
+POST /api/cross-framework/suggestions/:id/reject → set REJECTED + audit.
+GET  /api/cross-framework/coverage → the coverage matrix across enabled frameworks for this tenant.
+
+
+
+
+
+B.6 Frontend (follow existing patterns)
+
+
+On atomic control cards (NIS2/DORA/CIR workspaces), a subtle "Also maps to N controls" affordance that opens the crosswalk panel (from /api/crosswalks/:id).
+A "Cross-Framework" review inbox page listing PENDING suggestions with source→target, relationship, confidence, reason, and Accept/Reject actions (Accept disabled for anything requiring caution is fine, but always human-driven). Make the provenance and the "advisory, not automatic compliance" framing explicit in the UI copy.
+A Coverage Matrix view (frameworks × domains) showing answered / mappable / potential, driven by /api/cross-framework/coverage. Reuse Recharts + existing card styling.
+Gate all of the above behind CROSS_FRAMEWORK_MAPPING.
+
+
+✅ Phase B verification gate (agent must stop and report)
+
+
+npm run check passes; npm run db:push additive-only; new Vitest suite passes.
+With the flag off, no behaviour changes and the response-save hook is inert.
+With it on: seeds report resolved/skipped edge counts; answering an IMPLEMENTED NIS2 control that has an EQUIVALENT DORA/ISO crosswalk creates a PENDING suggestion (never an auto-applied answer); accepting it writes the target response and an audit log with provenance; rejecting it records the decision; PARTIAL/SUBSET never pre-fill an affirmative terminal status; the coverage matrix renders.
+Confirm the response-save path latency is unaffected and the hook cannot fail the original save.
+
+
+
+Suggested commit sequence
+
+
+feat(nis2): add NIS2 regulatory profile schema + feature flag
+feat(nis2): pure applicability engine + unit tests
+feat(nis2): tag augmentation data + idempotent seed
+feat(nis2): profile/controls/scoped-assessment routes + storage
+feat(nis2): scoping wizard, controls view, dashboard card
+feat(xfw): crosswalk + external-framework + suggestions schema + flag
+feat(xfw): reference + crosswalk data + idempotent seeds
+feat(xfw): pure suggestion/coverage engine + unit tests
+feat(xfw): response-save hook, storage, suggestion + coverage routes
+feat(xfw): crosswalk panel, review inbox, coverage matrix UI
+
+
+Each commit must leave npm run check green and existing features untouched with the flags off.
+
+Definition of done
+
+
+Both feature flags default off; enabling either changes only that feature’s surface.
+Two pure engines with passing unit-test suites; no DB/Express imports in either engine file.
+All new mutations tenant-scoped, Zod-validated, and audit-logged; cross-framework acceptance is human-in-the-loop with full provenance.
+All seeds idempotent with imported/updated/unchanged/skipped/failed reporting; no destructive migration.
+npm run check passes with zero errors; existing NIS2/CIR/DORA/Art.21/supplier behaviour is unchanged when flags are off.

@@ -135,6 +135,9 @@ import {
   type RiskLibraryEntry,
   type TenantRiskRegisterItem,
   type InsertTenantRiskRegisterItem,
+  nis2RegulatoryProfile,
+  type Nis2RegulatoryProfile,
+  type InsertNis2RegulatoryProfile,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -320,6 +323,10 @@ export interface IStorage {
   getFeatureFlag(tenantId: number | null, key: string): Promise<FeatureFlag | undefined>;
   setFeatureFlag(tenantId: number | null, key: string, enabled: boolean): Promise<FeatureFlag>;
   isFeatureEnabled(tenantId: number, key: string): Promise<boolean>;
+
+  getNis2Profile(tenantId: number): Promise<Nis2RegulatoryProfile | undefined>;
+  upsertNis2Profile(tenantId: number, values: Partial<InsertNis2RegulatoryProfile>): Promise<Nis2RegulatoryProfile>;
+  getNis2AtomicControls(): Promise<AtomicControl[]>;
 
   createLegalSource(data: InsertLegalSource): Promise<LegalSource>;
   getAllLegalSources(): Promise<LegalSource[]>;
@@ -1205,11 +1212,51 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // NIS2 scoped buckets (additive — only meaningful when a scoping profile exists).
+    // Uses the applicability engine to restrict the NIS2 atomic set to the tenant's
+    // applicable controls per its regulatory profile. Never alters existing buckets.
+    let nis2ScopedControls = 0;
+    let nis2ScopedImplemented = 0;
+    let nis2ScopedMaturity = 0;
+    let nis2ScopedInScope = false;
+    let nis2ScopedEntityClass: string | null = null;
+    let nis2ScopedApplicableCount = 0;
+    try {
+      const nis2Profile = await this.getNis2Profile(tenantId);
+      if (nis2Profile) {
+        const { decideNis2Applicability, computeApplicableNis2Controls, NIS2_SOURCE_KEY } = await import("./nis2-applicability");
+        const decision = decideNis2Applicability(nis2Profile);
+        nis2ScopedInScope = decision.inScope;
+        nis2ScopedEntityClass = decision.entityClass;
+        if (decision.inScope) {
+          const nis2Controls = allAtomicControlsList.filter(c => c.sourceKey === NIS2_SOURCE_KEY && c.isActive);
+          const applicableIds = new Set(computeApplicableNis2Controls(nis2Profile, nis2Controls).map(c => c.id));
+          nis2ScopedApplicableCount = applicableIds.size;
+          let scopedMaturitySum = 0;
+          for (const r of allAtomicResponses) {
+            if (!applicableIds.has(r.atomicControlId)) continue;
+            nis2ScopedControls++;
+            scopedMaturitySum += r.maturityLevel;
+            if (r.implementationStatus === "IMPLEMENTED" || r.implementationStatus === "VERIFIED") nis2ScopedImplemented++;
+          }
+          nis2ScopedMaturity = nis2ScopedControls > 0 ? parseFloat((scopedMaturitySum / nis2ScopedControls).toFixed(1)) : 0;
+        }
+      }
+    } catch (err) {
+      console.error("NIS2 scoped dashboard bucket error (non-fatal):", err);
+    }
+
     return {
       complianceScore,
       maturityAverage,
       implementedControls,
       totalControls,
+      nis2ScopedInScope,
+      nis2ScopedEntityClass,
+      nis2ScopedApplicableCount,
+      nis2ScopedControls,
+      nis2ScopedImplemented,
+      nis2ScopedMaturity,
       nis2Controls: nis2Total,
       nis2Implemented,
       nis2ObjectiveControls: nis2ObjTotal,
@@ -1553,6 +1600,35 @@ export class DatabaseStorage implements IStorage {
     const globalFlag = await this.getFeatureFlag(null, key);
     if (globalFlag) return globalFlag.enabled;
     return false;
+  }
+
+  async getNis2Profile(tenantId: number): Promise<Nis2RegulatoryProfile | undefined> {
+    const [row] = await db.select().from(nis2RegulatoryProfile).where(eq(nis2RegulatoryProfile.tenantId, tenantId));
+    return row;
+  }
+
+  async upsertNis2Profile(tenantId: number, values: Partial<InsertNis2RegulatoryProfile>): Promise<Nis2RegulatoryProfile> {
+    const existing = await this.getNis2Profile(tenantId);
+    if (existing) {
+      const [updated] = await db
+        .update(nis2RegulatoryProfile)
+        .set({ ...values, tenantId, updatedAt: new Date() } as any)
+        .where(eq(nis2RegulatoryProfile.tenantId, tenantId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(nis2RegulatoryProfile)
+      .values({ ...values, tenantId } as any)
+      .returning();
+    return created;
+  }
+
+  async getNis2AtomicControls(): Promise<AtomicControl[]> {
+    return db
+      .select()
+      .from(atomicControls)
+      .where(and(eq(atomicControls.sourceKey, "NIS2_2022_2555"), eq(atomicControls.isActive, true)));
   }
 
   async createLegalSource(data: InsertLegalSource): Promise<LegalSource> {

@@ -1,3 +1,4 @@
 - [Docker build needs attached_assets](docker-build-assets.md) — .dockerignore must keep attached_assets (Vite @assets resolves there at build time); drizzle-kit pruned from runtime image so migrations run as a separate step.
 - [Azure deployment approach](azure-deployment.md) — target is Azure Container Apps; evidence uses mounted Azure Files with the local provider (no blob adapter); cross-cloud deploy facts (sslmode=require, out-of-band db:push, ALLOWED_HOST).
+- [Testing & TS baseline quirks](testing-and-ts-baseline.md) — npm run check has ~141 pre-existing zod/drizzle TS errors (not regressions); vitest needs the root vitest.config.ts, legacy tsx harness tests excluded.
 - [Replit prod DB -> external clone](replit-to-external-db-clone.md) — only read-replica access to prod; clone small datasets via introspect + base64-INSERT dump (topo order, quote_nullable), psql load; evidence binaries not in DB.
