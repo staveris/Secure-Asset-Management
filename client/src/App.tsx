@@ -32,6 +32,7 @@ import AdminEmailSettings from "@/pages/admin-email-settings";
 import AdminStorage from "@/pages/admin-storage";
 import AdminAtomicLibrary from "@/pages/admin-atomic-library";
 import AdminAtomicImport from "@/pages/admin-atomic-import";
+import AdminCrosswalkReview from "@/pages/admin-crosswalk-review";
 import AtomicAssessments from "@/pages/atomic-assessments";
 import AtomicAssessmentDetail from "@/pages/atomic-assessment-detail";
 import DoraDashboard from "@/pages/dora-dashboard";
@@ -147,6 +148,7 @@ function AdminRouter() {
       <Route path="/admin/audit-log" component={AdminAuditLog} />
       <Route path="/admin/atomic-library" component={AdminAtomicLibrary} />
       <Route path="/admin/atomic-import" component={AdminAtomicImport} />
+      <Route path="/admin/crosswalk-review" component={AdminCrosswalkReview} />
       <Route path="/admin/email-settings" component={AdminEmailSettings} />
       <Route path="/settings" component={SettingsPage} />
       <Route><Redirect to="/admin" /></Route>

@@ -1210,6 +1210,9 @@ export const externalFrameworkControls = pgTable("external_framework_controls", 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => ({ uniqueRef: unique().on(t.frameworkKey, t.controlRef) }));
 
+// Per-edge SME review (Phase B): approval is a sign-off on specific edge content.
+export const edgeReviewStatusEnum = pgEnum("edge_review_status", ["DRAFT", "APPROVED"]);
+
 // Crosswalk edges. Exactly one of (toAtomicControlId, toExternalControlId) is set.
 export const controlCrosswalks = pgTable("control_crosswalks", {
   id: serial("id").primaryKey(),
@@ -1222,6 +1225,10 @@ export const controlCrosswalks = pgTable("control_crosswalks", {
   rationale: text("rationale"),
   provenance: text("provenance"), // where the mapping came from (e.g. "editorial_v1")
   contentHash: text("content_hash"),
+  reviewStatus: edgeReviewStatusEnum("review_status").notNull().default("DRAFT"),
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNote: text("review_note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

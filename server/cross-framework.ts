@@ -42,7 +42,13 @@ export interface CrosswalkFact {
   direction: string; // "BIDIRECTIONAL" | "FORWARD"
   rationale?: string | null;
   provenance?: string | null;
+  /** Phase B: per-edge SME review. Absent => "DRAFT" (fail conservative). */
+  reviewStatus?: "DRAFT" | "APPROVED";
 }
+
+/** Reason text stamped on demoted unapproved-EQUIVALENT suggestions (Phase B). */
+export const PENDING_REVIEW_NOTE =
+  "EQUIVALENT mapping pending SME review — treated as partial until approved";
 
 /** A slot in one of the tenant's other atomic assessments that contains a mapped target control. */
 export interface TargetSlot {
@@ -154,7 +160,17 @@ export function planSuggestions(
     let suggestedConfidence: ConfidenceLevel | null;
     let note: string;
 
-    if (rel === "EQUIVALENT" && edge.crosswalk.confidence >= MIN_EQUIVALENT_CONFIDENCE) {
+    // Phase B: an EQUIVALENT edge without SME approval is treated exactly as
+    // PARTIAL — advisory-only, no affirmative terminal status, down-ranked
+    // confidence — until it is signed off. Missing reviewStatus => DRAFT.
+    const edgeApproved = (edge.crosswalk.reviewStatus ?? "DRAFT") === "APPROVED";
+
+    if (rel === "EQUIVALENT" && !edgeApproved) {
+      suggestedStatus = "IN_PROGRESS";
+      suggestedMaturity = null;
+      suggestedConfidence = "LOW";
+      note = `${PENDING_REVIEW_NOTE}.`;
+    } else if (rel === "EQUIVALENT" && edge.crosswalk.confidence >= MIN_EQUIVALENT_CONFIDENCE) {
       suggestedStatus = sourceFacts.implementationStatus;
       suggestedMaturity = sourceFacts.maturityLevel;
       suggestedConfidence = sourceFacts.confidence;

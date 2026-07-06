@@ -32,13 +32,15 @@ interface SuggestionRow {
   sourceControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
   targetControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
   targetAssessmentName: string | null;
-  crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null } | null;
+  crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null; reviewStatus?: "DRAFT" | "APPROVED" } | null;
   sourceEvidence: Array<{ id: number; filename: string; size: number | null; sha256: string | null }>;
 }
 
 interface ReviewInfo {
   reviewStatus: "DRAFT" | "APPROVED";
   reviewNote: string | null;
+  approvedCount?: number;
+  totalCount?: number;
 }
 
 interface CoverageRow {
@@ -179,9 +181,28 @@ function SuggestionsInbox() {
                 <span className="text-muted-foreground text-xs truncate max-w-[180px]">{s.targetControl?.shortTitle}</span>
               </div>
               {s.crosswalk && (
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${relationshipStyles[s.crosswalk.relationship] || "bg-muted"}`}>
-                  {s.crosswalk.relationship} · {s.crosswalk.confidence}%
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${relationshipStyles[s.crosswalk.relationship] || "bg-muted"}`}>
+                    {s.crosswalk.relationship} · {s.crosswalk.confidence}%
+                  </span>
+                  {s.crosswalk.reviewStatus === "APPROVED" ? (
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-500/10 text-green-600 dark:text-green-400"
+                      title="This mapping has been approved by an SME reviewer"
+                      data-testid={`chip-edge-reviewed-${s.id}`}
+                    >
+                      Reviewed
+                    </span>
+                  ) : (
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                      title="This mapping has not yet been approved by an SME reviewer; propagation strength is reduced"
+                      data-testid={`chip-edge-pending-${s.id}`}
+                    >
+                      Pending review
+                    </span>
+                  )}
+                </div>
               )}
             </div>
 
@@ -351,7 +372,9 @@ export default function CrossFramework() {
                 data-testid="badge-crosswalk-draft"
               >
                 <AlertTriangle className="w-3 h-3 mr-1" />
-                Draft mappings — pending SME review
+                {review.approvedCount != null && review.totalCount != null
+                  ? `Mappings under SME review — ${review.approvedCount}/${review.totalCount} approved`
+                  : "Draft mappings — pending SME review"}
               </Badge>
             )}
           </div>

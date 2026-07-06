@@ -398,6 +398,9 @@ export interface IStorage {
   listPendingSuggestions(tenantId: number): Promise<EnrichedSuggestion[]>;
   getSuggestion(tenantId: number, id: number): Promise<CrossFrameworkSuggestion | undefined>;
   decideSuggestion(tenantId: number, id: number, decision: "ACCEPTED" | "REJECTED", decidedBy: number): Promise<CrossFrameworkSuggestion | undefined>;
+  getCrosswalkById(id: number): Promise<ControlCrosswalk | undefined>;
+  listCrosswalkEdgesForReview(filters: { status?: "DRAFT" | "APPROVED"; relationship?: string; framework?: string; page: number; limit: number }): Promise<{ edges: ReviewableCrosswalkEdge[]; total: number; approvedCount: number; totalCount: number }>;
+  reviewCrosswalkEdge(id: number, reviewStatus: "DRAFT" | "APPROVED", reviewNote: string | null, reviewedBy: number): Promise<{ before: ControlCrosswalk; after: ControlCrosswalk } | undefined>;
   getCrossFrameworkCoverage(tenantId: number): Promise<CoverageMatrixRow[]>;
 }
 
@@ -417,8 +420,17 @@ export interface EnrichedSuggestion extends CrossFrameworkSuggestion {
   sourceControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
   targetControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
   targetAssessmentName: string | null;
-  crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null } | null;
+  crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null; reviewStatus: string } | null;
   sourceEvidence: Array<{ id: number; filename: string; size: number | null; sha256: string | null }>;
+}
+
+export interface ReviewableCrosswalkEdge extends ControlCrosswalk {
+  fromControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
+  toControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
+  toExternal: { frameworkKey: string; controlRef: string; title: string } | null;
+  reviewerEmail: string | null;
+  acceptedCount: number;
+  rejectedCount: number;
 }
 
 export interface CoverageMatrixRow {
@@ -2497,7 +2509,7 @@ export class DatabaseStorage implements IStorage {
         targetControl: tgt ? { controlId: tgt.controlId, shortTitle: tgt.shortTitle, sourceKey: tgt.sourceKey } : null,
         targetAssessmentName: asmt?.name ?? null,
         crosswalk: cw
-          ? { relationship: cw.relationship, confidence: cw.confidence, rationale: cw.rationale, provenance: cw.provenance }
+          ? { relationship: cw.relationship, confidence: cw.confidence, rationale: cw.rationale, provenance: cw.provenance, reviewStatus: cw.reviewStatus }
           : null,
         sourceEvidence: evidenceByControl.get(r.sourceAtomicControlId) ?? [],
       };
@@ -2530,6 +2542,130 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     return updated;
+  }
+
+  async getCrosswalkById(id: number): Promise<ControlCrosswalk | undefined> {
+    const [row] = await db.select().from(controlCrosswalks).where(eq(controlCrosswalks.id, id));
+    return row;
+  }
+
+  async listCrosswalkEdgesForReview(filters: {
+    status?: "DRAFT" | "APPROVED";
+    relationship?: string;
+    framework?: string;
+    page: number;
+    limit: number;
+  }): Promise<{ edges: ReviewableCrosswalkEdge[]; total: number; approvedCount: number; totalCount: number }> {
+    const all = await db.select().from(controlCrosswalks);
+    const totalCount = all.length;
+    const approvedCount = all.filter((e) => e.reviewStatus === "APPROVED").length;
+
+    // Resolve control/external labels for filtering and display.
+    const atomicIds = new Set<number>();
+    const externalIds = new Set<number>();
+    for (const e of all) {
+      atomicIds.add(e.fromAtomicControlId);
+      if (e.toAtomicControlId != null) atomicIds.add(e.toAtomicControlId);
+      if (e.toExternalControlId != null) externalIds.add(e.toExternalControlId);
+    }
+    const [atomicRows, externalRows] = await Promise.all([
+      atomicIds.size
+        ? db.select({ id: atomicControls.id, controlId: atomicControls.controlId, shortTitle: atomicControls.shortTitle, sourceKey: atomicControls.sourceKey }).from(atomicControls).where(inArray(atomicControls.id, Array.from(atomicIds)))
+        : Promise.resolve([] as Array<{ id: number; controlId: string; shortTitle: string; sourceKey: string }>),
+      externalIds.size
+        ? db.select({ id: externalFrameworkControls.id, frameworkKey: externalFrameworkControls.frameworkKey, controlRef: externalFrameworkControls.controlRef, title: externalFrameworkControls.title }).from(externalFrameworkControls).where(inArray(externalFrameworkControls.id, Array.from(externalIds)))
+        : Promise.resolve([] as Array<{ id: number; frameworkKey: string; controlRef: string; title: string }>),
+    ]);
+    const atomicById = new Map(atomicRows.map((r) => [r.id, r]));
+    const externalById = new Map(externalRows.map((r) => [r.id, r]));
+
+    // Per-edge accepted/rejected suggestion counts (cheap aggregate).
+    const countRows = await db
+      .select({
+        crosswalkId: crossFrameworkSuggestions.crosswalkId,
+        status: crossFrameworkSuggestions.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(crossFrameworkSuggestions)
+      .where(inArray(crossFrameworkSuggestions.status, ["ACCEPTED", "REJECTED"]))
+      .groupBy(crossFrameworkSuggestions.crosswalkId, crossFrameworkSuggestions.status);
+    const acceptedByEdge = new Map<number, number>();
+    const rejectedByEdge = new Map<number, number>();
+    for (const r of countRows) {
+      if (r.status === "ACCEPTED") acceptedByEdge.set(r.crosswalkId, r.count);
+      else rejectedByEdge.set(r.crosswalkId, r.count);
+    }
+
+    // Reviewer emails.
+    const reviewerIds = Array.from(new Set(all.map((e) => e.reviewedBy).filter((x): x is number => x != null)));
+    const reviewerRows = reviewerIds.length
+      ? await db.select({ id: users.id, email: users.email }).from(users).where(inArray(users.id, reviewerIds))
+      : [];
+    const reviewerById = new Map(reviewerRows.map((r) => [r.id, r.email]));
+
+    const frameworkOfEdge = (e: ControlCrosswalk): string[] => {
+      const keys: string[] = [];
+      const from = atomicById.get(e.fromAtomicControlId);
+      if (from) keys.push(from.sourceKey);
+      if (e.toAtomicControlId != null) {
+        const to = atomicById.get(e.toAtomicControlId);
+        if (to) keys.push(to.sourceKey);
+      }
+      if (e.toExternalControlId != null) {
+        const ext = externalById.get(e.toExternalControlId);
+        if (ext) keys.push(ext.frameworkKey);
+      }
+      return keys;
+    };
+
+    let filtered = all;
+    if (filters.status) filtered = filtered.filter((e) => e.reviewStatus === filters.status);
+    if (filters.relationship) filtered = filtered.filter((e) => e.relationship === filters.relationship);
+    if (filters.framework) filtered = filtered.filter((e) => frameworkOfEdge(e).includes(filters.framework!));
+
+    const total = filtered.length;
+    const start = (filters.page - 1) * filters.limit;
+    const pageRows = filtered
+      .slice()
+      .sort((a, b) => a.id - b.id)
+      .slice(start, start + filters.limit);
+
+    const edges: ReviewableCrosswalkEdge[] = pageRows.map((e) => {
+      const from = atomicById.get(e.fromAtomicControlId);
+      const to = e.toAtomicControlId != null ? atomicById.get(e.toAtomicControlId) : undefined;
+      const ext = e.toExternalControlId != null ? externalById.get(e.toExternalControlId) : undefined;
+      return {
+        ...e,
+        fromControl: from ? { controlId: from.controlId, shortTitle: from.shortTitle, sourceKey: from.sourceKey } : null,
+        toControl: to ? { controlId: to.controlId, shortTitle: to.shortTitle, sourceKey: to.sourceKey } : null,
+        toExternal: ext ? { frameworkKey: ext.frameworkKey, controlRef: ext.controlRef, title: ext.title } : null,
+        reviewerEmail: e.reviewedBy != null ? reviewerById.get(e.reviewedBy) ?? null : null,
+        acceptedCount: acceptedByEdge.get(e.id) ?? 0,
+        rejectedCount: rejectedByEdge.get(e.id) ?? 0,
+      };
+    });
+
+    return { edges, total, approvedCount, totalCount };
+  }
+
+  async reviewCrosswalkEdge(
+    id: number,
+    reviewStatus: "DRAFT" | "APPROVED",
+    reviewNote: string | null,
+    reviewedBy: number,
+  ): Promise<{ before: ControlCrosswalk; after: ControlCrosswalk } | undefined> {
+    const [before] = await db.select().from(controlCrosswalks).where(eq(controlCrosswalks.id, id));
+    if (!before) return undefined;
+    const [after] = await db
+      .update(controlCrosswalks)
+      .set(
+        reviewStatus === "APPROVED"
+          ? { reviewStatus, reviewNote, reviewedBy, reviewedAt: new Date() }
+          : { reviewStatus, reviewNote, reviewedBy: null, reviewedAt: null },
+      )
+      .where(eq(controlCrosswalks.id, id))
+      .returning();
+    return { before, after };
   }
 
   async getCrossFrameworkCoverage(tenantId: number): Promise<CoverageMatrixRow[]> {

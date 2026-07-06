@@ -5954,8 +5954,8 @@ export async function registerRoutes(
       const id = parseInt(String(req.params.atomicControlId));
       if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid control id" });
       const crosswalks = await storage.getCrosswalksForControl(id);
-      const { getCrosswalkReviewInfo } = await import("./cross-framework-seed");
-      res.json({ crosswalks, review: getCrosswalkReviewInfo() });
+      const { getEdgeReviewSummary } = await import("./cross-framework-seed");
+      res.json({ crosswalks, review: await getEdgeReviewSummary() });
     } catch (err: any) {
       console.error("[GET /api/crosswalks/:id] failed:", err);
       res.status(500).json({ message: err?.message || "Failed to load crosswalks" });
@@ -5968,8 +5968,8 @@ export async function registerRoutes(
       const user = await getAuthUser(req);
       if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
       const suggestions = await storage.listPendingSuggestions(user.tenantId);
-      const { getCrosswalkReviewInfo } = await import("./cross-framework-seed");
-      res.json({ suggestions, review: getCrosswalkReviewInfo() });
+      const { getEdgeReviewSummary } = await import("./cross-framework-seed");
+      res.json({ suggestions, review: await getEdgeReviewSummary() });
     } catch (err: any) {
       console.error("[GET /api/cross-framework/suggestions] failed:", err);
       res.status(500).json({ message: err?.message || "Failed to load suggestions" });
@@ -6136,7 +6136,7 @@ export async function registerRoutes(
           relationship: edge?.relationship ?? null,
           crosswalkConfidence: edge?.confidence ?? null,
           provenance: edge?.provenance ?? null,
-          crosswalkReviewStatus: (await import("./cross-framework-seed")).getCrosswalkReviewInfo().reviewStatus,
+          crosswalkReviewStatus: edge?.reviewStatus ?? "DRAFT",
           sourceAtomicControlId: suggestion.sourceAtomicControlId,
           sourceResponseId: suggestion.sourceResponseId,
           targetAtomicAssessmentId: suggestion.targetAtomicAssessmentId,
@@ -6202,11 +6202,110 @@ export async function registerRoutes(
       const user = await getAuthUser(req);
       if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
       const coverage = await storage.getCrossFrameworkCoverage(user.tenantId);
-      const { getCrosswalkReviewInfo } = await import("./cross-framework-seed");
-      res.json({ coverage, review: getCrosswalkReviewInfo() });
+      const { getEdgeReviewSummary } = await import("./cross-framework-seed");
+      res.json({ coverage, review: await getEdgeReviewSummary() });
     } catch (err: any) {
       console.error("[GET /api/cross-framework/coverage] failed:", err);
       res.status(500).json({ message: err?.message || "Failed to compute coverage" });
+    }
+  });
+
+  // ==================== CROSSWALK EDGE REVIEW (Phase B, platform admin) ====================
+
+  // GET /api/admin/crosswalk-edges — paged list of all crosswalk edges for SME review
+  app.get("/api/admin/crosswalk-edges", requirePlatformAdmin, async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(String(req.query.page ?? "1")) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "25")) || 25));
+      const rawStatus = String(req.query.status ?? "");
+      const status = rawStatus === "DRAFT" || rawStatus === "APPROVED" ? rawStatus : undefined;
+      const relationship = req.query.relationship ? String(req.query.relationship) : undefined;
+      const framework = req.query.framework ? String(req.query.framework) : undefined;
+      const result = await storage.listCrosswalkEdgesForReview({ status, relationship, framework, page, limit });
+      res.json({ ...result, page, limit });
+    } catch (err: any) {
+      console.error("[GET /api/admin/crosswalk-edges] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to list crosswalk edges" });
+    }
+  });
+
+  const edgeReviewSchema = z.object({
+    reviewStatus: z.enum(["DRAFT", "APPROVED"]),
+    reviewNote: z.string().max(2000).nullish(),
+  });
+
+  // POST /api/admin/crosswalk-edges/:id/review — approve or reset a single edge
+  app.post("/api/admin/crosswalk-edges/:id/review", requirePlatformAdmin, async (req, res) => {
+    try {
+      const id = parseInt(String(req.params.id));
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid edge id" });
+      const parsed = edgeReviewSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid review payload", errors: parsed.error.flatten() });
+      const userId = (req as any).session?.userId as number;
+      const result = await storage.reviewCrosswalkEdge(id, parsed.data.reviewStatus, parsed.data.reviewNote ?? null, userId);
+      if (!result) return res.status(404).json({ message: "Crosswalk edge not found" });
+      await storage.createAuditLog({
+        tenantId: null,
+        actorUserId: userId,
+        action: "REVIEW_CROSSWALK_EDGE",
+        entityType: "ControlCrosswalk",
+        entityId: String(id),
+        details: {
+          oldReviewStatus: result.before.reviewStatus,
+          newReviewStatus: result.after.reviewStatus,
+          reviewNote: result.after.reviewNote,
+          relationship: result.before.relationship,
+          provenance: result.before.provenance,
+        },
+      });
+      res.json({ edge: result.after });
+    } catch (err: any) {
+      console.error("[POST /api/admin/crosswalk-edges/:id/review] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to review edge" });
+    }
+  });
+
+  const edgeReviewBulkSchema = z.object({
+    ids: z.array(z.number().int().positive()).min(1).max(500),
+    reviewStatus: z.enum(["DRAFT", "APPROVED"]),
+    reviewNote: z.string().max(2000).nullish(),
+  });
+
+  // POST /api/admin/crosswalk-edges/review-bulk — approve/reset many edges (one audit row per edge)
+  app.post("/api/admin/crosswalk-edges/review-bulk", requirePlatformAdmin, async (req, res) => {
+    try {
+      const parsed = edgeReviewBulkSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid bulk review payload", errors: parsed.error.flatten() });
+      const userId = (req as any).session?.userId as number;
+      const updated: number[] = [];
+      const notFound: number[] = [];
+      for (const id of parsed.data.ids) {
+        const result = await storage.reviewCrosswalkEdge(id, parsed.data.reviewStatus, parsed.data.reviewNote ?? null, userId);
+        if (!result) {
+          notFound.push(id);
+          continue;
+        }
+        updated.push(id);
+        await storage.createAuditLog({
+          tenantId: null,
+          actorUserId: userId,
+          action: "REVIEW_CROSSWALK_EDGE",
+          entityType: "ControlCrosswalk",
+          entityId: String(id),
+          details: {
+            oldReviewStatus: result.before.reviewStatus,
+            newReviewStatus: result.after.reviewStatus,
+            reviewNote: result.after.reviewNote,
+            relationship: result.before.relationship,
+            provenance: result.before.provenance,
+            bulk: true,
+          },
+        });
+      }
+      res.json({ updated, notFound });
+    } catch (err: any) {
+      console.error("[POST /api/admin/crosswalk-edges/review-bulk] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to bulk review edges" });
     }
   });
 

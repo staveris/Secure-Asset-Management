@@ -96,6 +96,33 @@ export function getCrosswalkReviewInfo(): CrosswalkReviewInfo {
   return cachedReviewInfo;
 }
 
+export interface EdgeReviewSummary {
+  /** "APPROVED" only when every edge is individually approved. */
+  reviewStatus: "DRAFT" | "APPROVED";
+  reviewNote: string | null;
+  approvedCount: number;
+  totalCount: number;
+}
+
+/**
+ * Phase B: live, edge-derived review summary. Supersedes the library-level
+ * getCrosswalkReviewInfo() for API responses — same field names, better data.
+ * Not cached: approvals change at runtime via the admin review endpoints.
+ */
+export async function getEdgeReviewSummary(): Promise<EdgeReviewSummary> {
+  const rows = await db
+    .select({ reviewStatus: controlCrosswalks.reviewStatus })
+    .from(controlCrosswalks);
+  const totalCount = rows.length;
+  const approvedCount = rows.filter((r) => r.reviewStatus === "APPROVED").length;
+  return {
+    reviewStatus: totalCount > 0 && approvedCount === totalCount ? "APPROVED" : "DRAFT",
+    reviewNote: getCrosswalkReviewInfo().reviewNote,
+    approvedCount,
+    totalCount,
+  };
+}
+
 export interface CrossFrameworkSeedReport {
   externalImported: number;
   externalUpdated: number;
@@ -103,6 +130,9 @@ export interface CrossFrameworkSeedReport {
   edgesImported: number;
   edgesUpdated: number;
   edgesUnchanged: number;
+  /** Edges whose content changed and therefore had their SME approval reset to DRAFT. */
+  approvalsReset: number;
+  approvalsResetEdges: string[];
   skipped: number;
   failed: number;
   errors: Array<{ ref?: string; error: string }>;
@@ -154,6 +184,8 @@ export async function seedCrossFrameworkData(): Promise<CrossFrameworkSeedReport
     edgesImported: 0,
     edgesUpdated: 0,
     edgesUnchanged: 0,
+    approvalsReset: 0,
+    approvalsResetEdges: [],
     skipped: 0,
     failed: 0,
     errors: [],
@@ -314,6 +346,9 @@ export async function seedCrossFrameworkData(): Promise<CrossFrameworkSeedReport
 
       const hash = edgeHash(e, provenance);
       const ex = edgesByKey.get(key);
+      // IMPORTANT (Phase B): `values` must never contain the four review columns
+      // (reviewStatus/reviewedBy/reviewedAt/reviewNote) — a re-seed of
+      // unchanged-content edges must never touch approvals.
       const values = {
         fromAtomicControlId: fromId,
         toAtomicControlId: toAtomicId,
@@ -329,8 +364,23 @@ export async function seedCrossFrameworkData(): Promise<CrossFrameworkSeedReport
         await db.insert(controlCrosswalks).values(values);
         report.edgesImported++;
       } else if (ex.contentHash !== hash) {
-        await db.update(controlCrosswalks).set(values).where(eq(controlCrosswalks.id, ex.id));
+        // Content changed: an approval is a sign-off on specific content, so
+        // changed content voids it. Reset review to DRAFT and report it.
+        await db
+          .update(controlCrosswalks)
+          .set({
+            ...values,
+            reviewStatus: "DRAFT",
+            reviewedBy: null,
+            reviewedAt: null,
+            reviewNote: null,
+          })
+          .where(eq(controlCrosswalks.id, ex.id));
         report.edgesUpdated++;
+        if (ex.reviewStatus === "APPROVED") {
+          report.approvalsReset++;
+          report.approvalsResetEdges.push(label);
+        }
       } else {
         report.edgesUnchanged++;
       }
@@ -345,6 +395,7 @@ export async function seedCrossFrameworkData(): Promise<CrossFrameworkSeedReport
     report.externalImported + report.externalUpdated + report.edgesImported + report.edgesUpdated > 0;
   if (changed) {
     try {
+      const reviewSummary = await getEdgeReviewSummary();
       const packHash = crypto
         .createHash("sha256")
         .update(
@@ -361,7 +412,7 @@ export async function seedCrossFrameworkData(): Promise<CrossFrameworkSeedReport
         generator: "cross-framework-seed.ts",
         hash: packHash,
         controlCount: externalSeed.controls.length,
-        notes: `review=${getCrosswalkReviewInfo().reviewStatus}; Cross-framework seed: ext +${report.externalImported} ~${report.externalUpdated} =${report.externalUnchanged}; edges +${report.edgesImported} ~${report.edgesUpdated} =${report.edgesUnchanged}; skipped=${report.skipped} failed=${report.failed}`,
+        notes: `review=${getCrosswalkReviewInfo().reviewStatus}; edgesApproved=${reviewSummary.approvedCount}/${reviewSummary.totalCount}; Cross-framework seed: ext +${report.externalImported} ~${report.externalUpdated} =${report.externalUnchanged}; edges +${report.edgesImported} ~${report.edgesUpdated} =${report.edgesUnchanged}; approvalsReset=${report.approvalsReset}; skipped=${report.skipped} failed=${report.failed}`,
       });
     } catch {
       // Non-fatal.

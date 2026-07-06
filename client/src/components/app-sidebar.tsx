@@ -51,6 +51,7 @@ import {
   Radar,
   Network,
   CreditCard,
+  GitCompareArrows,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -80,6 +81,7 @@ const adminMenuItems = [
   { title: "Requirements", url: "/admin/requirements", icon: BookOpen },
   { title: "Atomic Library", url: "/admin/atomic-library", icon: Atom },
   { title: "Atomic Import", url: "/admin/atomic-import", icon: ArrowDownToLine },
+  { title: "Crosswalk Review", url: "/admin/crosswalk-review", icon: GitCompareArrows },
   { title: "Audit Log", url: "/admin/audit-log", icon: ScrollText },
   { title: "Email Settings", url: "/admin/email-settings", icon: Mail },
   { title: "Account Settings", url: "/settings", icon: Settings },

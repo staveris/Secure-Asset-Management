@@ -7,6 +7,7 @@ import {
   resolveInternalEdges,
   MIN_EQUIVALENT_CONFIDENCE,
   MATURITY_PROPAGATION_THRESHOLD,
+  PENDING_REVIEW_NOTE,
   type SavedResponseFacts,
   type CrosswalkFact,
   type TargetSlot,
@@ -34,6 +35,9 @@ function edge(overrides: Partial<CrosswalkFact> = {}): CrosswalkFact {
     direction: "BIDIRECTIONAL",
     rationale: "Same obligation",
     provenance: "editorial_v1",
+    // Phase B: strength tests construct SME-approved edges by default;
+    // unapproved-EQUIVALENT demotion has its own dedicated cases below.
+    reviewStatus: "APPROVED",
     ...overrides,
   };
 }
@@ -163,6 +167,51 @@ describe("planSuggestions — per-relationship strength rules", () => {
     expect(c.relationship).toBe("SUBSET");
     expect(c.suggestedStatus).toBe("IN_PROGRESS");
     expect(c.suggestedConfidence).toBe("LOW");
+  });
+});
+
+describe("planSuggestions — Phase B edge review gating", () => {
+  it("unapproved EQUIVALENT (DRAFT) is demoted to PARTIAL strength with the pending-review reason", () => {
+    const [c] = planSuggestions(facts(), [edge({ reviewStatus: "DRAFT" })], slots);
+    expect(c.suggestedStatus).toBe("IN_PROGRESS");
+    expect(c.suggestedMaturity).toBeNull();
+    expect(c.suggestedConfidence).toBe("LOW");
+    expect(c.reason).toContain(PENDING_REVIEW_NOTE);
+  });
+
+  it("missing reviewStatus defaults to DRAFT (fail conservative)", () => {
+    const cw = edge();
+    delete (cw as any).reviewStatus;
+    const [c] = planSuggestions(facts(), [cw], slots);
+    expect(c.suggestedStatus).toBe("IN_PROGRESS");
+    expect(c.suggestedMaturity).toBeNull();
+    expect(c.suggestedConfidence).toBe("LOW");
+    expect(c.reason).toContain(PENDING_REVIEW_NOTE);
+  });
+
+  it("approved EQUIVALENT keeps equal-strength behavior and no pending-review text", () => {
+    const [c] = planSuggestions(facts(), [edge({ reviewStatus: "APPROVED" })], slots);
+    expect(c.suggestedStatus).toBe("IMPLEMENTED");
+    expect(c.suggestedMaturity).toBe(4);
+    expect(c.suggestedConfidence).toBe("HIGH");
+    expect(c.reason).not.toContain(PENDING_REVIEW_NOTE);
+  });
+
+  it("demotion applies to reverse traversal of an unapproved EQUIVALENT edge", () => {
+    const cw = edge({ fromAtomicControlId: 2, toAtomicControlId: 1, reviewStatus: "DRAFT" });
+    const [c] = planSuggestions(facts(), [cw], slots);
+    expect(c.relationship).toBe("EQUIVALENT");
+    expect(c.suggestedStatus).toBe("IN_PROGRESS");
+    expect(c.reason).toContain(PENDING_REVIEW_NOTE);
+  });
+
+  it("SUPERSET/SUBSET/PARTIAL behavior is unchanged by review status", () => {
+    for (const rel of ["SUPERSET", "SUBSET", "PARTIAL"] as const) {
+      const draft = planSuggestions(facts(), [edge({ relationship: rel, reviewStatus: "DRAFT" })], slots);
+      const approved = planSuggestions(facts(), [edge({ relationship: rel, reviewStatus: "APPROVED" })], slots);
+      expect(draft).toEqual(approved);
+      expect(draft[0].reason).not.toContain(PENDING_REVIEW_NOTE);
+    }
   });
 });
 
