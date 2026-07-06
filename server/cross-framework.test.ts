@@ -309,3 +309,83 @@ describe("computeCoverage", () => {
     expect(result.mappablePct).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase C — detectSourceDrift boundaries
+// ---------------------------------------------------------------------------
+import { detectSourceDrift } from "./cross-framework";
+
+describe("detectSourceDrift", () => {
+  it("no drift when current source equals the accepted basis", () => {
+    const r = detectSourceDrift(
+      { suggestedStatus: "IMPLEMENTED", suggestedMaturity: 3 },
+      { implementationStatus: "IMPLEMENTED", maturityLevel: 3 },
+    );
+    expect(r.drifted).toBe(false);
+    expect(r.reason).toBeUndefined();
+  });
+
+  it("no drift when current source is stronger than the accepted basis", () => {
+    const r = detectSourceDrift(
+      { suggestedStatus: "IMPLEMENTED", suggestedMaturity: 3 },
+      { implementationStatus: "VERIFIED", maturityLevel: 5 },
+    );
+    expect(r.drifted).toBe(false);
+  });
+
+  it("drift when status is one level below the accepted basis (still above threshold)", () => {
+    const r = detectSourceDrift(
+      { suggestedStatus: "VERIFIED", suggestedMaturity: 3 },
+      { implementationStatus: "IMPLEMENTED", maturityLevel: 3 },
+    );
+    expect(r.drifted).toBe(true);
+    expect(r.reason).toBe("SOURCE_DOWNGRADED");
+    expect(r.detail).toContain("VERIFIED -> IMPLEMENTED");
+  });
+
+  it("drift when maturity is one level below the accepted basis", () => {
+    const r = detectSourceDrift(
+      { suggestedStatus: "IMPLEMENTED", suggestedMaturity: 4 },
+      { implementationStatus: "IMPLEMENTED", maturityLevel: 3 },
+    );
+    expect(r.drifted).toBe(true);
+    expect(r.detail).toContain("maturity 4 -> 3");
+  });
+
+  it("drift with threshold detail when source falls below the propagation threshold", () => {
+    const r = detectSourceDrift(
+      { suggestedStatus: "IN_PROGRESS", suggestedMaturity: null },
+      { implementationStatus: "IN_PROGRESS", maturityLevel: 2 },
+    );
+    expect(r.drifted).toBe(true);
+    expect(r.reason).toBe("SOURCE_DOWNGRADED");
+    expect(r.detail).toContain("threshold");
+  });
+
+  it("NOT_STARTED source always drifts with a threshold detail", () => {
+    const r = detectSourceDrift(
+      { suggestedStatus: "IMPLEMENTED", suggestedMaturity: 3 },
+      { implementationStatus: "NOT_STARTED", maturityLevel: 0 },
+    );
+    expect(r.drifted).toBe(true);
+    expect(r.reason).toBe("SOURCE_DOWNGRADED");
+    expect(r.detail).toContain("NOT_STARTED");
+    expect(r.detail).toContain("threshold");
+  });
+
+  it("IN_PROGRESS at exactly the maturity threshold does not drift against a null basis", () => {
+    const r = detectSourceDrift(
+      { suggestedStatus: null, suggestedMaturity: null },
+      { implementationStatus: "IN_PROGRESS", maturityLevel: 3 },
+    );
+    expect(r.drifted).toBe(false);
+  });
+
+  it("null basis columns still drift when the source drops below threshold", () => {
+    const r = detectSourceDrift(
+      { suggestedStatus: null, suggestedMaturity: null },
+      { implementationStatus: "IN_PROGRESS", maturityLevel: 1 },
+    );
+    expect(r.drifted).toBe(true);
+  });
+});

@@ -67,6 +67,7 @@ async function makeResponse(assessmentId: number, controlId: number): Promise<nu
 async function makeSuggestion(opts: {
   sourceResponseId: number | null;
   targetAssessmentId: number;
+  status?: "PENDING" | "ACCEPTED" | "REJECTED";
 }): Promise<number> {
   const [s] = await db
     .insert(crossFrameworkSuggestions)
@@ -80,7 +81,7 @@ async function makeSuggestion(opts: {
       suggestedStatus: "IMPLEMENTED",
       suggestedMaturity: 3,
       suggestedConfidence: "MEDIUM",
-      status: "PENDING",
+      status: opts.status ?? "PENDING",
       reason: `regression fixture ${RUN_ID}`,
     })
     .returning();
@@ -216,5 +217,88 @@ describe.skipIf(!hasDb)("deleteAtomicAssessment — cross-framework FK safety", 
     const plain = await makeAssessment("plain");
     await makeResponse(plain, controlAId);
     await expect(storage.deleteAtomicAssessment(plain)).resolves.not.toThrow();
+  });
+
+  // ==================== Phase C: drift on source deletion ====================
+
+  it("deleting the SOURCE assessment KEEPS an ACCEPTED suggestion, nulls sourceResponseId and stamps SOURCE_REMOVED drift", async () => {
+    const sourceAssessment = await makeAssessment("source3");
+    const targetAssessment = await makeAssessment("target3");
+    // A second target assessment: the unique index is (tenant, target assessment,
+    // target control, crosswalk), so the PENDING row needs its own target slot.
+    const targetAssessmentB = await makeAssessment("target3b");
+    const sourceResponseId = await makeResponse(sourceAssessment, controlAId);
+    const acceptedId = await makeSuggestion({ sourceResponseId, targetAssessmentId: targetAssessment, status: "ACCEPTED" });
+    const pendingId = await makeSuggestion({ sourceResponseId, targetAssessmentId: targetAssessmentB, status: "PENDING" });
+
+    await expect(storage.deleteAtomicAssessment(sourceAssessment)).resolves.not.toThrow();
+
+    // ACCEPTED row survives with severed source link and SOURCE_REMOVED drift.
+    const [kept] = await db
+      .select()
+      .from(crossFrameworkSuggestions)
+      .where(eq(crossFrameworkSuggestions.id, acceptedId));
+    expect(kept).toBeDefined();
+    expect(kept.status).toBe("ACCEPTED");
+    expect(kept.sourceResponseId).toBeNull();
+    expect(kept.driftReason).toBe("SOURCE_REMOVED");
+    expect(kept.driftDetectedAt).not.toBeNull();
+    expect(kept.driftResolvedAt).toBeNull();
+
+    // PENDING row referencing the same deleted source is still removed.
+    const [gonePending] = await db
+      .select()
+      .from(crossFrameworkSuggestions)
+      .where(eq(crossFrameworkSuggestions.id, pendingId));
+    expect(gonePending).toBeUndefined();
+
+    await storage.deleteAtomicAssessment(targetAssessment); // cleanup (also removes kept row via target FK)
+  });
+
+  it("deleting the SOURCE assessment does not overwrite an existing unresolved drift stamp on an ACCEPTED suggestion", async () => {
+    const sourceAssessment = await makeAssessment("source4");
+    const targetAssessment = await makeAssessment("target4");
+    const sourceResponseId = await makeResponse(sourceAssessment, controlAId);
+    const acceptedId = await makeSuggestion({ sourceResponseId, targetAssessmentId: targetAssessment, status: "ACCEPTED" });
+
+    // Pre-stamp an earlier drift (e.g. the source answer was downgraded first).
+    await db
+      .update(crossFrameworkSuggestions)
+      .set({
+        driftReason: "SOURCE_DOWNGRADED",
+        driftDetail: "pre-existing drift fixture",
+        driftDetectedAt: new Date(),
+      })
+      .where(eq(crossFrameworkSuggestions.id, acceptedId));
+
+    await expect(storage.deleteAtomicAssessment(sourceAssessment)).resolves.not.toThrow();
+
+    const [kept] = await db
+      .select()
+      .from(crossFrameworkSuggestions)
+      .where(eq(crossFrameworkSuggestions.id, acceptedId));
+    expect(kept).toBeDefined();
+    expect(kept.sourceResponseId).toBeNull();
+    expect(kept.driftReason).toBe("SOURCE_DOWNGRADED"); // first flag wins until resolved
+    expect(kept.driftDetail).toBe("pre-existing drift fixture");
+
+    await storage.deleteAtomicAssessment(targetAssessment); // cleanup
+  });
+
+  it("deleting the TARGET assessment still removes ACCEPTED suggestions targeting it (target FK cleanup unchanged)", async () => {
+    const sourceAssessment = await makeAssessment("source5");
+    const targetAssessment = await makeAssessment("target5");
+    const sourceResponseId = await makeResponse(sourceAssessment, controlAId);
+    const acceptedId = await makeSuggestion({ sourceResponseId, targetAssessmentId: targetAssessment, status: "ACCEPTED" });
+
+    await expect(storage.deleteAtomicAssessment(targetAssessment)).resolves.not.toThrow();
+
+    const [gone] = await db
+      .select()
+      .from(crossFrameworkSuggestions)
+      .where(eq(crossFrameworkSuggestions.id, acceptedId));
+    expect(gone).toBeUndefined();
+
+    await storage.deleteAtomicAssessment(sourceAssessment); // cleanup
   });
 });

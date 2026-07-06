@@ -1212,6 +1212,7 @@ export const externalFrameworkControls = pgTable("external_framework_controls", 
 
 // Per-edge SME review (Phase B): approval is a sign-off on specific edge content.
 export const edgeReviewStatusEnum = pgEnum("edge_review_status", ["DRAFT", "APPROVED"]);
+export const driftReasonEnum = pgEnum("drift_reason", ["SOURCE_DOWNGRADED", "SOURCE_REMOVED", "EDGE_CHANGED"]);
 
 // Crosswalk edges. Exactly one of (toAtomicControlId, toExternalControlId) is set.
 export const controlCrosswalks = pgTable("control_crosswalks", {
@@ -1248,6 +1249,13 @@ export const crossFrameworkSuggestions = pgTable("cross_framework_suggestions", 
   reason: text("reason"),
   decidedBy: integer("decided_by").references(() => users.id),
   decidedAt: timestamp("decided_at"),
+  // Drift annotation on ACCEPTED rows — status never changes; "at risk" =
+  // status=ACCEPTED AND driftDetectedAt IS NOT NULL AND driftResolvedAt IS NULL.
+  driftDetectedAt: timestamp("drift_detected_at"),
+  driftReason: driftReasonEnum("drift_reason"),
+  driftDetail: text("drift_detail"),
+  driftResolvedAt: timestamp("drift_resolved_at"),
+  driftResolvedBy: integer("drift_resolved_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => ({
   // one live suggestion per (tenant, target response slot, crosswalk)

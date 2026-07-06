@@ -6210,6 +6210,63 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== DRIFT DETECTION (Phase C) ====================
+
+  // GET /api/cross-framework/drift — tenant's at-risk accepted propagations
+  app.get("/api/cross-framework/drift", requireAuth, requireCrossFramework, requireFullAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+      const atRisk = await storage.listAtRiskSuggestions(user.tenantId);
+      res.json({ atRisk });
+    } catch (err: any) {
+      console.error("[GET /api/cross-framework/drift] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to load at-risk items" });
+    }
+  });
+
+  const driftResolveSchema = z.object({
+    resolution: z.enum(["REAFFIRMED", "TARGET_UPDATED"]),
+    note: z.string().max(2000).nullish(),
+  });
+
+  // POST /api/cross-framework/drift/:id/resolve — explicit, audited human resolution.
+  // No automatic edits to the target response in either case.
+  app.post("/api/cross-framework/drift/:id/resolve", requireAuth, requireCrossFramework, requireWriteAccess, requireFullAccess, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
+      const id = parseInt(String(req.params.id));
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid drift id" });
+      const parsed = driftResolveSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid resolution payload", errors: parsed.error.flatten() });
+      const before = await storage.getSuggestion(user.tenantId, id);
+      const resolved = await storage.resolveDriftSuggestion(user.tenantId, id, user.id);
+      if (!resolved) return res.status(404).json({ message: "At-risk item not found or already resolved" });
+      await storage.createAuditLog({
+        tenantId: user.tenantId,
+        actorUserId: user.id,
+        action: "CROSS_FRAMEWORK_DRIFT_RESOLVED",
+        entityType: "cross_framework_suggestion",
+        entityId: String(id),
+        details: {
+          resolution: parsed.data.resolution,
+          note: parsed.data.note ?? null,
+          driftReason: before?.driftReason ?? null,
+          driftDetail: before?.driftDetail ?? null,
+          driftDetectedAt: before?.driftDetectedAt ?? null,
+          crosswalkId: resolved.crosswalkId,
+          targetAtomicAssessmentId: resolved.targetAtomicAssessmentId,
+          targetAtomicControlId: resolved.targetAtomicControlId,
+        },
+      });
+      res.json({ resolved });
+    } catch (err: any) {
+      console.error("[POST /api/cross-framework/drift/:id/resolve] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to resolve at-risk item" });
+    }
+  });
+
   // ==================== CROSSWALK EDGE REVIEW (Phase B, platform admin) ====================
 
   // GET /api/admin/crosswalk-edges — paged list of all crosswalk edges for SME review
@@ -6258,6 +6315,11 @@ export async function registerRoutes(
           provenance: result.before.provenance,
         },
       });
+      // Phase C: reverting an approved edge to DRAFT changes the foundation
+      // of any acceptance that relied on it — stamp EDGE_CHANGED drift.
+      if (result.before.reviewStatus === "APPROVED" && result.after.reviewStatus === "DRAFT") {
+        await storage.stampEdgeChangedDrift(id, "SME approval for this mapping was revoked (edge reverted to DRAFT)");
+      }
       res.json({ edge: result.after });
     } catch (err: any) {
       console.error("[POST /api/admin/crosswalk-edges/:id/review] failed:", err);
@@ -6301,6 +6363,10 @@ export async function registerRoutes(
             bulk: true,
           },
         });
+        // Phase C: same drift trigger as the single-edge revert path.
+        if (result.before.reviewStatus === "APPROVED" && result.after.reviewStatus === "DRAFT") {
+          await storage.stampEdgeChangedDrift(id, "SME approval for this mapping was revoked (edge reverted to DRAFT)");
+        }
       }
       res.json({ updated, notFound });
     } catch (err: any) {

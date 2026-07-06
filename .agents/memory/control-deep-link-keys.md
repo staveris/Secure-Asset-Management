@@ -6,4 +6,4 @@ Assessment detail merges responses from two tables with independent ID sequences
 
 **Why:** Both kinds once shared the "NIS2" prefix; colliding row IDs produced duplicate React keys (e.g. NIS2-3267) and ambiguous deep links.
 
-**How to apply:** Any change to this key format must update ALL generators in lockstep: the assessment detail page's key helper, the tasks-API navSource enrichment on the server, and the Evidence Vault link builders. Never let two response tables share a prefix.
+**How to apply:** Any change to this key format must update ALL generators and parsers in lockstep: the unified assessment detail page's key helper, the atomic assessment detail page's `?control` parser (keys cards by control.id, so it maps responseId→atomicControlId first), the tasks-API navSource enrichment on the server, the Evidence Vault link builders, and the cross-framework At-risk drift-card links. Never let two response tables share a prefix.

@@ -381,6 +381,20 @@ export async function seedCrossFrameworkData(): Promise<CrossFrameworkSeedReport
           report.approvalsReset++;
           report.approvalsResetEdges.push(label);
         }
+        // Phase C: the mapping an acceptance relied on has changed — stamp
+        // EDGE_CHANGED drift on all ACCEPTED, unresolved-drift-free
+        // suggestions referencing this edge (audit-logged inside).
+        try {
+          const { storage } = await import("./storage");
+          const changes: string[] = [];
+          if (ex.relationship !== values.relationship) changes.push(`relationship ${ex.relationship} -> ${values.relationship}`);
+          if (ex.confidence !== values.confidence) changes.push(`confidence ${ex.confidence} -> ${values.confidence}`);
+          if (ex.reviewStatus === "APPROVED") changes.push("SME approval reset to DRAFT");
+          const detail = `Crosswalk edge ${label} changed in the mapping library${changes.length ? ` (${changes.join(", ")})` : ""}`;
+          await storage.stampEdgeChangedDrift(ex.id, detail);
+        } catch (err: any) {
+          report.errors.push({ ref: label, error: `Drift stamping failed: ${err?.message || String(err)}` });
+        }
       } else {
         report.edgesUnchanged++;
       }

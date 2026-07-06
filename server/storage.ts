@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, count, avg, ne, like, or, isNull, asc, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, count, avg, ne, like, or, isNull, isNotNull, asc, inArray } from "drizzle-orm";
 import { normalizeTier, effectiveTier, type PlanTier } from "@shared/plan-tiers";
 import { db } from "./db";
 import fs from "fs";
@@ -402,6 +402,9 @@ export interface IStorage {
   listCrosswalkEdgesForReview(filters: { status?: "DRAFT" | "APPROVED"; relationship?: string; framework?: string; page: number; limit: number }): Promise<{ edges: ReviewableCrosswalkEdge[]; total: number; approvedCount: number; totalCount: number }>;
   reviewCrosswalkEdge(id: number, reviewStatus: "DRAFT" | "APPROVED", reviewNote: string | null, reviewedBy: number): Promise<{ before: ControlCrosswalk; after: ControlCrosswalk } | undefined>;
   getCrossFrameworkCoverage(tenantId: number): Promise<CoverageMatrixRow[]>;
+  listAtRiskSuggestions(tenantId: number): Promise<AtRiskSuggestion[]>;
+  resolveDriftSuggestion(tenantId: number, id: number, resolvedBy: number): Promise<CrossFrameworkSuggestion | undefined>;
+  stampEdgeChangedDrift(crosswalkId: number, detail: string): Promise<Array<{ id: number; tenantId: number }>>;
 }
 
 export interface EnrichedCrosswalk extends ControlCrosswalk {
@@ -422,6 +425,16 @@ export interface EnrichedSuggestion extends CrossFrameworkSuggestion {
   targetAssessmentName: string | null;
   crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null; reviewStatus: string } | null;
   sourceEvidence: Array<{ id: number; filename: string; size: number | null; sha256: string | null }>;
+}
+
+export interface AtRiskSuggestion extends CrossFrameworkSuggestion {
+  sourceControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
+  targetControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
+  targetAssessmentName: string | null;
+  crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null; reviewStatus: string } | null;
+  decidedByEmail: string | null;
+  /** Response id of the target slot, for the ?control=<PREFIX>-<responseId> deep link. */
+  targetResponseId: number | null;
 }
 
 export interface ReviewableCrosswalkEdge extends ControlCrosswalk {
@@ -2064,28 +2077,80 @@ export class DatabaseStorage implements IStorage {
       }
     }
     const responseIds = responses.map(r => r.id);
+    // Phase C: ACCEPTED suggestions whose SOURCE response is being deleted are
+    // kept (the acceptance happened; history is never rewritten) — null the
+    // sourceResponseId FK and stamp SOURCE_REMOVED drift instead of deleting.
+    // Rows that TARGET this assessment must still be deleted regardless of
+    // status (FK: targetAtomicAssessmentId).
+    const keptAccepted = responseIds.length > 0
+      ? await db
+          .select()
+          .from(crossFrameworkSuggestions)
+          .where(
+            and(
+              inArray(crossFrameworkSuggestions.sourceResponseId, responseIds),
+              eq(crossFrameworkSuggestions.status, "ACCEPTED"),
+              ne(crossFrameworkSuggestions.targetAtomicAssessmentId, id),
+            ),
+          )
+      : [];
+    for (const dep of keptAccepted) {
+      const alreadyAtRisk = dep.driftDetectedAt != null && dep.driftResolvedAt == null;
+      await db
+        .update(crossFrameworkSuggestions)
+        .set({
+          sourceResponseId: null,
+          ...(alreadyAtRisk
+            ? {}
+            : {
+                driftDetectedAt: new Date(),
+                driftReason: "SOURCE_REMOVED" as const,
+                driftDetail: "Source assessment was deleted — the answer this acceptance was based on no longer exists",
+                driftResolvedAt: null,
+                driftResolvedBy: null,
+              }),
+        })
+        .where(eq(crossFrameworkSuggestions.id, dep.id));
+      if (!alreadyAtRisk) {
+        await this.createAuditLog({
+          tenantId: dep.tenantId,
+          actorUserId: null,
+          action: "CROSS_FRAMEWORK_DRIFT_DETECTED",
+          entityType: "cross_framework_suggestion",
+          entityId: String(dep.id),
+          details: {
+            reason: "SOURCE_REMOVED",
+            crosswalkId: dep.crosswalkId,
+            sourceAtomicControlId: dep.sourceAtomicControlId,
+            deletedAssessmentId: id,
+            targetAtomicAssessmentId: dep.targetAtomicAssessmentId,
+            targetAtomicControlId: dep.targetAtomicControlId,
+          },
+        });
+      }
+    }
     // Suggestions to be removed may be referenced by evidence link rows
     // (FK: evidence_items.linked_via_suggestion_id) — null those pointers first.
+    // PENDING/REJECTED/SUPERSEDED source-side rows keep the original delete behavior.
     const doomedSuggestions = await db
       .select({ id: crossFrameworkSuggestions.id })
       .from(crossFrameworkSuggestions)
       .where(
         or(
           eq(crossFrameworkSuggestions.targetAtomicAssessmentId, id),
-          responseIds.length > 0 ? inArray(crossFrameworkSuggestions.sourceResponseId, responseIds) : sql`false`,
+          responseIds.length > 0
+            ? and(
+                inArray(crossFrameworkSuggestions.sourceResponseId, responseIds),
+                ne(crossFrameworkSuggestions.status, "ACCEPTED"),
+              )
+            : sql`false`,
         ),
       );
     if (doomedSuggestions.length > 0) {
       const doomedIds = doomedSuggestions.map(s => s.id);
       await db.update(evidenceItems).set({ linkedViaSuggestionId: null }).where(inArray(evidenceItems.linkedViaSuggestionId, doomedIds));
+      await db.delete(crossFrameworkSuggestions).where(inArray(crossFrameworkSuggestions.id, doomedIds));
     }
-    if (responseIds.length > 0) {
-      await db.delete(crossFrameworkSuggestions).where(inArray(crossFrameworkSuggestions.sourceResponseId, responseIds));
-    }
-    // Also remove suggestions that TARGET this assessment (FK: targetAtomicAssessmentId).
-    // Without this, deleting an assessment that has pending suggestions pointed at it
-    // (created when the tenant answered controls in another framework) violates the FK.
-    await db.delete(crossFrameworkSuggestions).where(eq(crossFrameworkSuggestions.targetAtomicAssessmentId, id));
     await db.delete(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
     // Re-anchor any evidence link rows pointing at rows we are about to delete
     // (promote the oldest link, repoint the rest) so provenance never dangles.
@@ -2311,7 +2376,7 @@ export class DatabaseStorage implements IStorage {
     const enabled = await this.isFeatureEnabled(tenantId, "CROSS_FRAMEWORK_MAPPING");
     if (!enabled) return 0;
 
-    const { planSuggestions, isPositiveSource } = await import("./cross-framework");
+    const { planSuggestions, isPositiveSource, detectSourceDrift } = await import("./cross-framework");
 
     const facts = {
       atomicControlId: savedResponse.atomicControlId,
@@ -2320,6 +2385,60 @@ export class DatabaseStorage implements IStorage {
       confidence: savedResponse.confidence as any,
       responseId: savedResponse.id,
     };
+
+    // Phase C: drift check on ACCEPTED dependents of this source response.
+    // Runs before the positive-source early return because a downgrade below
+    // threshold is exactly the case that must be flagged. Any throw here is
+    // absorbed by the fire-and-forget .catch at the route call site.
+    const acceptedDependents = await db
+      .select()
+      .from(crossFrameworkSuggestions)
+      .where(
+        and(
+          eq(crossFrameworkSuggestions.tenantId, tenantId),
+          eq(crossFrameworkSuggestions.status, "ACCEPTED"),
+          eq(crossFrameworkSuggestions.sourceResponseId, savedResponse.id),
+          // "unresolved-drift-free": skip rows already flagged and awaiting resolution.
+          or(
+            isNull(crossFrameworkSuggestions.driftDetectedAt),
+            isNotNull(crossFrameworkSuggestions.driftResolvedAt),
+          ),
+        ),
+      );
+    for (const dep of acceptedDependents) {
+      const drift = detectSourceDrift(
+        { suggestedStatus: dep.suggestedStatus as any, suggestedMaturity: dep.suggestedMaturity },
+        { implementationStatus: facts.implementationStatus, maturityLevel: facts.maturityLevel },
+      );
+      if (!drift.drifted) continue;
+      await db
+        .update(crossFrameworkSuggestions)
+        .set({
+          driftDetectedAt: new Date(),
+          driftReason: drift.reason,
+          driftDetail: drift.detail,
+          driftResolvedAt: null,
+          driftResolvedBy: null,
+        })
+        .where(eq(crossFrameworkSuggestions.id, dep.id));
+      await this.createAuditLog({
+        tenantId: dep.tenantId,
+        actorUserId: null,
+        action: "CROSS_FRAMEWORK_DRIFT_DETECTED",
+        entityType: "cross_framework_suggestion",
+        entityId: String(dep.id),
+        details: {
+          reason: drift.reason,
+          detail: drift.detail,
+          crosswalkId: dep.crosswalkId,
+          sourceAtomicControlId: dep.sourceAtomicControlId,
+          sourceResponseId: savedResponse.id,
+          targetAtomicAssessmentId: dep.targetAtomicAssessmentId,
+          targetAtomicControlId: dep.targetAtomicControlId,
+        },
+      });
+    }
+
     if (!isPositiveSource(facts)) return 0;
 
     const edges = await db
@@ -2542,6 +2661,141 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     return updated;
+  }
+
+  // ---- Phase C: drift (at-risk accepted propagations) ----
+
+  async listAtRiskSuggestions(tenantId: number): Promise<AtRiskSuggestion[]> {
+    const rows = await db
+      .select()
+      .from(crossFrameworkSuggestions)
+      .where(
+        and(
+          eq(crossFrameworkSuggestions.tenantId, tenantId),
+          eq(crossFrameworkSuggestions.status, "ACCEPTED"),
+          isNotNull(crossFrameworkSuggestions.driftDetectedAt),
+          isNull(crossFrameworkSuggestions.driftResolvedAt),
+        ),
+      )
+      .orderBy(desc(crossFrameworkSuggestions.driftDetectedAt));
+    if (rows.length === 0) return [];
+
+    const controlIds = new Set<number>();
+    const assessmentIds = new Set<number>();
+    const crosswalkIds = new Set<number>();
+    const userIds = new Set<number>();
+    for (const r of rows) {
+      controlIds.add(r.sourceAtomicControlId);
+      controlIds.add(r.targetAtomicControlId);
+      assessmentIds.add(r.targetAtomicAssessmentId);
+      crosswalkIds.add(r.crosswalkId);
+      if (r.decidedBy != null) userIds.add(r.decidedBy);
+    }
+    const [controls, assessments, walks, decisionUsers, targetResponses] = await Promise.all([
+      db.select().from(atomicControls).where(inArray(atomicControls.id, Array.from(controlIds))),
+      db.select().from(atomicAssessments).where(inArray(atomicAssessments.id, Array.from(assessmentIds))),
+      db.select().from(controlCrosswalks).where(inArray(controlCrosswalks.id, Array.from(crosswalkIds))),
+      userIds.size > 0
+        ? db.select({ id: users.id, email: users.email }).from(users).where(inArray(users.id, Array.from(userIds)))
+        : Promise.resolve([] as Array<{ id: number; email: string }>),
+      db
+        .select({
+          id: atomicAssessmentResponses.id,
+          atomicAssessmentId: atomicAssessmentResponses.atomicAssessmentId,
+          atomicControlId: atomicAssessmentResponses.atomicControlId,
+        })
+        .from(atomicAssessmentResponses)
+        .where(inArray(atomicAssessmentResponses.atomicAssessmentId, Array.from(assessmentIds))),
+    ]);
+    const controlById = new Map(controls.map((c) => [c.id, c]));
+    const assessmentById = new Map(assessments.map((a) => [a.id, a]));
+    const walkById = new Map(walks.map((w) => [w.id, w]));
+    const emailById = new Map(decisionUsers.map((u) => [u.id, u.email]));
+    const responseBySlot = new Map(targetResponses.map((r) => [`${r.atomicAssessmentId}-${r.atomicControlId}`, r.id]));
+
+    return rows.map((r) => {
+      const src = controlById.get(r.sourceAtomicControlId);
+      const tgt = controlById.get(r.targetAtomicControlId);
+      const asmt = assessmentById.get(r.targetAtomicAssessmentId);
+      const cw = walkById.get(r.crosswalkId);
+      return {
+        ...r,
+        sourceControl: src ? { controlId: src.controlId, shortTitle: src.shortTitle, sourceKey: src.sourceKey } : null,
+        targetControl: tgt ? { controlId: tgt.controlId, shortTitle: tgt.shortTitle, sourceKey: tgt.sourceKey } : null,
+        targetAssessmentName: asmt?.name ?? null,
+        crosswalk: cw
+          ? { relationship: cw.relationship, confidence: cw.confidence, rationale: cw.rationale, provenance: cw.provenance, reviewStatus: cw.reviewStatus }
+          : null,
+        decidedByEmail: r.decidedBy != null ? emailById.get(r.decidedBy) ?? null : null,
+        targetResponseId: responseBySlot.get(`${r.targetAtomicAssessmentId}-${r.targetAtomicControlId}`) ?? null,
+      };
+    });
+  }
+
+  async resolveDriftSuggestion(tenantId: number, id: number, resolvedBy: number): Promise<CrossFrameworkSuggestion | undefined> {
+    const [updated] = await db
+      .update(crossFrameworkSuggestions)
+      .set({ driftResolvedAt: new Date(), driftResolvedBy: resolvedBy })
+      .where(
+        and(
+          eq(crossFrameworkSuggestions.id, id),
+          eq(crossFrameworkSuggestions.tenantId, tenantId),
+          eq(crossFrameworkSuggestions.status, "ACCEPTED"),
+          isNotNull(crossFrameworkSuggestions.driftDetectedAt),
+          isNull(crossFrameworkSuggestions.driftResolvedAt),
+        ),
+      )
+      .returning();
+    return updated;
+  }
+
+  async stampEdgeChangedDrift(crosswalkId: number, detail: string): Promise<Array<{ id: number; tenantId: number }>> {
+    const stamped = await db
+      .update(crossFrameworkSuggestions)
+      .set({
+        driftDetectedAt: new Date(),
+        driftReason: "EDGE_CHANGED",
+        driftDetail: detail,
+        driftResolvedAt: null,
+        driftResolvedBy: null,
+      })
+      .where(
+        and(
+          eq(crossFrameworkSuggestions.crosswalkId, crosswalkId),
+          eq(crossFrameworkSuggestions.status, "ACCEPTED"),
+          // "unresolved-drift-free": never overwrite an unresolved flag.
+          or(
+            isNull(crossFrameworkSuggestions.driftDetectedAt),
+            isNotNull(crossFrameworkSuggestions.driftResolvedAt),
+          ),
+        ),
+      )
+      .returning({
+        id: crossFrameworkSuggestions.id,
+        tenantId: crossFrameworkSuggestions.tenantId,
+        crosswalkId: crossFrameworkSuggestions.crosswalkId,
+        sourceAtomicControlId: crossFrameworkSuggestions.sourceAtomicControlId,
+        targetAtomicAssessmentId: crossFrameworkSuggestions.targetAtomicAssessmentId,
+        targetAtomicControlId: crossFrameworkSuggestions.targetAtomicControlId,
+      });
+    for (const dep of stamped) {
+      await this.createAuditLog({
+        tenantId: dep.tenantId,
+        actorUserId: null,
+        action: "CROSS_FRAMEWORK_DRIFT_DETECTED",
+        entityType: "cross_framework_suggestion",
+        entityId: String(dep.id),
+        details: {
+          reason: "EDGE_CHANGED",
+          detail,
+          crosswalkId: dep.crosswalkId,
+          sourceAtomicControlId: dep.sourceAtomicControlId,
+          targetAtomicAssessmentId: dep.targetAtomicAssessmentId,
+          targetAtomicControlId: dep.targetAtomicControlId,
+        },
+      });
+    }
+    return stamped.map((s) => ({ id: s.id, tenantId: s.tenantId }));
   }
 
   async getCrosswalkById(id: number): Promise<ControlCrosswalk | undefined> {

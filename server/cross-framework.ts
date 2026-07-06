@@ -296,3 +296,70 @@ export function computeCoverage(
     potentialPct: pct(potentialTargets.size, total),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Phase C — drift detection (pure)
+// ---------------------------------------------------------------------------
+
+const STATUS_ORDER: ImplementationStatus[] = ["NOT_STARTED", "IN_PROGRESS", "IMPLEMENTED", "VERIFIED"];
+
+export interface AcceptedBasis {
+  suggestedStatus: ImplementationStatus | null;
+  suggestedMaturity: number | null;
+}
+
+export interface CurrentSourceFacts {
+  implementationStatus: ImplementationStatus;
+  maturityLevel: number;
+}
+
+/**
+ * Decide whether an ACCEPTED propagation's source answer has drifted.
+ *
+ * Drift when the source no longer meets the positive-propagation threshold the
+ * engine uses for enqueueing (single source of truth: isPositiveSource /
+ * MATURITY_PROPAGATION_THRESHOLD), or when the source's status/maturity is now
+ * strictly weaker than what the acceptance was based on. Equal strength = no
+ * drift. Status stays ACCEPTED; the caller only stamps annotation columns.
+ */
+export function detectSourceDrift(
+  accepted: AcceptedBasis,
+  currentSource: CurrentSourceFacts,
+): { drifted: boolean; reason?: "SOURCE_DOWNGRADED"; detail?: string } {
+  const stillPositive = isPositiveSource({
+    atomicControlId: 0,
+    implementationStatus: currentSource.implementationStatus,
+    maturityLevel: currentSource.maturityLevel,
+    confidence: "NONE",
+  });
+  if (!stillPositive) {
+    return {
+      drifted: true,
+      reason: "SOURCE_DOWNGRADED",
+      detail: `Source answer no longer meets the propagation threshold (now ${currentSource.implementationStatus}, maturity ${currentSource.maturityLevel}; threshold: terminal status or maturity >= ${MATURITY_PROPAGATION_THRESHOLD})`,
+    };
+  }
+
+  const statusWeaker =
+    accepted.suggestedStatus != null &&
+    STATUS_ORDER.indexOf(currentSource.implementationStatus) < STATUS_ORDER.indexOf(accepted.suggestedStatus);
+  const maturityWeaker =
+    accepted.suggestedMaturity != null && currentSource.maturityLevel < accepted.suggestedMaturity;
+
+  if (statusWeaker || maturityWeaker) {
+    const parts: string[] = [];
+    if (statusWeaker) {
+      parts.push(`status ${accepted.suggestedStatus} -> ${currentSource.implementationStatus}`);
+    }
+    if (maturityWeaker) {
+      parts.push(`maturity ${accepted.suggestedMaturity} -> ${currentSource.maturityLevel}`);
+    }
+    return {
+      drifted: true,
+      reason: "SOURCE_DOWNGRADED",
+      detail: `Source answer is now weaker than the accepted basis (${parts.join(", ")})`,
+    };
+  }
+
+  return { drifted: false };
+}

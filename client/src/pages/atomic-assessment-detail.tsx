@@ -67,7 +67,7 @@ import {
   FileText,
   Lock,
 } from "lucide-react";
-import { useLocation, Link } from "wouter";
+import { useLocation, useSearch, Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { usePlan, isUpgradeError, upgradeMessage } from "@/hooks/use-plan";
 import { showUpgradeDialog } from "@/components/upgrade-dialog";
@@ -1139,6 +1139,8 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
   const [focusMode, setFocusMode] = useState(false);
   const domainsInitialized = useRef(false);
   const controlRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const scrolledToControl = useRef(false);
+  const searchString = useSearch();
 
   const { data: flagData, isLoading: flagLoading } = useQuery<{ enabled: boolean }>({
     queryKey: ["/api/feature-flags/check", "ATOMIC_ASSESSMENTS"],
@@ -1255,6 +1257,35 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
     }
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [filteredControls]);
+
+  // Deep-link support: ?control=<PREFIX>-<responseId> (same contract as the
+  // unified assessment page; PREFIX is NIS2/CIR/DORA for atomic responses).
+  // Expands the target control card, opens its domain and scrolls to it.
+  useEffect(() => {
+    if (scrolledToControl.current || responses.length === 0 || controls.length === 0) return;
+    const params = new URLSearchParams(searchString);
+    const controlParam = params.get("control");
+    if (!controlParam) return;
+    const responseId = parseInt(controlParam.slice(controlParam.lastIndexOf("-") + 1));
+    if (!Number.isFinite(responseId)) return;
+    const resp = responses.find((r) => r.id === responseId);
+    if (!resp) return;
+    const control = controls.find((c) => c.id === resp.atomicControlId);
+    if (!control) return;
+
+    scrolledToControl.current = true;
+    setExpandedCards((prev) => new Set(prev).add(control.id));
+    setOpenDomains((prev) => new Set(prev).add(control.domain || "Other"));
+
+    setTimeout(() => {
+      const el = controlRefs.current.get(control.id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-primary/50");
+        setTimeout(() => el.classList.remove("ring-2", "ring-primary/50"), 3000);
+      }
+    }, 300);
+  }, [responses, controls, searchString]);
 
   useEffect(() => {
     const domainNames = groupedControls.map(([d]) => d);

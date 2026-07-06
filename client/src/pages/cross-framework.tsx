@@ -36,6 +36,24 @@ interface SuggestionRow {
   sourceEvidence: Array<{ id: number; filename: string; size: number | null; sha256: string | null }>;
 }
 
+interface AtRiskRow {
+  id: number;
+  suggestedStatus: string | null;
+  suggestedMaturity: number | null;
+  suggestedConfidence: string | null;
+  decidedAt: string | null;
+  decidedByEmail: string | null;
+  driftDetectedAt: string | null;
+  driftReason: "SOURCE_DOWNGRADED" | "SOURCE_REMOVED" | "EDGE_CHANGED" | null;
+  driftDetail: string | null;
+  targetAtomicAssessmentId: number;
+  targetResponseId: number | null;
+  sourceControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
+  targetControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
+  targetAssessmentName: string | null;
+  crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null; reviewStatus: string } | null;
+}
+
 interface ReviewInfo {
   reviewStatus: "DRAFT" | "APPROVED";
   reviewNote: string | null;
@@ -284,14 +302,187 @@ function SuggestionsInbox() {
   );
 }
 
+const driftReasonLabels: Record<string, string> = {
+  SOURCE_DOWNGRADED: "Source answer weakened",
+  SOURCE_REMOVED: "Source assessment deleted",
+  EDGE_CHANGED: "Mapping changed",
+};
+
+// Deep-link prefix contract (?control=<PREFIX>-<responseId>): NIS2/CIR/DORA
+// for atomic responses — must stay in sync with tasks/evidence link builders.
+function controlLinkPrefix(sourceKey: string | undefined): string {
+  if (sourceKey === "CIR_2024_2690") return "CIR";
+  if (sourceKey === "DORA_2022_2554") return "DORA";
+  return "NIS2";
+}
+
+function AtRiskInbox() {
+  const { toast } = useToast();
+  const { data, isLoading } = useQuery<{ atRisk: AtRiskRow[] }>({
+    queryKey: ["/api/cross-framework/drift"],
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: async ({ id, resolution }: { id: number; resolution: "REAFFIRMED" | "TARGET_UPDATED" }) => {
+      const res = await apiRequest("POST", `/api/cross-framework/drift/${id}/resolve`, { resolution });
+      return res.json();
+    },
+    onSuccess: (_result, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cross-framework/drift"] });
+      toast({
+        title: vars.resolution === "REAFFIRMED" ? "Acceptance reaffirmed" : "Marked as updated",
+        description:
+          vars.resolution === "REAFFIRMED"
+            ? "You confirmed the target answer still stands despite the change."
+            : "Recorded that you updated the target answer yourself.",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Resolution failed", description: err?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2].map((i) => (
+          <Skeleton key={i} className="h-28 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  const rows = data?.atRisk || [];
+
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center space-y-2" data-testid="empty-at-risk">
+          <Check className="w-8 h-8 mx-auto text-muted-foreground" />
+          <p className="text-sm font-medium">Nothing at risk</p>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto">
+            All your accepted propagations still rest on their original foundations. If a source
+            answer weakens, a source assessment is deleted, or a mapping changes, the affected
+            acceptances will appear here for review.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {rows.map((r) => (
+        <Card key={r.id} className="border-amber-500/40" data-testid={`card-at-risk-${r.id}`}>
+          <CardContent className="pt-4 pb-4 space-y-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap text-sm">
+                <Badge variant="secondary" className="text-[10px]">
+                  {frameworkShort[r.sourceControl?.sourceKey || ""] || r.sourceControl?.sourceKey}
+                </Badge>
+                <span className="font-mono text-xs">{r.sourceControl?.controlId}</span>
+                <span className="text-muted-foreground text-xs truncate max-w-[160px]">{r.sourceControl?.shortTitle}</span>
+                {r.crosswalk && (
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${relationshipStyles[r.crosswalk.relationship] || "bg-muted"}`}>
+                    {r.crosswalk.relationship} · {r.crosswalk.confidence}%
+                  </span>
+                )}
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <Badge variant="secondary" className="text-[10px]">
+                  {frameworkShort[r.targetControl?.sourceKey || ""] || r.targetControl?.sourceKey}
+                </Badge>
+                <span className="font-mono text-xs">{r.targetControl?.controlId}</span>
+                <span className="text-muted-foreground text-xs truncate max-w-[160px]">{r.targetControl?.shortTitle}</span>
+              </div>
+              <Badge
+                variant="outline"
+                className="border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] uppercase tracking-wide"
+                data-testid={`badge-drift-reason-${r.id}`}
+              >
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                {driftReasonLabels[r.driftReason || ""] || r.driftReason}
+              </Badge>
+            </div>
+
+            {r.driftDetail && (
+              <p className="text-xs text-amber-700 dark:text-amber-400" data-testid={`text-drift-detail-${r.id}`}>
+                {r.driftDetail}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+              <span>
+                In assessment: <span className="font-medium text-foreground">{r.targetAssessmentName || "—"}</span>
+              </span>
+              {r.suggestedStatus && (
+                <span>
+                  Accepted basis: <span className="font-medium text-foreground">{r.suggestedStatus.replace(/_/g, " ")}</span>
+                  {r.suggestedMaturity != null && <> · maturity {r.suggestedMaturity}/5</>}
+                </span>
+              )}
+              {r.decidedAt && (
+                <span>
+                  Accepted {new Date(r.decidedAt).toLocaleDateString()}
+                  {r.decidedByEmail ? ` by ${r.decidedByEmail}` : ""}
+                </span>
+              )}
+              {r.driftDetectedAt && <span>Flagged {new Date(r.driftDetectedAt).toLocaleDateString()}</span>}
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                size="sm"
+                onClick={() => resolveMutation.mutate({ id: r.id, resolution: "REAFFIRMED" })}
+                disabled={resolveMutation.isPending}
+                data-testid={`button-reaffirm-${r.id}`}
+              >
+                {resolveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+                Reaffirm target answer
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => resolveMutation.mutate({ id: r.id, resolution: "TARGET_UPDATED" })}
+                disabled={resolveMutation.isPending}
+                data-testid={`button-target-updated-${r.id}`}
+              >
+                I updated the target
+              </Button>
+              <Link
+                href={
+                  r.targetResponseId != null
+                    ? `/atomic-assessments/${r.targetAtomicAssessmentId}?control=${controlLinkPrefix(r.targetControl?.sourceKey)}-${r.targetResponseId}`
+                    : `/atomic-assessments/${r.targetAtomicAssessmentId}`
+                }
+                className="text-xs underline text-muted-foreground"
+                data-testid={`link-target-assessment-${r.id}`}
+              >
+                Open target control
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function CoverageMatrix() {
   const { data, isLoading } = useQuery<{ coverage: CoverageRow[] }>({
     queryKey: ["/api/cross-framework/coverage"],
+  });
+  const { data: driftData } = useQuery<{ atRisk: AtRiskRow[] }>({
+    queryKey: ["/api/cross-framework/drift"],
   });
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
 
   const rows = data?.coverage || [];
+  const atRiskByFramework = new Map<string, number>();
+  for (const r of driftData?.atRisk || []) {
+    const key = r.targetControl?.sourceKey;
+    if (key) atRiskByFramework.set(key, (atRiskByFramework.get(key) || 0) + 1);
+  }
 
   return (
     <Card>
@@ -337,11 +528,26 @@ function CoverageMatrix() {
                 </TableCell>
                 <TableCell className="text-right text-sm">
                   {r.potentialFromMapping} <span className="text-xs text-muted-foreground">({r.potentialPct}%)</span>
+                  {(atRiskByFramework.get(r.frameworkKey) || 0) > 0 && (
+                    <span
+                      className="ml-1.5 text-[10px] text-amber-700 dark:text-amber-400"
+                      title="Accepted propagations into this framework whose foundation has changed"
+                      data-testid={`text-at-risk-count-${r.frameworkKey}`}
+                    >
+                      *{atRiskByFramework.get(r.frameworkKey)} at risk
+                    </span>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        {atRiskByFramework.size > 0 && (
+          <p className="mt-3 text-[11px] text-muted-foreground" data-testid="text-at-risk-footnote">
+            * At-risk counts are accepted propagations whose foundation (source answer or mapping)
+            has since changed — review them in the "At risk" tab. They remain applied until you decide otherwise.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -354,6 +560,10 @@ export default function CrossFramework() {
     queryKey: ["/api/cross-framework/suggestions"],
   });
   const review = reviewData?.review;
+  const { data: driftData } = useQuery<{ atRisk: AtRiskRow[] }>({
+    queryKey: ["/api/cross-framework/drift"],
+  });
+  const atRiskCount = driftData?.atRisk?.length ?? 0;
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
@@ -390,6 +600,19 @@ export default function CrossFramework() {
             <Inbox className="w-4 h-4 mr-1.5" />
             Suggestions
           </TabsTrigger>
+          <TabsTrigger value="at-risk" data-testid="tab-at-risk">
+            <AlertTriangle className="w-4 h-4 mr-1.5" />
+            At risk
+            {atRiskCount > 0 && (
+              <Badge
+                variant="outline"
+                className="ml-1.5 border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] px-1.5"
+                data-testid="badge-at-risk-count"
+              >
+                {atRiskCount}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="coverage" data-testid="tab-coverage">
             <Grid3X3 className="w-4 h-4 mr-1.5" />
             Coverage
@@ -397,6 +620,9 @@ export default function CrossFramework() {
         </TabsList>
         <TabsContent value="suggestions" className="mt-4">
           <SuggestionsInbox />
+        </TabsContent>
+        <TabsContent value="at-risk" className="mt-4">
+          <AtRiskInbox />
         </TabsContent>
         <TabsContent value="coverage" className="mt-4">
           <CoverageMatrix />
