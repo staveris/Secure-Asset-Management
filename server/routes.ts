@@ -1617,6 +1617,30 @@ export async function registerRoutes(
       };
     }
 
+    // Free-plan gating: tell the client which objectives / atomic controls are
+    // locked (everything beyond the first 25 per capped framework).
+    let freeLockedObjectiveIds: number[] = [];
+    let freeLockedAtomicControlIds: number[] = [];
+    if (user.role !== "PLATFORM_ADMIN" && user.tenantId) {
+      const plan = await storage.getTenantPlan(user.tenantId);
+      if (plan && plan.effectiveTier === "FREE") {
+        const unlockedObjectives = new Set(await storage.getFreeTierUnlockedObjectiveIds());
+        freeLockedObjectiveIds = enrichedResponses
+          .filter((r) => !unlockedObjectives.has(r.controlObjectiveId))
+          .map((r) => r.controlObjectiveId);
+        if (atomicInfo) {
+          const lockedAtomic = new Set<number>();
+          for (const key of FREE_CAPPED_SOURCE_KEYS) {
+            const unlocked = new Set(await storage.getFreeTierUnlockedControlIds(key));
+            for (const r of atomicInfo.responses) {
+              if (r.sourceKey === key && !unlocked.has(r.atomicControlId)) lockedAtomic.add(r.atomicControlId);
+            }
+          }
+          freeLockedAtomicControlIds = Array.from(lockedAtomic);
+        }
+      }
+    }
+
     res.json({
       id: assessment!.id,
       name: assessment!.name,
@@ -1626,6 +1650,8 @@ export async function registerRoutes(
       responses: enrichedResponses,
       tasks: enrichedTasks,
       cirInfo: atomicInfo,
+      freeLockedObjectiveIds,
+      freeLockedAtomicControlIds,
     });
   });
 
@@ -1640,6 +1666,22 @@ export async function registerRoutes(
     const assessment = await storage.getAssessment(response.assessmentId);
     if (!assessment || (assessment.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN")) {
       return res.status(403).json({ message: "Forbidden" });
+    }
+
+    // Plan-tier wall: on FREE, only the first 25 NIS2 objectives are usable.
+    if (user.role !== "PLATFORM_ADMIN") {
+      const plan = await storage.getTenantPlan(user.tenantId);
+      if (plan && plan.effectiveTier === "FREE") {
+        const unlocked = await storage.getFreeTierUnlockedObjectiveIds();
+        if (!unlocked.includes(response.controlObjectiveId)) {
+          return res.status(402).json({
+            error: "upgrade_required",
+            wall: "free_control_cap",
+            limit: 25,
+            message: "Free plan includes the first 25 NIS2 objectives. Upgrade to unlock the rest.",
+          });
+        }
+      }
     }
 
     const { implementationStatus, maturityLevel, evidenceConfidence, notes } = req.body;

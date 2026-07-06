@@ -347,6 +347,7 @@ export interface IStorage {
   getTenantPlan(tenantId: number): Promise<{ tier: PlanTier; trialEndsAt: Date | null; effectiveTier: PlanTier } | undefined>;
   setTenantPlan(tenantId: number, tier: PlanTier): Promise<Tenant | undefined>;
   getFreeTierUnlockedControlIds(sourceKey: string): Promise<number[]>;
+  getFreeTierUnlockedObjectiveIds(): Promise<number[]>;
 
   createScopeCheckLead(data: InsertScopeCheckLead): Promise<ScopeCheckLead>;
   getScopeCheckLeadByToken(reportToken: string): Promise<ScopeCheckLead | undefined>;
@@ -1861,6 +1862,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tenants.id, tenantId))
       .returning();
     return updated;
+  }
+
+  async getFreeTierUnlockedObjectiveIds(): Promise<number[]> {
+    // First 25 NIS2 control objectives in library order (id asc) — the same
+    // order used when assessments are created and rendered.
+    const rows = await db
+      .select({ id: controlObjectives.id })
+      .from(controlObjectives)
+      .orderBy(asc(controlObjectives.id))
+      .limit(25);
+    return rows.map((r) => r.id);
   }
 
   async getFreeTierUnlockedControlIds(sourceKey: string): Promise<number[]> {

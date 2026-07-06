@@ -110,6 +110,8 @@ interface AssessmentDetail {
   responses: AssessmentResponse[];
   tasks: Task[];
   cirInfo?: CirInfo | null;
+  freeLockedObjectiveIds?: number[];
+  freeLockedAtomicControlIds?: number[];
 }
 
 type GroupMode = "domain" | "category";
@@ -277,6 +279,7 @@ function ControlCard({
   controlTasks = [],
   isExpanded,
   onToggleExpand,
+  locked = false,
 }: {
   response: AssessmentResponse;
   assessmentId: string;
@@ -284,6 +287,7 @@ function ControlCard({
   controlTasks?: Task[];
   isExpanded: boolean;
   onToggleExpand: () => void;
+  locked?: boolean;
 }) {
 
   const { toast } = useToast();
@@ -449,6 +453,45 @@ function ControlCard({
     : isNis2Atomic
       ? { stripColor: "bg-emerald-500", label: "Atomic", icon: Target, iconColor: "text-emerald-500", badgeClass: "border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300" }
       : { stripColor: "bg-blue-500", label: "Objective", icon: ClipboardCheck, iconColor: "text-blue-500", badgeClass: "border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300" };
+
+  if (locked) {
+    const frameworkLabel = isNis2Atomic ? "NIS2 controls" : "NIS2 objectives";
+    return (
+      <Card
+        data-testid={`control-card-${isCir ? "cir" : isNis2Atomic ? "nis2-atomic" : "nis2"}-${response.id}`}
+        className="opacity-55 bg-muted/30"
+      >
+        <CardContent className="p-0">
+          <button
+            type="button"
+            className="w-full text-left p-3 flex items-center gap-3 cursor-pointer"
+            onClick={() =>
+              showUpgradeDialog(
+                `Free plan includes the first 25 ${frameworkLabel}. Upgrade to unlock ${response.requirementCode || "this control"} and all remaining ones.`
+              )
+            }
+            data-testid={`button-locked-control-${response.id}`}
+          >
+            <div className="p-1.5 rounded-md bg-muted shrink-0">
+              <Lock className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                {response.requirementCode && (
+                  <Badge variant="outline" className="text-xs font-mono">{response.requirementCode}</Badge>
+                )}
+                <Badge variant="outline" className={`text-[10px] ${typeConfig.badgeClass}`}>{typeConfig.label}</Badge>
+                <span className="text-sm font-medium truncate text-muted-foreground">{response.controlTitle}</span>
+              </div>
+            </div>
+            <Badge variant="outline" className="text-[10px] shrink-0" data-testid={`badge-locked-${response.id}`}>
+              Upgrade to unlock
+            </Badge>
+          </button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card
@@ -1534,6 +1577,14 @@ export default function AssessmentDetail({ id }: { id: string }) {
     return [...objectives, ...atomicResponses];
   }, [data]);
 
+  const lockedObjectiveIds = useMemo(() => new Set(data?.freeLockedObjectiveIds || []), [data]);
+  const lockedAtomicControlIds = useMemo(() => new Set(data?.freeLockedAtomicControlIds || []), [data]);
+  const isResponseLocked = useCallback((r: AssessmentResponse & { sourceKey?: string }) => {
+    if (r.sourceKey === "NIS2_OBJECTIVE") return lockedObjectiveIds.has(r.controlObjectiveId);
+    if (r.atomicControlId) return lockedAtomicControlIds.has(r.atomicControlId);
+    return false;
+  }, [lockedObjectiveIds, lockedAtomicControlIds]);
+
   const hasAtomicControls = !!data?.cirInfo;
   const hasCir = allResponses.some(r => r.sourceKey === "CIR_2024_2690");
   const hasNis2Atomic = allResponses.some(r => r.sourceKey === "NIS2_2022_2555");
@@ -2125,6 +2176,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
                             controlTasks={getControlTasks(response.controlObjectiveId, response.atomicControlId)}
                             isExpanded={expandedCards.has(cardKey)}
                             onToggleExpand={() => toggleCard(cardKey)}
+                            locked={isResponseLocked(response)}
                           />
                         </div>
                       );

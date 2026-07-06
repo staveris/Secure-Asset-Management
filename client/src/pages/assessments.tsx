@@ -245,7 +245,7 @@ export default function Assessments() {
     deleteMutation.mutate(deleteTarget.id);
   };
 
-  const isAdmin = user?.role === "TENANT_ADMIN" || user?.role === "PLATFORM_ADMIN" || user?.role === "TENANT_MANAGER";
+  const canDelete = !!user && user.role !== "READONLY_AUDITOR";
 
   const filtered = useMemo(() => {
     if (!assessments) return [];
@@ -508,11 +508,11 @@ export default function Assessments() {
                               <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">{assessment.scope}</p>
                             )}
                           </div>
-                          {isAdmin && (
+                          {canDelete && (
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 -mt-1 -mr-1"
+                              className="shrink-0 -mt-1 -mr-1 text-muted-foreground hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setDeleteTarget(assessment);
