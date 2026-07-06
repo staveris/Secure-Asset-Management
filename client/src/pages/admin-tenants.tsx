@@ -40,6 +40,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom, Pencil, Shield, UserPlus, Send, X, Clock, AlertCircle, Flag } from "lucide-react";
 import { FEATURE_FLAG_REGISTRY, getFeatureFlagDefinition, type FeatureFlagDefinition } from "@shared/feature-flags";
+import { PLAN_TIERS, type PlanTier } from "@shared/plan-tiers";
+import { PLAN_LABELS } from "@/hooks/use-plan";
 
 interface TenantInfo {
   id: number;
@@ -55,6 +57,8 @@ interface TenantInfo {
   storageQuotaBytes: number;
   storageUsedBytes: number;
   maxUsers: number;
+  planTier: PlanTier | null;
+  trialEndsAt: string | null;
 }
 
 interface TenantUser {
@@ -116,6 +120,7 @@ export default function AdminTenants() {
   const [editEmail, setEditEmail] = useState("");
   const [editTenant, setEditTenant] = useState<TenantInfo | null>(null);
   const [editTenantForm, setEditTenantForm] = useState<{ name: string; sector: string; subsector: string; entityType: string; country: string }>({ name: "", sector: "", subsector: "", entityType: "", country: "" });
+  const [planDowngrade, setPlanDowngrade] = useState<{ tenant: TenantInfo; newTier: PlanTier } | null>(null);
   const [inviteTenant, setInviteTenant] = useState<TenantInfo | null>(null);
   const [inviteForm, setInviteForm] = useState<{ email: string; fullName: string; role: string }>({ email: "", fullName: "", role: "TENANT_USER" });
   const [revokeInvite, setRevokeInvite] = useState<{ tenantId: number; inviteId: number; email: string } | null>(null);
@@ -198,6 +203,21 @@ export default function AdminTenants() {
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message || "Failed to update feature flag", variant: "destructive" });
+    },
+  });
+
+  const planMutation = useMutation({
+    mutationFn: async ({ tenantId, planTier }: { tenantId: number; planTier: PlanTier }) => {
+      const res = await apiRequest("PATCH", `/api/admin/tenants/${tenantId}/plan`, { planTier });
+      return await res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/feature-flags", vars.tenantId] });
+      toast({ title: "Plan updated", description: `Tenant moved to the ${PLAN_LABELS[vars.planTier]} plan.` });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message || "Failed to update plan", variant: "destructive" });
     },
   });
 
@@ -575,6 +595,39 @@ export default function AdminTenants() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4 shrink-0">
+                    <div className="flex flex-col items-start gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Select
+                          value={tenant.planTier || "FREE"}
+                          onValueChange={(v) => {
+                            const newTier = v as PlanTier;
+                            const current = (tenant.planTier || "FREE") as PlanTier;
+                            if (PLAN_TIERS.indexOf(newTier) < PLAN_TIERS.indexOf(current)) {
+                              setPlanDowngrade({ tenant, newTier });
+                            } else {
+                              planMutation.mutate({ tenantId: tenant.id, planTier: newTier });
+                            }
+                          }}
+                          disabled={planMutation.isPending && planMutation.variables?.tenantId === tenant.id}
+                        >
+                          <SelectTrigger className="h-7 w-[130px] text-xs" data-testid={`select-plan-${tenant.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PLAN_TIERS.map((tier) => (
+                              <SelectItem key={tier} value={tier} data-testid={`option-plan-${tier}-${tenant.id}`}>
+                                {PLAN_LABELS[tier]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {tenant.trialEndsAt && new Date(tenant.trialEndsAt) > new Date() && (
+                        <span className="text-[10px] text-muted-foreground pl-1" data-testid={`text-trial-${tenant.id}`}>
+                          Trial until {new Date(tenant.trialEndsAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-center">
                       <p className="text-sm font-bold flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {tenant.userCount}</p>
                       <p className="text-xs text-muted-foreground">Users</p>
@@ -921,6 +974,38 @@ export default function AdminTenants() {
               data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete Permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!planDowngrade} onOpenChange={(open) => !open && setPlanDowngrade(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Downgrade Plan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Move <strong>{planDowngrade?.tenant.name}</strong> from the{" "}
+              <strong>{PLAN_LABELS[(planDowngrade?.tenant.planTier || "FREE") as PlanTier]}</strong> plan to{" "}
+              <strong>{planDowngrade ? PLAN_LABELS[planDowngrade.newTier] : ""}</strong>?
+              {planDowngrade?.newTier === "FREE" && (
+                <> On the Free plan, new NIS2 control answers are capped at 25, and evidence uploads and
+                cross-framework acceptance are locked.</>
+              )}{" "}
+              Feature flags that are already enabled will not be turned off automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-downgrade">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (planDowngrade) {
+                  planMutation.mutate({ tenantId: planDowngrade.tenant.id, planTier: planDowngrade.newTier });
+                }
+                setPlanDowngrade(null);
+              }}
+              data-testid="button-confirm-downgrade"
+            >
+              Downgrade
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
