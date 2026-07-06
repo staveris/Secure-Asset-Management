@@ -1488,7 +1488,7 @@ export async function registerRoutes(
         const objRespId = objectiveResponseMap.get(`${t.assessmentId}-${control.id}`);
         if (objRespId) {
           navResponseId = objRespId;
-          navSource = "NIS2";
+          navSource = "OBJ";
         }
       }
 

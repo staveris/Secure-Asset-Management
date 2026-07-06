@@ -655,7 +655,7 @@ export default function Evidence() {
                                 if (enriched.responseId) {
                                   const src = item.relatedType === "AtomicControl"
                                     ? (enriched.sourceKey === "CIR_2024_2690" ? "CIR" : "NIS2")
-                                    : "NIS2";
+                                    : "OBJ";
                                   return `${base}?control=${src}-${enriched.responseId}`;
                                 }
                                 return base;
@@ -676,7 +676,7 @@ export default function Evidence() {
                                 if (enriched.responseId) {
                                   const src = item.relatedType === "AtomicControl"
                                     ? (enriched.sourceKey === "CIR_2024_2690" ? "CIR" : "NIS2")
-                                    : "NIS2";
+                                    : "OBJ";
                                   return `${base}?control=${src}-${enriched.responseId}`;
                                 }
                                 return base;

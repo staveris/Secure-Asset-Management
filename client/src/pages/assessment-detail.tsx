@@ -1636,6 +1636,11 @@ export default function AssessmentDetail({ id }: { id: string }) {
     }
   }, [grouped]);
 
+  const getCardKey = useCallback((r: { id: number; source?: string; sourceKey?: string }) => {
+    const prefix = r.sourceKey === "NIS2_OBJECTIVE" ? "OBJ" : (r.source || "NIS2");
+    return `${prefix}-${r.id}`;
+  }, []);
+
   const toggleCard = useCallback((cardKey: string) => {
     setExpandedCards(prev => {
       const next = new Set(prev);
@@ -1653,18 +1658,18 @@ export default function AssessmentDetail({ id }: { id: string }) {
       setExpandedCards(new Set());
       setExpandAll(false);
     } else {
-      const allKeys = filteredResponses.map(r => `${r.source || "NIS2"}-${r.id}`);
+      const allKeys = filteredResponses.map(r => getCardKey(r));
       setExpandedCards(new Set(allKeys));
       setExpandAll(true);
     }
-  }, [expandAll, filteredResponses]);
+  }, [expandAll, filteredResponses, getCardKey]);
 
   const jumpToNextIncomplete = useCallback(() => {
     const nextIncomplete = filteredResponses.find(r => r.implementationStatus === "NOT_STARTED");
     if (!nextIncomplete) {
       const nextInProgress = filteredResponses.find(r => r.implementationStatus === "IN_PROGRESS");
       if (nextInProgress) {
-        const key = `${nextInProgress.source || "NIS2"}-${nextInProgress.id}`;
+        const key = getCardKey(nextInProgress);
         setExpandedCards(prev => new Set(prev).add(key));
         controlRefs.current.get(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
       } else {
@@ -1672,12 +1677,12 @@ export default function AssessmentDetail({ id }: { id: string }) {
       }
       return;
     }
-    const key = `${nextIncomplete.source || "NIS2"}-${nextIncomplete.id}`;
+    const key = getCardKey(nextIncomplete);
     setExpandedCards(prev => new Set(prev).add(key));
     setTimeout(() => {
       controlRefs.current.get(key)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
-  }, [filteredResponses, toast]);
+  }, [filteredResponses, toast, getCardKey]);
 
   const generateAtomicTasksMutation = useMutation({
     mutationFn: async () => {
@@ -2094,7 +2099,7 @@ export default function AssessmentDetail({ id }: { id: string }) {
                 <AccordionContent>
                   <div className="space-y-2 px-4 pb-3">
                     {responses.map((response) => {
-                      const cardKey = `${response.source || "NIS2"}-${response.id}`;
+                      const cardKey = getCardKey(response);
                       return (
                         <div
                           key={cardKey}
