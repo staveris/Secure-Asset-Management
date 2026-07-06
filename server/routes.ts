@@ -4,7 +4,7 @@ import session from "express-session";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { loginSchema, registerSchema } from "@shared/schema";
+import { loginSchema, registerSchema, acceptInviteSchema } from "@shared/schema";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
 import rateLimit from "express-rate-limit";
@@ -412,7 +412,7 @@ export async function registerRoutes(
     if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
       return next();
     }
-    if (req.path.startsWith("/auth/login") || req.path.startsWith("/auth/register") || req.path.startsWith("/auth/forgot-password") || req.path.startsWith("/auth/reset-password") || req.path.startsWith("/auth/verify-email") || req.path.startsWith("/auth/resend-verification") || req.path.startsWith("/auth/logout") || req.path.startsWith("/auth/totp-verify")) {
+    if (req.path.startsWith("/auth/login") || req.path.startsWith("/auth/register") || req.path.startsWith("/auth/forgot-password") || req.path.startsWith("/auth/reset-password") || req.path.startsWith("/auth/verify-email") || req.path.startsWith("/auth/resend-verification") || req.path.startsWith("/auth/logout") || req.path.startsWith("/auth/totp-verify") || req.path.startsWith("/auth/accept-invite")) {
       return next();
     }
     const token = req.headers["x-csrf-token"] as string;
@@ -499,6 +499,100 @@ export async function registerRoutes(
         emailVerified: false,
         emailSent,
         requiresVerification: true,
+      });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/auth/invite/:token", authLimiter, async (req, res) => {
+    try {
+      const rawToken = String(req.params.token || "");
+      if (!rawToken || rawToken.length < 16) {
+        return res.status(400).json({ message: "Invalid invitation link" });
+      }
+      const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+      const invite = await storage.getInviteTokenByHash(tokenHash);
+      if (!invite) return res.status(404).json({ message: "Invitation not found" });
+      if (invite.usedAt) {
+        return res.status(410).json({ message: "This invitation has already been used or revoked" });
+      }
+      if (new Date(invite.expiresAt) <= new Date()) {
+        return res.status(410).json({ message: "This invitation has expired" });
+      }
+      const tenant = await storage.getTenant(invite.tenantId);
+      res.json({
+        email: invite.email,
+        role: invite.role,
+        tenantName: tenant?.name || "your organization",
+        expiresAt: invite.expiresAt,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/accept-invite", authLimiter, registerLimiter, async (req, res) => {
+    try {
+      const data = acceptInviteSchema.parse(req.body);
+      const tokenHash = crypto.createHash("sha256").update(data.token).digest("hex");
+      const invite = await storage.getInviteTokenByHash(tokenHash);
+      if (!invite) return res.status(404).json({ message: "Invitation not found" });
+      if (invite.usedAt) {
+        return res.status(410).json({ message: "This invitation has already been used or revoked" });
+      }
+      if (new Date(invite.expiresAt) <= new Date()) {
+        return res.status(410).json({ message: "This invitation has expired" });
+      }
+
+      const existing = await storage.getUserByEmail(invite.email);
+      if (existing) {
+        return res.status(400).json({ message: "An account with this email already exists. Please log in instead." });
+      }
+
+      const tenant = await storage.getTenant(invite.tenantId);
+      if (!tenant) return res.status(404).json({ message: "Organization no longer exists" });
+      const tenantUsers = await storage.getUsersByTenant(invite.tenantId);
+      if (tenantUsers.length >= tenant.maxUsers) {
+        return res.status(403).json({ message: "This organization has reached its user limit. Contact your administrator." });
+      }
+
+      const passwordHash = await bcrypt.hash(data.password, 12);
+      const user = await storage.createUser({
+        tenantId: invite.tenantId,
+        email: invite.email,
+        passwordHash,
+        fullName: data.fullName,
+        role: invite.role,
+        isActive: true,
+        emailVerified: true,
+      });
+
+      await addPasswordToHistory(user.id, passwordHash);
+      await storage.markInviteTokenAccepted(invite.id, user.id);
+
+      await storage.createAuditLog({
+        tenantId: invite.tenantId,
+        actorUserId: user.id,
+        action: "INVITE_ACCEPT",
+        entityType: "INVITE",
+        entityId: String(invite.id),
+        details: { email: invite.email, role: invite.role, userId: user.id },
+      });
+
+      await new Promise<void>((resolve, reject) =>
+        req.session.regenerate((err) => (err ? reject(err) : resolve()))
+      );
+      req.session.userId = user.id;
+      res.json({
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        emailVerified: true,
       });
     } catch (err: any) {
       if (err instanceof z.ZodError) {
@@ -4038,6 +4132,7 @@ export async function registerRoutes(
 
       const classify = (i: typeof invites[number]): "pending" | "accepted" | "expired" | "revoked" => {
         if (i.usedAt) {
+          if (i.acceptedByUserId) return "accepted";
           if (revokedIds.has(i.id)) return "revoked";
           return "accepted";
         }
@@ -4046,11 +4141,16 @@ export async function registerRoutes(
       };
 
       const resolveAcceptedUser = (i: typeof invites[number]) => {
+        if (i.acceptedByUserId) {
+          const u = userById.get(i.acceptedByUserId);
+          if (u) return u;
+        }
         const audit = acceptedAuditByInviteId.get(i.id);
         if (audit?.userId) {
           const u = userById.get(audit.userId);
           if (u) return u;
         }
+        if (i.acceptedByUserId) return null;
         const matchingUser = userByEmail.get(i.email.toLowerCase());
         if (!matchingUser) return null;
         const userCreated = new Date(matchingUser.createdAt).getTime();

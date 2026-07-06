@@ -172,6 +172,7 @@ export interface IStorage {
   getInviteTokensByTenant(tenantId: number): Promise<InviteToken[]>;
   updateInviteToken(id: number, data: Partial<{ tokenHash: string; expiresAt: Date; usedAt: Date | null }>): Promise<InviteToken | undefined>;
   markInviteTokenUsed(id: number): Promise<void>;
+  markInviteTokenAccepted(id: number, acceptedByUserId: number): Promise<void>;
 
   createRequirement(data: InsertRequirement): Promise<Requirement>;
   getAllRequirements(): Promise<Requirement[]>;
@@ -568,6 +569,10 @@ export class DatabaseStorage implements IStorage {
 
   async markInviteTokenUsed(id: number): Promise<void> {
     await db.update(inviteTokens).set({ usedAt: new Date() }).where(eq(inviteTokens.id, id));
+  }
+
+  async markInviteTokenAccepted(id: number, acceptedByUserId: number): Promise<void> {
+    await db.update(inviteTokens).set({ usedAt: new Date(), acceptedByUserId }).where(eq(inviteTokens.id, id));
   }
 
   async getInviteToken(id: number): Promise<InviteToken | undefined> {

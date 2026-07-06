@@ -42,6 +42,7 @@ import Nis2ScopingControls from "@/pages/nis2-scoping-controls";
 import CrossFramework from "@/pages/cross-framework";
 import Onboarding from "@/pages/onboarding";
 import VerifyEmail from "@/pages/verify-email";
+import AcceptInvite from "@/pages/accept-invite";
 import VerificationPending from "@/pages/verification-pending";
 import UsersPage from "@/pages/users";
 import SettingsPage from "@/pages/settings";
@@ -209,6 +210,10 @@ function AppContent() {
 
   if (location === "/reset-password") {
     return <ResetPassword />;
+  }
+
+  if (location.startsWith("/invite/")) {
+    return <AcceptInvite />;
   }
 
   if (!user) {

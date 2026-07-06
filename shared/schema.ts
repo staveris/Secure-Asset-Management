@@ -153,6 +153,7 @@ export const inviteTokens = pgTable("invite_tokens", {
   tokenHash: text("token_hash").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),
+  acceptedByUserId: integer("accepted_by_user_id").references(() => users.id),
   createdBy: integer("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -1273,4 +1274,15 @@ export const registerSchema = z.object({
     .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
   fullName: z.string().min(2),
   companyName: z.string().min(2),
+});
+
+export const acceptInviteSchema = z.object({
+  token: z.string().min(16),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
+  fullName: z.string().min(2),
 });
