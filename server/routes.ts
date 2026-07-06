@@ -490,19 +490,6 @@ export async function registerRoutes(
   app.post("/api/auth/register", authLimiter, registerLimiter, async (req, res) => {
     try {
       const data = registerSchema.parse(req.body);
-
-      // Scope-check handoff: the account must be created with the same email
-      // the full report was sent to, so lead and workspace stay linked.
-      if (data.scopeCheckToken) {
-        const lead = await storage.getScopeCheckLeadByToken(data.scopeCheckToken);
-        if (lead && !lead.convertedTenantId &&
-            lead.email.trim().toLowerCase() !== data.email.trim().toLowerCase()) {
-          return res.status(400).json({
-            message: "Please register with the same email address your NIS2 scope report was sent to.",
-          });
-        }
-      }
-
       const existing = await storage.getUserByEmail(data.email);
       if (existing) return res.status(400).json({ message: "Email already registered" });
 
@@ -711,25 +698,6 @@ export async function registerRoutes(
     } catch (err: any) {
       console.error("[scope-check] report view error:", err?.message);
       return res.status(500).json({ message: "Unable to load report" });
-    }
-  });
-
-  // Registration prefill: returns the email the full report was sent to.
-  // The token is a 256-bit secret capability sent only to that email, so only
-  // the report recipient (or someone they forwarded it to) can resolve it.
-  app.get("/api/public/scope-check/lead-email/:token", reportViewLimiter, async (req, res) => {
-    try {
-      const token = String(req.params.token || "");
-      if (!token || token.length < 32) {
-        return res.status(404).json({ message: "Not found" });
-      }
-      const lead = await storage.getScopeCheckLeadByToken(token);
-      if (!lead || lead.convertedTenantId) return res.status(404).json({ message: "Not found" });
-      res.setHeader("Cache-Control", "no-store");
-      return res.json({ email: lead.email });
-    } catch (err: any) {
-      console.error("[scope-check] lead-email error:", err?.message);
-      return res.status(500).json({ message: "Unable to process request" });
     }
   });
 

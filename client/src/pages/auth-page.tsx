@@ -125,22 +125,6 @@ export default function AuthPage() {
   });
 
   const [regEmail, setRegEmail] = useState("");
-  const [scopeEmailLocked, setScopeEmailLocked] = useState(false);
-
-  useEffect(() => {
-    if (!scopeToken) return;
-    let cancelled = false;
-    fetch(`/api/public/scope-check/lead-email/${encodeURIComponent(scopeToken)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!cancelled && data?.email) {
-          setRegEmail(data.email);
-          setScopeEmailLocked(true);
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [scopeToken]);
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
   const [regName, setRegName] = useState("");
@@ -596,15 +580,9 @@ export default function AuthPage() {
                       placeholder="you@company.com"
                       className="pl-10"
                       required
-                      readOnly={scopeEmailLocked}
                       data-testid="input-reg-email"
                     />
                   </div>
-                  {scopeEmailLocked && (
-                    <p className="text-xs text-muted-foreground" data-testid="text-scope-email-note">
-                      Using the email your NIS2 scope report was sent to.
-                    </p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-password">Password</Label>
