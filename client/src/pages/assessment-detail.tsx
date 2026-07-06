@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { isUpgradeError, upgradeMessage } from "@/hooks/use-plan";
+import { showUpgradeDialog } from "@/components/upgrade-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -422,7 +424,11 @@ function ControlCard({
       setTimeout(() => setSaveState("idle"), 2000);
     },
     onError: (err: any) => {
-      toast({ title: "Error saving", description: err.message, variant: "destructive" });
+      if (isUpgradeError(err)) {
+        showUpgradeDialog(upgradeMessage(err));
+      } else {
+        toast({ title: "Error saving", description: err.message, variant: "destructive" });
+      }
       setSaveState("error");
     },
   });
@@ -938,7 +944,11 @@ function FocusModeView({
       setTimeout(() => setSaveState("idle"), 2000);
     },
     onError: (err: any) => {
-      toast({ title: "Error saving", description: err.message, variant: "destructive" });
+      if (isUpgradeError(err)) {
+        showUpgradeDialog(upgradeMessage(err));
+      } else {
+        toast({ title: "Error saving", description: err.message, variant: "destructive" });
+      }
       setSaveState("error");
     },
   });
