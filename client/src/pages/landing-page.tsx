@@ -884,9 +884,9 @@ export default function LandingPage() {
                   <Mail className="w-4 h-4 shrink-0" />
                   info@toolsoftech.eu
                 </a>
-                <a href="https://toolsoftech.eu" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-slate-400 text-sm" style={{ textDecoration: "none" }} data-testid="link-footer-website">
+                <a href="https://toolsoftech.com/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-slate-400 text-sm" style={{ textDecoration: "none" }} data-testid="link-footer-website">
                   <ExternalLink className="w-4 h-4 shrink-0" />
-                  toolsoftech.eu
+                  toolsoftech.com
                 </a>
               </div>
             </div>
