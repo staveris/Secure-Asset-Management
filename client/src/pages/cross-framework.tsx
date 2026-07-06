@@ -206,7 +206,7 @@ function SuggestionsInbox() {
                   {s.crosswalk.reviewStatus === "APPROVED" ? (
                     <span
                       className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-500/10 text-green-600 dark:text-green-400"
-                      title="This mapping has been approved by an SME reviewer"
+                      title="This mapping has been approved by an expert reviewer"
                       data-testid={`chip-edge-reviewed-${s.id}`}
                     >
                       Reviewed
@@ -214,7 +214,7 @@ function SuggestionsInbox() {
                   ) : (
                     <span
                       className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                      title="This mapping has not yet been approved by an SME reviewer; propagation strength is reduced"
+                      title="This mapping has not yet been approved by an expert reviewer; propagation strength is reduced"
                       data-testid={`chip-edge-pending-${s.id}`}
                     >
                       Pending review
@@ -578,13 +578,13 @@ export default function CrossFramework() {
               <Badge
                 variant="outline"
                 className="border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] uppercase tracking-wide"
-                title={review.reviewNote || "Mappings pending SME sign-off"}
+                title={review.reviewNote || "Mappings pending expert sign-off"}
                 data-testid="badge-crosswalk-draft"
               >
                 <AlertTriangle className="w-3 h-3 mr-1" />
                 {review.approvedCount != null && review.totalCount != null
-                  ? `Mappings under SME review — ${review.approvedCount}/${review.totalCount} approved`
-                  : "Draft mappings — pending SME review"}
+                  ? `Mappings under expert review — ${review.approvedCount}/${review.totalCount} approved`
+                  : "Draft mappings — pending expert review"}
               </Badge>
             )}
           </div>

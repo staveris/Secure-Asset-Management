@@ -163,7 +163,7 @@ export default function AdminCrosswalkReview() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Crosswalk Edge Review</h1>
           <p className="text-muted-foreground mt-0.5 text-sm">
-            SME sign-off for cross-framework mapping edges.{" "}
+            Expert sign-off for cross-framework mapping edges.{" "}
             {data && (
               <span className="font-medium text-foreground" data-testid="text-approval-progress">
                 {data.approvedCount}/{data.totalCount} approved

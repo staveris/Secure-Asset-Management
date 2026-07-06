@@ -1210,7 +1210,7 @@ export const externalFrameworkControls = pgTable("external_framework_controls", 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => ({ uniqueRef: unique().on(t.frameworkKey, t.controlRef) }));
 
-// Per-edge SME review (Phase B): approval is a sign-off on specific edge content.
+// Per-edge expert review (Phase B): approval is a sign-off on specific edge content.
 export const edgeReviewStatusEnum = pgEnum("edge_review_status", ["DRAFT", "APPROVED"]);
 export const driftReasonEnum = pgEnum("drift_reason", ["SOURCE_DOWNGRADED", "SOURCE_REMOVED", "EDGE_CHANGED"]);
 

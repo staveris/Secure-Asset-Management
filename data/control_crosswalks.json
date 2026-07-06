@@ -3,7 +3,7 @@
   "generatedAt": "2026-07-06",
   "provenance": "editorial_v1",
   "reviewStatus": "DRAFT",
-  "reviewNote": "Editorial mappings pending sign-off by a qualified compliance SME. EQUIVALENT edges in particular must be reviewed before customers rely on cross-framework propagation.",
+  "reviewNote": "Editorial mappings pending sign-off by a qualified compliance expert. EQUIVALENT edges in particular must be reviewed before customers rely on cross-framework propagation.",
   "edges": [
     {
       "fromControlId": "NIS2-21-2-a-ii",

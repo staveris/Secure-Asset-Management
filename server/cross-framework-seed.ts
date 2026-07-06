@@ -64,7 +64,7 @@ interface CrosswalkSeedFile {
 }
 
 export interface CrosswalkReviewInfo {
-  /** "DRAFT" until a qualified compliance SME signs the mappings off, then "APPROVED". */
+  /** "DRAFT" until a qualified compliance expert signs the mappings off, then "APPROVED". */
   reviewStatus: "DRAFT" | "APPROVED";
   reviewNote: string | null;
 }
@@ -130,7 +130,7 @@ export interface CrossFrameworkSeedReport {
   edgesImported: number;
   edgesUpdated: number;
   edgesUnchanged: number;
-  /** Edges whose content changed and therefore had their SME approval reset to DRAFT. */
+  /** Edges whose content changed and therefore had their expert approval reset to DRAFT. */
   approvalsReset: number;
   approvalsResetEdges: string[];
   skipped: number;
@@ -389,7 +389,7 @@ export async function seedCrossFrameworkData(): Promise<CrossFrameworkSeedReport
           const changes: string[] = [];
           if (ex.relationship !== values.relationship) changes.push(`relationship ${ex.relationship} -> ${values.relationship}`);
           if (ex.confidence !== values.confidence) changes.push(`confidence ${ex.confidence} -> ${values.confidence}`);
-          if (ex.reviewStatus === "APPROVED") changes.push("SME approval reset to DRAFT");
+          if (ex.reviewStatus === "APPROVED") changes.push("expert approval reset to DRAFT");
           const detail = `Crosswalk edge ${label} changed in the mapping library${changes.length ? ` (${changes.join(", ")})` : ""}`;
           await storage.stampEdgeChangedDrift(ex.id, detail);
         } catch (err: any) {
