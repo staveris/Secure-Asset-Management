@@ -639,10 +639,14 @@ export async function registerRoutes(
         controls.map((c) => ({ applicability: c.applicability })),
       );
       const reportToken = crypto.randomBytes(32).toString("base64url");
+      // Store only the SHA-256 of the token (invite-token pattern): a DB leak
+      // must not expose usable report links. The raw token lives solely in the
+      // emailed URL below; getScopeCheckLeadByToken hashes incoming tokens.
+      const reportTokenHash = crypto.createHash("sha256").update(reportToken).digest("hex");
 
       await storage.createScopeCheckLead({
         email: body.email,
-        reportToken,
+        reportToken: reportTokenHash,
         answers: body.answers,
         verdict,
         controlStats: stats,
@@ -1529,10 +1533,12 @@ export async function registerRoutes(
 
     const id = parseInt(req.params.id);
     const assessment = await storage.getAssessment(id);
-    if (!assessment || assessment.tenantId !== user.tenantId) {
-      if (user.role !== "PLATFORM_ADMIN") {
-        return res.status(404).json({ message: "Not found" });
-      }
+    // A non-existent assessment is 404 for everyone (platform admins included) —
+    // previously admins fell through here with assessment=null and hit downstream
+    // dereferences. Admins still bypass only the tenant-ownership check.
+    if (!assessment) return res.status(404).json({ message: "Not found" });
+    if (assessment.tenantId !== user.tenantId && user.role !== "PLATFORM_ADMIN") {
+      return res.status(404).json({ message: "Not found" });
     }
 
     const responses = await storage.getAssessmentResponses(id);
@@ -6303,7 +6309,7 @@ export async function registerRoutes(
 
   // ==================== CROSSWALK EDGE REVIEW (Phase B, platform admin) ====================
 
-  // GET /api/admin/crosswalk-edges — paged list of all crosswalk edges for SME review
+  // GET /api/admin/crosswalk-edges — paged list of all crosswalk edges for expert review
   app.get("/api/admin/crosswalk-edges", requirePlatformAdmin, async (req, res) => {
     try {
       const page = Math.max(1, parseInt(String(req.query.page ?? "1")) || 1);

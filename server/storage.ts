@@ -1,6 +1,7 @@
 import { eq, and, desc, sql, count, avg, ne, like, or, isNull, isNotNull, asc, inArray } from "drizzle-orm";
 import { normalizeTier, effectiveTier, type PlanTier } from "@shared/plan-tiers";
 import { db } from "./db";
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { getAdapterForStoragePath } from "./evidence-storage";
@@ -811,31 +812,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEvidenceItem(id: number): Promise<EvidenceItem | undefined> {
-    const [item] = await db.select().from(evidenceItems).where(eq(evidenceItems.id, id));
-    if (!item) return undefined;
-    // Re-anchor: if this row is an original with live links, promote the oldest
-    // link to be the new original and repoint the others so provenance chains
-    // never dangle (and the FK on linked_from_evidence_id is never violated).
-    const links = await db
-      .select({ id: evidenceItems.id, uploadedAt: evidenceItems.uploadedAt })
-      .from(evidenceItems)
-      .where(eq(evidenceItems.linkedFromEvidenceId, id));
-    if (links.length > 0) {
-      const { planReanchor } = await import("./evidence-links");
-      const plan = planReanchor(links);
-      if (plan) {
-        await db.update(evidenceItems).set({ linkedFromEvidenceId: null }).where(eq(evidenceItems.id, plan.promoteId));
-        if (plan.repointIds.length > 0) {
-          await db.update(evidenceItems).set({ linkedFromEvidenceId: plan.promoteId }).where(inArray(evidenceItems.id, plan.repointIds));
+    // Re-anchor + row deletions run in ONE transaction so a crash cannot leave
+    // a promoted link alongside a surviving original (or vice versa). Physical
+    // file removal is handled by the caller AFTER this returns (reference-counted).
+    return db.transaction(async (tx) => {
+      const [item] = await tx.select().from(evidenceItems).where(eq(evidenceItems.id, id));
+      if (!item) return undefined;
+      // Re-anchor: if this row is an original with live links, promote the oldest
+      // link to be the new original and repoint the others so provenance chains
+      // never dangle (and the FK on linked_from_evidence_id is never violated).
+      const links = await tx
+        .select({ id: evidenceItems.id, uploadedAt: evidenceItems.uploadedAt })
+        .from(evidenceItems)
+        .where(eq(evidenceItems.linkedFromEvidenceId, id));
+      if (links.length > 0) {
+        const { planReanchor } = await import("./evidence-links");
+        const plan = planReanchor(links);
+        if (plan) {
+          await tx.update(evidenceItems).set({ linkedFromEvidenceId: null }).where(eq(evidenceItems.id, plan.promoteId));
+          if (plan.repointIds.length > 0) {
+            await tx.update(evidenceItems).set({ linkedFromEvidenceId: plan.promoteId }).where(inArray(evidenceItems.id, plan.repointIds));
+          }
         }
       }
-    }
-    await db.delete(evidenceAccessLogs).where(eq(evidenceAccessLogs.evidenceId, id));
-    await db.delete(evidenceUnlockRequests).where(eq(evidenceUnlockRequests.evidenceId, id));
-    await db.delete(evidenceItems).where(eq(evidenceItems.id, id));
-    return item;
+      await tx.delete(evidenceAccessLogs).where(eq(evidenceAccessLogs.evidenceId, id));
+      await tx.delete(evidenceUnlockRequests).where(eq(evidenceUnlockRequests.evidenceId, id));
+      await tx.delete(evidenceItems).where(eq(evidenceItems.id, id));
+      return item;
+    });
   }
-
   async getEvidenceForControl(tenantId: number, atomicControlId: number): Promise<EvidenceItem[]> {
     return db
       .select()
@@ -1893,11 +1898,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getScopeCheckLeadByToken(reportToken: string): Promise<ScopeCheckLead | undefined> {
+    // Tokens are stored as SHA-256 hex (like invite tokens) so a database
+    // leak does not expose usable report links. The raw base64url token only
+    // ever lives in the emailed URL; hash it here to match. (Legacy rows that
+    // still hold a raw token are migrated at startup — see
+    // migrateLegacyScopeTokens.)
+    const tokenHash = crypto.createHash("sha256").update(reportToken).digest("hex");
     const [lead] = await db
       .select()
       .from(scopeCheckLeads)
-      .where(and(eq(scopeCheckLeads.reportToken, reportToken), isNull(scopeCheckLeads.deletedAt)));
+      .where(and(eq(scopeCheckLeads.reportToken, tokenHash), isNull(scopeCheckLeads.deletedAt)));
     return lead;
+  }
+
+  /**
+   * One-time hardening migration: legacy scope-check leads stored the raw
+   * 43-char base64url token; hash any such rows in place. Idempotent — hashed
+   * values are 64 hex chars and are left untouched. Returns migrated count.
+   */
+  async migrateLegacyScopeTokens(): Promise<number> {
+    const rows = await db
+      .select({ id: scopeCheckLeads.id, reportToken: scopeCheckLeads.reportToken })
+      .from(scopeCheckLeads);
+    let migrated = 0;
+    for (const r of rows) {
+      const isHashed = /^[0-9a-f]{64}$/.test(r.reportToken);
+      if (!isHashed) {
+        const tokenHash = crypto.createHash("sha256").update(r.reportToken).digest("hex");
+        await db.update(scopeCheckLeads).set({ reportToken: tokenHash }).where(eq(scopeCheckLeads.id, r.id));
+        migrated++;
+      }
+    }
+    return migrated;
   }
 
   async softDeleteScopeCheckLead(id: number): Promise<void> {
@@ -2077,113 +2109,129 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAtomicAssessment(id: number): Promise<void> {
-    const relatedEvidence = await db.select().from(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
-    const responses = await db.select().from(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
-    const controlIds = new Set(responses.map(r => r.atomicControlId));
-    const allLinks = await db.select().from(taskAtomicLinks);
-    for (const link of allLinks) {
-      if (controlIds.has(link.atomicControlId)) {
-        await db.delete(taskAtomicLinks).where(eq(taskAtomicLinks.id, link.id));
+    // All row mutations run in ONE transaction: a crash mid-sequence must not
+    // leave partial state (re-anchored links pointing at surviving rows,
+    // suggestions removed for an assessment that still exists, etc.).
+    // Audit-log writes and physical file unlinks happen AFTER commit — an
+    // audit row must not survive a rolled-back delete, and file removal is
+    // irreversible so it must only follow a durable commit.
+    const { planReanchor } = await import("./evidence-links");
+    const auditPayloads: Parameters<DatabaseStorage["createAuditLog"]>[0][] = [];
+    let relatedEvidence: EvidenceItem[] = [];
+
+    await db.transaction(async (tx) => {
+      relatedEvidence = await tx.select().from(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
+      const responses = await tx.select().from(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
+      const controlIds = new Set(responses.map(r => r.atomicControlId));
+      const allLinks = await tx.select().from(taskAtomicLinks);
+      for (const link of allLinks) {
+        if (controlIds.has(link.atomicControlId)) {
+          await tx.delete(taskAtomicLinks).where(eq(taskAtomicLinks.id, link.id));
+        }
       }
-    }
-    const responseIds = responses.map(r => r.id);
-    // Phase C: ACCEPTED suggestions whose SOURCE response is being deleted are
-    // kept (the acceptance happened; history is never rewritten) — null the
-    // sourceResponseId FK and stamp SOURCE_REMOVED drift instead of deleting.
-    // Rows that TARGET this assessment must still be deleted regardless of
-    // status (FK: targetAtomicAssessmentId).
-    const keptAccepted = responseIds.length > 0
-      ? await db
-          .select()
-          .from(crossFrameworkSuggestions)
-          .where(
-            and(
-              inArray(crossFrameworkSuggestions.sourceResponseId, responseIds),
-              eq(crossFrameworkSuggestions.status, "ACCEPTED"),
-              ne(crossFrameworkSuggestions.targetAtomicAssessmentId, id),
-            ),
-          )
-      : [];
-    for (const dep of keptAccepted) {
-      const alreadyAtRisk = dep.driftDetectedAt != null && dep.driftResolvedAt == null;
-      await db
-        .update(crossFrameworkSuggestions)
-        .set({
-          sourceResponseId: null,
-          ...(alreadyAtRisk
-            ? {}
-            : {
-                driftDetectedAt: new Date(),
-                driftReason: "SOURCE_REMOVED" as const,
-                driftDetail: "Source assessment was deleted — the answer this acceptance was based on no longer exists",
-                driftResolvedAt: null,
-                driftResolvedBy: null,
-              }),
-        })
-        .where(eq(crossFrameworkSuggestions.id, dep.id));
-      if (!alreadyAtRisk) {
-        await this.createAuditLog({
-          tenantId: dep.tenantId,
-          actorUserId: null,
-          action: "CROSS_FRAMEWORK_DRIFT_DETECTED",
-          entityType: "cross_framework_suggestion",
-          entityId: String(dep.id),
-          details: {
-            reason: "SOURCE_REMOVED",
-            crosswalkId: dep.crosswalkId,
-            sourceAtomicControlId: dep.sourceAtomicControlId,
-            deletedAssessmentId: id,
-            targetAtomicAssessmentId: dep.targetAtomicAssessmentId,
-            targetAtomicControlId: dep.targetAtomicControlId,
-          },
-        });
-      }
-    }
-    // Suggestions to be removed may be referenced by evidence link rows
-    // (FK: evidence_items.linked_via_suggestion_id) — null those pointers first.
-    // PENDING/REJECTED/SUPERSEDED source-side rows keep the original delete behavior.
-    const doomedSuggestions = await db
-      .select({ id: crossFrameworkSuggestions.id })
-      .from(crossFrameworkSuggestions)
-      .where(
-        or(
-          eq(crossFrameworkSuggestions.targetAtomicAssessmentId, id),
-          responseIds.length > 0
-            ? and(
+      const responseIds = responses.map(r => r.id);
+      // Phase C: ACCEPTED suggestions whose SOURCE response is being deleted are
+      // kept (the acceptance happened; history is never rewritten) — null the
+      // sourceResponseId FK and stamp SOURCE_REMOVED drift instead of deleting.
+      // Rows that TARGET this assessment must still be deleted regardless of
+      // status (FK: targetAtomicAssessmentId).
+      const keptAccepted = responseIds.length > 0
+        ? await tx
+            .select()
+            .from(crossFrameworkSuggestions)
+            .where(
+              and(
                 inArray(crossFrameworkSuggestions.sourceResponseId, responseIds),
-                ne(crossFrameworkSuggestions.status, "ACCEPTED"),
-              )
-            : sql`false`,
-        ),
-      );
-    if (doomedSuggestions.length > 0) {
-      const doomedIds = doomedSuggestions.map(s => s.id);
-      await db.update(evidenceItems).set({ linkedViaSuggestionId: null }).where(inArray(evidenceItems.linkedViaSuggestionId, doomedIds));
-      await db.delete(crossFrameworkSuggestions).where(inArray(crossFrameworkSuggestions.id, doomedIds));
-    }
-    await db.delete(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
-    // Re-anchor any evidence link rows pointing at rows we are about to delete
-    // (promote the oldest link, repoint the rest) so provenance never dangles.
-    for (const e of relatedEvidence) {
-      const links = await db
-        .select({ id: evidenceItems.id, uploadedAt: evidenceItems.uploadedAt })
-        .from(evidenceItems)
-        .where(eq(evidenceItems.linkedFromEvidenceId, e.id));
-      if (links.length > 0) {
-        const { planReanchor } = await import("./evidence-links");
-        const plan = planReanchor(links);
-        if (plan) {
-          await db.update(evidenceItems).set({ linkedFromEvidenceId: null }).where(eq(evidenceItems.id, plan.promoteId));
-          if (plan.repointIds.length > 0) {
-            await db.update(evidenceItems).set({ linkedFromEvidenceId: plan.promoteId }).where(inArray(evidenceItems.id, plan.repointIds));
+                eq(crossFrameworkSuggestions.status, "ACCEPTED"),
+                ne(crossFrameworkSuggestions.targetAtomicAssessmentId, id),
+              ),
+            )
+        : [];
+      for (const dep of keptAccepted) {
+        const alreadyAtRisk = dep.driftDetectedAt != null && dep.driftResolvedAt == null;
+        await tx
+          .update(crossFrameworkSuggestions)
+          .set({
+            sourceResponseId: null,
+            ...(alreadyAtRisk
+              ? {}
+              : {
+                  driftDetectedAt: new Date(),
+                  driftReason: "SOURCE_REMOVED" as const,
+                  driftDetail: "Source assessment was deleted — the answer this acceptance was based on no longer exists",
+                  driftResolvedAt: null,
+                  driftResolvedBy: null,
+                }),
+          })
+          .where(eq(crossFrameworkSuggestions.id, dep.id));
+        if (!alreadyAtRisk) {
+          auditPayloads.push({
+            tenantId: dep.tenantId,
+            actorUserId: null,
+            action: "CROSS_FRAMEWORK_DRIFT_DETECTED",
+            entityType: "cross_framework_suggestion",
+            entityId: String(dep.id),
+            details: {
+              reason: "SOURCE_REMOVED",
+              crosswalkId: dep.crosswalkId,
+              sourceAtomicControlId: dep.sourceAtomicControlId,
+              deletedAssessmentId: id,
+              targetAtomicAssessmentId: dep.targetAtomicAssessmentId,
+              targetAtomicControlId: dep.targetAtomicControlId,
+            },
+          });
+        }
+      }
+      // Suggestions to be removed may be referenced by evidence link rows
+      // (FK: evidence_items.linked_via_suggestion_id) — null those pointers first.
+      // PENDING/REJECTED/SUPERSEDED source-side rows keep the original delete behavior.
+      const doomedSuggestions = await tx
+        .select({ id: crossFrameworkSuggestions.id })
+        .from(crossFrameworkSuggestions)
+        .where(
+          or(
+            eq(crossFrameworkSuggestions.targetAtomicAssessmentId, id),
+            responseIds.length > 0
+              ? and(
+                  inArray(crossFrameworkSuggestions.sourceResponseId, responseIds),
+                  ne(crossFrameworkSuggestions.status, "ACCEPTED"),
+                )
+              : sql`false`,
+          ),
+        );
+      if (doomedSuggestions.length > 0) {
+        const doomedIds = doomedSuggestions.map(s => s.id);
+        await tx.update(evidenceItems).set({ linkedViaSuggestionId: null }).where(inArray(evidenceItems.linkedViaSuggestionId, doomedIds));
+        await tx.delete(crossFrameworkSuggestions).where(inArray(crossFrameworkSuggestions.id, doomedIds));
+      }
+      await tx.delete(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
+      // Re-anchor any evidence link rows pointing at rows we are about to delete
+      // (promote the oldest link, repoint the rest) so provenance never dangles.
+      for (const e of relatedEvidence) {
+        const links = await tx
+          .select({ id: evidenceItems.id, uploadedAt: evidenceItems.uploadedAt })
+          .from(evidenceItems)
+          .where(eq(evidenceItems.linkedFromEvidenceId, e.id));
+        if (links.length > 0) {
+          const plan = planReanchor(links);
+          if (plan) {
+            await tx.update(evidenceItems).set({ linkedFromEvidenceId: null }).where(eq(evidenceItems.id, plan.promoteId));
+            if (plan.repointIds.length > 0) {
+              await tx.update(evidenceItems).set({ linkedFromEvidenceId: plan.promoteId }).where(inArray(evidenceItems.id, plan.repointIds));
+            }
           }
         }
       }
+      await tx.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
+      await tx.delete(atomicAssessments).where(eq(atomicAssessments.id, id));
+    });
+
+    // Post-commit: audit rows for drift stamped above.
+    for (const payload of auditPayloads) {
+      try { await this.createAuditLog(payload); } catch (err) { console.error("[Atomic Assessment Cleanup] audit write failed:", err); }
     }
-    await db.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
-    await db.delete(atomicAssessments).where(eq(atomicAssessments.id, id));
-    // Reference-counted physical deletion: another row (e.g. a cross-framework
-    // evidence link) may still reference the same storagePath — keep the file then.
+    // Post-commit: reference-counted physical deletion — another row (e.g. a
+    // cross-framework evidence link) may still reference the same storagePath.
     for (const e of relatedEvidence) {
       if (e.storagePath) {
         const remaining = await db
@@ -2195,7 +2243,6 @@ export class DatabaseStorage implements IStorage {
       }
     }
   }
-
   async createAtomicAssessmentResponse(data: InsertAtomicAssessmentResponse): Promise<AtomicAssessmentResponse> {
     const [response] = await db.insert(atomicAssessmentResponses).values(data).returning();
     return response;

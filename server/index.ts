@@ -208,6 +208,15 @@ app.use((req, res, next) => {
     } catch (err) {
       console.error("Cross-framework auto-seed error:", err);
     }
+    try {
+      // Security hardening: hash any legacy raw scope-report tokens in place
+      // (idempotent; new tokens are stored hashed at creation).
+      const { storage } = await import("./storage");
+      const migrated = await storage.migrateLegacyScopeTokens();
+      if (migrated > 0) console.log(`Scope-token hardening: hashed ${migrated} legacy report token(s)`);
+    } catch (err) {
+      console.error("Scope-token hardening error:", err);
+    }
   } catch (err) {
     console.error("Post-seed setup error:", err);
   }
