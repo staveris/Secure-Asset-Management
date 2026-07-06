@@ -3662,9 +3662,9 @@ export async function registerRoutes(
     const revokedIds = new Set<number>();
     const acceptedAuditByInviteId = new Map<number, { at: Date; userId: number | null }>();
     if (invites.some(i => i.usedAt)) {
-      const auditLogs = await storage.getAuditLogsByTenant(tenantId, 1000);
+      const auditLogs = await storage.getAuditLogsByTenantAndEntityType(tenantId, "INVITE");
       for (const log of auditLogs) {
-        if (log.entityType !== "INVITE" || !log.entityId) continue;
+        if (!log.entityId) continue;
         const id = parseInt(log.entityId);
         if (isNaN(id)) continue;
         if (log.action === "INVITE_REVOKE") {

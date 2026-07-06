@@ -305,6 +305,7 @@ export interface IStorage {
   createAuditLog(data: { tenantId?: number | null; actorUserId?: number | null; action: string; entityType: string; entityId?: string; details?: any }): Promise<AuditLog>;
   getAuditLogs(limit?: number): Promise<AuditLog[]>;
   getAuditLogsByTenant(tenantId: number, limit?: number): Promise<AuditLog[]>;
+  getAuditLogsByTenantAndEntityType(tenantId: number, entityType: string): Promise<AuditLog[]>;
 
   createControl(data: InsertControl): Promise<Control>;
   getControlsByTenant(tenantId: number): Promise<Control[]>;
@@ -1132,6 +1133,12 @@ export class DatabaseStorage implements IStorage {
 
   async getAuditLogsByTenant(tenantId: number, limit = 100): Promise<AuditLog[]> {
     return db.select().from(auditLogs).where(eq(auditLogs.tenantId, tenantId)).orderBy(desc(auditLogs.createdAt)).limit(limit);
+  }
+
+  async getAuditLogsByTenantAndEntityType(tenantId: number, entityType: string): Promise<AuditLog[]> {
+    return db.select().from(auditLogs)
+      .where(and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.entityType, entityType)))
+      .orderBy(desc(auditLogs.createdAt));
   }
 
   async getDashboardData(tenantId: number): Promise<any> {

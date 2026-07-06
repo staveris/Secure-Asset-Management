@@ -13,3 +13,4 @@ Pattern proven for testing real API routes (e.g. invite acceptance flow):
 - Rate limiters are in-memory per app instance, keyed by IP (127.0.0.1 for all supertest requests). `registerLimiter` allows only 5 POSTs/hour on register + accept-invite; `authLimiter` 15/15min on all /api/auth/*. Count your requests per test file or tests will 429 flakily.
 - CSRF middleware exempts /auth/login, /auth/accept-invite, etc. (see path allowlist near top of registerRoutes); other POSTs need `x-csrf-token` from a logged-in session.
 - Test users need `emailVerified: true` and `fullAccessEnabled: true` to pass requireAuth/requireFullAccess.
+- In a fresh task environment, devDependencies like supertest can be declared in package.json but missing from node_modules — reinstall via the package tool before running route tests.

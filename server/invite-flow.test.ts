@@ -345,6 +345,46 @@ describe("GET /api/tenant/invites classification", () => {
     expect(pendingIds).not.toContain(expiredInviteId);
   });
 
+  it("classifies a revoked legacy invite correctly even with >1000 newer audit-log entries", async () => {
+    const email = emailFor("revoked-busy");
+    const { invite } = await createInvite({ email });
+    await storage.markInviteTokenUsed(invite.id);
+    await storage.createAuditLog({
+      tenantId,
+      actorUserId: adminId,
+      action: "INVITE_REVOKE",
+      entityType: "INVITE",
+      entityId: String(invite.id),
+      details: { email },
+    });
+
+    // Simulate a very active tenant: flood the audit log with 1200 newer
+    // entries so the revocation falls outside any recent-N window.
+    const noise = Array.from({ length: 1200 }, (_, idx) => ({
+      tenantId,
+      actorUserId: adminId,
+      action: "UPDATE_TASK",
+      entityType: "TASK",
+      entityId: String(idx),
+      details: { noise: true },
+    }));
+    for (let i = 0; i < noise.length; i += 200) {
+      await db.insert(auditLogs).values(noise.slice(i, i + 200));
+    }
+
+    const res = await agent.get("/api/tenant/invites?status=all");
+    expect(res.status).toBe(200);
+    const row = res.body.find((i: any) => i.id === invite.id);
+    expect(row?.status).toBe("revoked");
+    expect(row?.acceptedByUser).toBeNull();
+
+    const acceptedRes = await agent.get("/api/tenant/invites?status=accepted");
+    expect(acceptedRes.body.map((i: any) => i.id)).not.toContain(invite.id);
+
+    const revokedRes = await agent.get("/api/tenant/invites?status=revoked");
+    expect(revokedRes.body.map((i: any) => i.id)).toContain(invite.id);
+  });
+
   it("requires tenant-admin rights to list invitations", async () => {
     const unauthRes = await request(app).get("/api/tenant/invites");
     expect(unauthRes.status).toBe(401);
