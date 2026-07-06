@@ -1,0 +1,80 @@
+az acr build -r cyres360stagingacr \
+  -t cyberresilience360:v2026-07-06 -t cyberresilience360:staging-latest \
+  "https://github.com/staveris/Secure-Asset-Management.git#main"
+Sending context to registry: cyres360stagingacr...
+Queued a build with ID: dn4
+Waiting for an agent...
+2026/07/06 08:29:26 Downloading source code...
+2026/07/06 08:29:28 Finished downloading source code
+2026/07/06 08:29:28 Using acb_vol_0f226810-cc7c-4585-afc6-35c232f9bd51 as the home volume
+2026/07/06 08:29:28 Setting up Docker configuration...
+2026/07/06 08:29:29 Successfully set up Docker configuration
+2026/07/06 08:29:29 Logging in to registry: cyres360stagingacr.azurecr.io
+2026/07/06 08:29:30 Successfully logged into cyres360stagingacr.azurecr.io
+2026/07/06 08:29:30 Executing step ID: build. Timeout(sec): 28800, Working directory: '', Network: ''
+2026/07/06 08:29:30 Scanning for dependencies...
+2026/07/06 08:29:30 Successfully scanned dependencies
+2026/07/06 08:29:30 Launching container with name: build
+Sending build context to Docker daemon  4.504MB
+Step 1/21 : FROM node:20-bookworm-slim AS builder
+20-bookworm-slim: Pulling from library/node
+ff86ea2e5edc: Pulling fs layer
+e54aec64c365: Pulling fs layer
+804d4d68057c: Pulling fs layer
+64cfb949317c: Pulling fs layer
+3c02fd806613: Pulling fs layer
+64cfb949317c: Waiting
+3c02fd806613: Waiting
+e54aec64c365: Verifying Checksum
+e54aec64c365: Download complete
+ff86ea2e5edc: Verifying Checksum
+ff86ea2e5edc: Download complete
+64cfb949317c: Verifying Checksum
+64cfb949317c: Download complete
+804d4d68057c: Verifying Checksum
+804d4d68057c: Download complete
+3c02fd806613: Verifying Checksum
+3c02fd806613: Download complete
+ff86ea2e5edc: Pull complete
+e54aec64c365: Pull complete
+804d4d68057c: Pull complete
+64cfb949317c: Pull complete
+3c02fd806613: Pull complete
+Digest: sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+Status: Downloaded newer image for node:20-bookworm-slim
+ ---> 9da6b4e352d0
+Step 2/21 : WORKDIR /app
+ ---> Running in 1093cf269203
+Removing intermediate container 1093cf269203
+ ---> 4c86deacf010
+Step 3/21 : COPY package.json package-lock.json ./
+ ---> 4ad86c983db4
+Step 4/21 : RUN npm ci --no-audit --no-fund
+ ---> Running in 33529b94fca3
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.18.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.18.0
+npm notice To update run: npm install -g npm@11.18.0
+npm notice
+npm error Exit handler never called!
+npm error This is an error with npm itself. Please report this error at:
+npm error   <https://github.com/npm/cli/issues>
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-07-06T08_29_38_418Z-debug-0.log
+Removing intermediate container 33529b94fca3
+ ---> 5175422be070
+Step 5/21 : COPY . .
+ ---> e79679ec125b
+Step 6/21 : RUN npm run build
+ ---> Running in 2f946b4827a8
+
+> rest-express@1.0.0 build
+> tsx script/build.ts
+
+sh: 1: tsx: not found
+The command '/bin/sh -c npm run build' returned a non-zero code: 127
+2026/07/06 08:31:03 Container failed during run: build. No retries remaining.
+failed to run step ID: build: exit status 127
+
+Run ID: dn4 failed after 1m37s. Error: failed during run, err: exit status 1
+Run failed

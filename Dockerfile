@@ -10,8 +10,14 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 # Install build deps first (better layer caching).
+# npm 10.8.x bundled with node:20 has a bug ("Exit handler never called!")
+# that can abort `npm ci` mid-install while still exiting 0, leaving
+# node_modules incomplete. Upgrade npm first and verify the install
+# actually completed (tsx is required by `npm run build`).
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm install -g npm@11 --no-audit --no-fund \
+ && npm ci --no-audit --no-fund \
+ && node -e "require.resolve('tsx')"
 
 # Copy source and build client + server bundle.
 COPY . .
