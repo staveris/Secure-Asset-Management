@@ -107,6 +107,12 @@ export function AppSidebar() {
   });
   const crossFrameworkEnabled = !!crossFrameworkModule?.enabled;
 
+  const { data: suggestionsData } = useQuery<{ suggestions: unknown[] }>({
+    queryKey: ["/api/cross-framework/suggestions"],
+    enabled: !!user && !isPlatformAdmin && crossFrameworkEnabled && hasFullAccess,
+  });
+  const pendingSuggestionCount = suggestionsData?.suggestions?.length ?? 0;
+
   const initials = user?.fullName
     ?.split(" ")
     .map((n) => n[0])
@@ -147,11 +153,12 @@ export function AppSidebar() {
                     ? [{ title: "NIS2 Scoping", url: "/nis2-scoping", icon: Radar, requiresFullAccess: false }]
                     : []),
                   ...(crossFrameworkEnabled
-                    ? [{ title: "Framework Mapping", url: "/cross-framework", icon: Network, requiresFullAccess: true }]
+                    ? [{ title: "Framework Mapping", url: "/cross-framework", icon: Network, requiresFullAccess: true, badgeCount: pendingSuggestionCount }]
                     : []),
                   ...tenantMenuItems.slice(2),
                 ].map((item) => {
                   const isLocked = item.requiresFullAccess && !hasFullAccess;
+                  const badgeCount = "badgeCount" in item ? (item.badgeCount as number) : 0;
                   return (
                     <SidebarMenuItem key={item.title}>
                       {isLocked ? (
@@ -173,6 +180,14 @@ export function AppSidebar() {
                           <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
                             <item.icon className="w-4 h-4" />
                             <span>{item.title}</span>
+                            {badgeCount > 0 && (
+                              <span
+                                className="ml-auto inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-semibold min-w-[1.25rem] h-5 px-1.5"
+                                data-testid="badge-pending-suggestions"
+                              >
+                                {badgeCount > 99 ? "99+" : badgeCount}
+                              </span>
+                            )}
                           </Link>
                         </SidebarMenuButton>
                       )}
