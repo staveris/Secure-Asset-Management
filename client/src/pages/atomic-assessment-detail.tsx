@@ -69,6 +69,7 @@ import {
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { usePlan, isUpgradeError, upgradeMessage } from "@/hooks/use-plan";
+import { showUpgradeDialog } from "@/components/upgrade-dialog";
 import type { AtomicAssessmentResponse, AtomicControl, EvidenceItem } from "@shared/schema";
 
 interface AtomicAssessmentDetail {
@@ -217,7 +218,7 @@ function ControlResponseCard({
     },
     onError: (err: any) => {
       if (isUpgradeError(err)) {
-        toast({ title: "Upgrade required", description: upgradeMessage(err), variant: "destructive" });
+        showUpgradeDialog(upgradeMessage(err));
       } else {
         toast({ title: "Error", description: err.message, variant: "destructive" });
       }
@@ -765,7 +766,7 @@ function AtomicFocusModeView({
     },
     onError: (err: any) => {
       if (isUpgradeError(err)) {
-        toast({ title: "Upgrade required", description: upgradeMessage(err), variant: "destructive" });
+        showUpgradeDialog(upgradeMessage(err));
       } else {
         toast({ title: "Error saving", description: err.message, variant: "destructive" });
       }

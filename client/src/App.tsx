@@ -10,6 +10,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IdleTimeoutWarning } from "@/components/idle-timeout";
+import { UpgradeDialogHost } from "@/components/upgrade-dialog";
 
 import LandingPage from "@/pages/landing-page";
 import AuthPage from "@/pages/auth-page";
@@ -274,6 +275,7 @@ function App() {
           <AuthProvider>
             <AppContent />
             <IdleTimeoutWarning />
+            <UpgradeDialogHost />
           </AuthProvider>
           <CookieConsent />
           <Toaster />

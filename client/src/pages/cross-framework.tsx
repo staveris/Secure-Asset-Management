@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Network, Check, X, Inbox, Grid3X3, ArrowRight, Loader2, AlertTriangle, Lock } from "lucide-react";
 import { Link } from "wouter";
 import { usePlan, isUpgradeError, upgradeMessage } from "@/hooks/use-plan";
+import { showUpgradeDialog } from "@/components/upgrade-dialog";
 
 interface SuggestionRow {
   id: number;
@@ -95,7 +96,7 @@ function SuggestionsInbox() {
     },
     onError: (err: any) => {
       if (isUpgradeError(err)) {
-        toast({ title: "Upgrade required", description: upgradeMessage(err), variant: "destructive" });
+        showUpgradeDialog(upgradeMessage(err));
         return;
       }
       toast({ title: "Action failed", description: err?.message || "Please try again.", variant: "destructive" });

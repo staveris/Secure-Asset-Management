@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlan, isUpgradeError, upgradeMessage } from "@/hooks/use-plan";
+import { showUpgradeDialog } from "@/components/upgrade-dialog";
 import { useSearch, Link } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -180,7 +181,7 @@ export default function Evidence() {
     },
     onError: (error: Error) => {
       if (isUpgradeError(error)) {
-        toast({ title: "Upgrade required", description: upgradeMessage(error), variant: "destructive" });
+        showUpgradeDialog(upgradeMessage(error));
         return;
       }
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
