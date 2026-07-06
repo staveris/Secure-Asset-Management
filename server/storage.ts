@@ -138,6 +138,9 @@ import {
   nis2RegulatoryProfile,
   type Nis2RegulatoryProfile,
   type InsertNis2RegulatoryProfile,
+  scopeCheckLeads,
+  type ScopeCheckLead,
+  type InsertScopeCheckLead,
   externalFrameworkControls,
   controlCrosswalks,
   crossFrameworkSuggestions,
@@ -335,6 +338,11 @@ export interface IStorage {
   getNis2Profile(tenantId: number): Promise<Nis2RegulatoryProfile | undefined>;
   upsertNis2Profile(tenantId: number, values: Partial<InsertNis2RegulatoryProfile>): Promise<Nis2RegulatoryProfile>;
   getNis2AtomicControls(): Promise<AtomicControl[]>;
+
+  createScopeCheckLead(data: InsertScopeCheckLead): Promise<ScopeCheckLead>;
+  getScopeCheckLeadByToken(reportToken: string): Promise<ScopeCheckLead | undefined>;
+  softDeleteScopeCheckLead(id: number): Promise<void>;
+  markScopeCheckLeadConverted(id: number, tenantId: number): Promise<void>;
 
   createLegalSource(data: InsertLegalSource): Promise<LegalSource>;
   getAllLegalSources(): Promise<LegalSource[]>;
@@ -1686,6 +1694,33 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(atomicControls)
       .where(and(eq(atomicControls.sourceKey, "NIS2_2022_2555"), eq(atomicControls.isActive, true)));
+  }
+
+  async createScopeCheckLead(data: InsertScopeCheckLead): Promise<ScopeCheckLead> {
+    const [lead] = await db.insert(scopeCheckLeads).values(data as any).returning();
+    return lead;
+  }
+
+  async getScopeCheckLeadByToken(reportToken: string): Promise<ScopeCheckLead | undefined> {
+    const [lead] = await db
+      .select()
+      .from(scopeCheckLeads)
+      .where(and(eq(scopeCheckLeads.reportToken, reportToken), isNull(scopeCheckLeads.deletedAt)));
+    return lead;
+  }
+
+  async softDeleteScopeCheckLead(id: number): Promise<void> {
+    await db
+      .update(scopeCheckLeads)
+      .set({ deletedAt: new Date(), email: "erased" })
+      .where(eq(scopeCheckLeads.id, id));
+  }
+
+  async markScopeCheckLeadConverted(id: number, tenantId: number): Promise<void> {
+    await db
+      .update(scopeCheckLeads)
+      .set({ convertedTenantId: tenantId, convertedAt: new Date() })
+      .where(eq(scopeCheckLeads.id, id));
   }
 
   async createLegalSource(data: InsertLegalSource): Promise<LegalSource> {

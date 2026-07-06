@@ -1,0 +1,250 @@
+You are extending an existing, production, multi-tenant compliance SaaS. Study these files
+first and mirror their conventions exactly. Do not invent new patterns.
+
+
+server/nis2-applicability.ts — the pure NIS2 engine. decideNis2Applicability(p: Partial<Nis2RegulatoryProfile>): Nis2ApplicabilityDecision and deriveSizeClass(...). It has no DB or Express imports — this is exactly why it can safely power a public endpoint. Do not modify this file.
+server/nis2-sectors.ts — NIS2_SECTORS, EU_COUNTRIES, OTHER_COUNTRIES for the public wizard's pickers.
+server/routes.ts — the rate-limiter style at the top (authLimiter, registerLimiter, etc., all express-rate-limit), the registration route (POST /api/auth/register, ~line 448: parses registerSchema, creates tenant + TENANT_ADMIN, session regeneration), requireAuth/requireWriteAccess middleware, logSecurityEvent, and storage.createAuditLog(...).
+server/email.ts — sendGenericEmail, sendVerificationEmail, getAppBaseUrl(), token helpers. Reuse; do not add a new mail library.
+shared/schema.ts — Drizzle table style, tenants, nis2RegulatoryProfile, atomicAssessments, atomicAssessmentResponses, drizzle-zod insert schemas.
+shared/feature-flags.ts — FEATURE_FLAG_REGISTRY. Tier bundles (Phase C) build on this.
+server/storage.ts — isFeatureEnabled(tenantId, key), upsertNis2Profile(...), method style.
+client/src/pages/reports.tsx — the existing print-optimized report approach (browser print → PDF, print: Tailwind classes, gauges). The scope report reuses this pattern; do not add puppeteer/pdfkit/react-pdf.
+client/src/pages/nis2-scoping-wizard.tsx — the authenticated scoping wizard whose steps the public check mirrors (trimmed).
+
+
+Non-negotiable engineering guardrails (all phases)
+
+
+Additive only. No modifications/renames/drops of existing tables, columns, routes, or behavior. Existing tenants and flows must be byte-for-byte unchanged unless a new flag/tier is explicitly engaged.
+The public surface touches no tenant data. Public endpoints must not import or query any tenant-scoped table except the new lead table. The scope-check computation is stateless: request in → engine verdict out.
+No enumeration or scraping value. Public endpoints return nothing about existing tenants, users, or emails ("a report has been sent" even if sending fails downstream; never "this email already has an account").
+Rate-limit everything public using the established express-rate-limit pattern, keyed by IP, with standardHeaders: true, legacyHeaders: false like the existing limiters.
+GDPR by design (this is an EU compliance product — the funnel must model good practice): explicit consent checkbox before email capture, consent text stored with the lead, a documented retention period, a deletion path, and no marketing flag without opt-in.
+Zod-validate every request body; strip/reject unknown fields on public inputs.
+Pure logic in pure files. Tier limits and wall decisions live in a shared, DB-free module with unit tests (Vitest), mirroring how nis2-applicability.ts is structured and tested.
+Legal-caution copy is mandatory wherever a verdict is displayed publicly: "Indicative assessment based on your inputs — not legal advice."
+Type-safe: npm run check must introduce no new error kinds beyond the documented drizzle-zod baseline (see .agents/memory/testing-and-ts-baseline.md); the new modules themselves must be TS-clean.
+Stop at each verification gate and report results before continuing.
+
+
+
+PHASE A — Public Scope Check + Lead Report
+
+Goal. A public, unauthenticated page where a visitor answers ~9 questions and instantly sees
+the engine verdict (in scope?, ESSENTIAL/IMPORTANT, written reason). The full detail — per-profile
+control counts, supervisory-regime notes, Art. 23 deadlines, cross-framework teaser — is unlocked
+by submitting an email, which stores a lead and emails a link to a shareable, print-optimized
+report page.
+
+A.1 Schema — leads table (the only persistence on the public surface)
+
+tsexport const scopeCheckLeads = pgTable("scope_check_leads", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  reportToken: text("report_token").notNull().unique(),   // 32+ bytes, crypto-random, URL-safe
+  // The submitted answers + computed verdict, denormalized as jsonb so the report
+  // is reproducible even if the engine evolves:
+  answers: jsonb("answers").notNull(),                    // the sanitized wizard inputs
+  verdict: jsonb("verdict").notNull(),                    // { inScope, entityClass, sizeClass, reason }
+  controlStats: jsonb("control_stats"),                   // { applicable, excluded, byTag } computed at submit time
+  consentText: text("consent_text").notNull(),            // exact consent string shown at capture time
+  consentMarketing: boolean("consent_marketing").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  convertedTenantId: integer("converted_tenant_id").references(() => tenants.id), // set by Phase B
+  convertedAt: timestamp("converted_at"),
+  deletedAt: timestamp("deleted_at"),                     // soft-delete for GDPR erasure
+});
+
+Run npm run db:push; confirm additive-only.
+
+A.2 Rate limiters (top of routes.ts, existing style)
+
+tsconst scopeCheckLimiter = rateLimit({ windowMs: 15*60*1000, max: 20, ... });   // verdict computation
+const scopeReportLimiter = rateLimit({ windowMs: 60*60*1000, max: 5, ... });   // email capture per IP
+const reportViewLimiter  = rateLimit({ windowMs: 15*60*1000, max: 60, ... });  // report page fetches
+
+A.3 Public API (no auth middleware; mounted before session-requiring guards is NOT needed — just don't attach requireAuth)
+
+POST /api/public/scope-check (scopeCheckLimiter)
+
+
+Zod schema for exactly the public inputs: sectorGroup (ANNEX_I|ANNEX_II|NONE), sector, subsector?, country, employeeCount, annualTurnoverMeur, balanceSheetMeur, plus booleans sizeIndependentEntity, publicAdministrationEntity, soleProviderInMemberState, memberStateDesignatedInScope, explicitlyExcludedByMemberState. Validate sector/subsector against NIS2_SECTORS; coerce numerics; reject unknown keys (.strict()).
+Build a Partial<Nis2RegulatoryProfile> with nis2ScopeConfirmed: true, establishedInEuEea: true (the public funnel targets EU entities; expose an establishedInEuEea question if trivial) and call decideNis2Applicability.
+Compute control stats without leaking control content: load NIS2 atomic controls via the existing storage getter, run computeApplicableNis2Controls, and return only aggregate counts { applicable, excluded, total, excludedByReasonGroup }.
+Response: { verdict: { inScope, entityClass, sizeClass, reason }, stats, disclaimer }. Nothing persisted. No cookies set.
+
+
+POST /api/public/scope-check/report (scopeReportLimiter)
+
+
+Body: the same answers object plus email (validated), consent: true (must be literal true), consentMarketing?: boolean.
+Recompute the verdict server-side from the submitted answers (never trust a client-supplied verdict), generate reportToken with crypto.randomBytes(32).toString("base64url"), insert the lead, and send the report email via sendGenericEmail with link ${getAppBaseUrl()}/scope-report/${token}.
+Always respond { ok: true, message: "If the address is valid, the report link has been sent." } — even on email-send failure (log it via logSecurityEvent-style console reporting; do not reveal failures).
+
+
+GET /api/public/scope-report/:token (reportViewLimiter)
+
+
+Look up by token where deletedAt IS NULL. Return the stored answers, verdict, controlStats, createdAt. 404 on unknown/deleted token. No email echoed back in the payload (the person viewing may have been forwarded the link).
+
+
+POST /api/public/scope-report/:token/delete (scopeReportLimiter)
+
+
+GDPR erasure: soft-deletes the lead (sets deletedAt, blanks email to "erased"). Link this from the report footer ("Delete my data").
+
+
+A.4 Public frontend
+
+Two routes added to the router outside the authenticated layout (no sidebar, no session):
+
+
+/scope-check — a focused, single-column wizard (~4 steps): sector → country → size (3 numeric inputs) → special triggers (checkbox list with plain-language labels, e.g. "We operate a DNS service or top-level-domain registry"). Reuse form components from the authenticated wizard where practical. On submit → verdict screen:
+
+Free portion: big IN SCOPE / OUT OF SCOPE / UNDETERMINED state, entity class pill, the engine's written reason, and the disclaimer line.
+Gated portion rendered as a locked preview card: "{applicable} of {total} controls apply to your profile", "Your supervisory regime & management-liability notes", "Your Art. 23 incident-reporting deadlines", "Cross-framework overlap with ISO 27001 / DORA" — each row with a lock icon. Below it, the email form + consent checkbox (unticked by default) with the exact stored consent text, optional marketing opt-in checkbox, and submit → success state ("Check your inbox").
+
+
+
+/scope-report/:token — the print-optimized report (mirror reports.tsx conventions: print: classes, gauge/bar components). Sections: verdict + reason; profile summary table; applicable-vs-excluded control counts by reason group; what ESSENTIAL vs IMPORTANT means (Art. 32/33 supervision, Art. 20 management accountability — 2 short paragraphs of static copy); Art. 23 deadline explainer (24h/72h/1 month); cross-framework teaser ("controls you implement for NIS2 typically also progress ISO 27001:2022 and DORA — CyberResilience360 maps this for you"); a clear CTA button "Create your workspace — your scoping is already done" linking to /register?scopeToken={token} (Phase B); footer with the disclaimer, the report date, and the "Delete my data" link.
+Add a small "Free NIS2 Scope Check" link on the public landing page hero.
+
+
+A.5 Tests — server/scope-check.test.ts
+
+Pure-logic tests for the input-sanitization/verdict-shaping helper (extract it into server/scope-check-public.ts, a pure module: sanitize answers → engine profile; verdict + stats shaping; nothing Express-specific): rejects unknown sector; coerces numerics; UNDETERMINED when size inputs missing; stats contain counts only (assert no title/obligationText keys anywhere in the public payload shape); consent literal-true enforcement schema test.
+
+✅ Phase A verification gate
+
+
+npm run db:push additive-only; npm run check no new error kinds; new tests pass.
+Anonymous user can complete /scope-check end-to-end with DevTools open: no session cookie set, no tenant-related network calls.
+Verdict responses contain no control titles/text — counts only.
+Email capture stores a lead with consent text; report link opens; browser print of the report produces a clean PDF; delete link soft-erases.
+Rate limits fire (verify with >20 rapid verdict calls).
+Submitting a hand-crafted body with extra fields (e.g. role: "PLATFORM_ADMIN") is rejected by .strict().
+
+
+
+PHASE B — Scope-Check → Registration Handoff
+
+Goal. One click from the report into a new workspace with the scoping already done.
+
+B.1 Registration extension (additive)
+
+
+Extend registerSchema with optional scopeCheckToken?: string.
+In POST /api/auth/register, after the existing tenant+user creation succeeds and before the response: if scopeCheckToken present, look up the live lead; if found:
+
+Set the new tenant's sectorGroup/sector/subsector from the lead answers instead of the current hardcoded "ANNEX_I"/"general" defaults (only in this branch — the no-token path stays exactly as-is).
+upsertNis2Profile(tenantId, ...) from the lead answers + verdict (including cached computedInScope/computedEntityClass/computedReason), with nis2ScopeConfirmed: true.
+Mark the lead convertedTenantId/convertedAt.
+Audit log REGISTER_FROM_SCOPE_CHECK with the lead id (not the email) in details.
+All of this inside try/catch: a handoff failure must never fail registration — log and continue.
+
+
+
+Token mismatch/expired/already-converted: silently proceed with normal registration (no error leak).
+
+
+B.2 Frontend
+
+
+/register reads ?scopeToken=, shows a small confirmation banner ("We'll pre-load your scope check results"), passes it through the existing registration mutation.
+After first login with a converted profile, the NIS2 scoping dashboard should already show the verdict — verify no extra work needed beyond the profile upsert (it shouldn't be, since the dashboard reads the profile).
+
+
+✅ Phase B verification gate
+
+
+Registering without a token behaves identically to today (regression: sector defaults unchanged).
+Registering with a valid token lands the user in a workspace where /nis2 shows their verdict and tailored control list with zero additional input.
+A forged/reused token registers normally with no error and no data leak.
+Lead row shows converted fields; audit log entry present.
+
+
+
+PHASE C — Plan Tiers & Upgrade Walls
+
+Goal. A planTier on tenants (FREE / STARTER / PROFESSIONAL / PARTNER) that maps to
+feature-flag bundles plus numeric caps, with three deliberate walls: NIS2 response cap on FREE,
+evidence upload gated to STARTER+, cross-framework acceptance gated to PROFESSIONAL+. Billing
+checkout is out of scope; platform admins set tiers.
+
+C.1 Pure tier module — shared/plan-tiers.ts (no DB/Express imports)
+
+tsexport const PLAN_TIERS = ["FREE", "STARTER", "PROFESSIONAL", "PARTNER"] as const;
+export type PlanTier = typeof PLAN_TIERS[number];
+
+export const TIER_LIMITS: Record<PlanTier, {
+  nis2ResponseCap: number | null;        // FREE: 25; others: null (unlimited)
+  evidenceUpload: boolean;               // STARTER+
+  crossFrameworkAccept: boolean;         // PROFESSIONAL+
+  flagBundle: string[];                  // feature-flag keys auto-enabled at this tier
+}> = { ... };
+
+export function canSubmitNis2Response(tier: PlanTier, currentCount: number): { allowed: boolean; reason?: string };
+export function tierAllows(tier: PlanTier, capability: "evidenceUpload" | "crossFrameworkAccept"): boolean;
+
+Unit-test exhaustively (shared/plan-tiers.test.ts or server-side test file, matching existing Vitest layout): cap boundary (24 allowed, 25th blocked with reason), each capability per tier, unknown tier defaults to FREE-equivalent (fail closed).
+
+C.2 Schema + storage
+
+
+Add planTier: text("plan_tier").notNull().default("PROFESSIONAL") to tenants. Default PROFESSIONAL so every existing tenant keeps exactly its current capabilities — no behavior change on migration. New self-serve registrations (Phase B path and normal) set FREE explicitly (or STARTER during a trial window if a trialEndsAt timestamp column is also added — include it: trialEndsAt: timestamp("trial_ends_at"), set to now+14 days on self-serve registration, and effective tier = STARTER while now < trialEndsAt, else the stored tier).
+Storage: getTenantPlan(tenantId): { tier, trialEndsAt, effectiveTier }, setTenantPlan(tenantId, tier) (platform-admin only caller), and countNis2Responses(tenantId) (count of non-NOT_STARTED responses in NIS2-scoped atomic assessments — count answered work, not seeded rows).
+
+
+C.3 Enforcement (server-authoritative; UI is cosmetic)
+
+
+Response cap: in the atomic-response upsert route, when the control belongs to the NIS2 source and effective tier is FREE, check canSubmitNis2Response; on block return 402 with { error: "upgrade_required", wall: "nis2_response_cap", limit, current }. Do not block edits to already-answered controls (editing #10 of 25 is fine; answering #26 is not).
+Evidence upload: in the evidence upload route, tierAllows(effectiveTier, "evidenceUpload") or 402 { wall: "evidence_upload" }.
+Cross-framework accept: in the accept-suggestion route, tierAllows(..., "crossFrameworkAccept") or 402 { wall: "cross_framework_accept" }. Viewing suggestions stays allowed on all tiers — the visible-but-locked inbox IS the upsell.
+Platform admins bypass all walls (mirror the existing requireDoraModule bypass style).
+Tier changes: PATCH /api/admin/tenants/:id/plan (requirePlatformAdmin, Zod-validated against PLAN_TIERS, audit-logged UPDATE_TENANT_PLAN with old→new).
+
+
+C.4 Frontend walls
+
+
+A single reusable <UpgradeWall wall="..."> card component (lock icon, one-line benefit, "Upgrade" button → /settings/plan info page listing tiers; no checkout, a "Contact us" mailto for now).
+Response cap: progress indicator on the NIS2 workspace for FREE tenants ("18 of 25 free responses used"), wall card replacing the response form at the cap.
+Evidence: upload button rendered disabled-with-lock on FREE.
+Cross-framework inbox: Accept buttons rendered locked below PROFESSIONAL, with the wall card explaining "34 suggestions ready to accept on Professional" (use the real pending count).
+All walls must handle the 402 payload gracefully even if UI state was stale.
+
+
+✅ Phase C verification gate
+
+
+Existing tenants (default PROFESSIONAL) experience zero change — regression-check evidence upload, response saving, suggestion acceptance.
+A FREE tenant: 25th response saves, 26th returns 402 + wall UI; editing existing responses still works; evidence upload 402; suggestions visible, accept 402.
+Trial: fresh registration gets STARTER behavior for 14 days (evidence works), then reverts to FREE caps (simulate by backdating trialEndsAt).
+Platform admin bypasses all walls; plan change is audit-logged; non-admin PATCH is 403.
+Tier unit tests pass; npm run check clean of new error kinds.
+
+
+
+Commit sequence
+
+
+feat(scope-check): leads schema + public verdict/report/delete endpoints + rate limits
+feat(scope-check): public wizard + print-optimized report pages
+test(scope-check): pure sanitization/shaping tests
+feat(scope-check): registration handoff with profile prefill (non-fatal)
+feat(plans): pure tier module + tests + tenants.planTier/trialEndsAt
+feat(plans): server-side walls (402) on responses/evidence/accept + admin plan route
+feat(plans): UpgradeWall component + workspace/evidence/inbox wall states
+
+
+Each commit leaves npm run check green (no new error kinds) and all flags/tiers defaulting to current behavior.
+
+Definition of done
+
+
+An anonymous visitor can get a reasoned NIS2 verdict in under 3 minutes without an account, with zero tenant-data exposure and counts-only gating of control content.
+Email capture is consent-first, enumeration-safe, rate-limited, and erasable; the report is shareable, print-clean, and ends in a one-click prefilled registration.
+Tiers are enforced server-side with 402 wall payloads, pure tested limit logic, PROFESSIONAL-grandfathering for all existing tenants, and platform-admin control — with billing checkout intentionally deferred.
+Every public verdict surface carries the "indicative, not legal advice" disclaimer.

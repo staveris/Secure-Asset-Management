@@ -1259,6 +1259,31 @@ export const insertCrossFrameworkSuggestionSchema = createInsertSchema(crossFram
 export type CrossFrameworkSuggestion = typeof crossFrameworkSuggestions.$inferSelect;
 export type InsertCrossFrameworkSuggestion = z.infer<typeof insertCrossFrameworkSuggestionSchema>;
 
+// Public scope-check leads (the only persistence on the public surface).
+export const scopeCheckLeads = pgTable("scope_check_leads", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  reportToken: text("report_token").notNull().unique(), // 32+ bytes, crypto-random, URL-safe
+  // Submitted answers + computed verdict, denormalized as jsonb so the report
+  // is reproducible even if the engine evolves:
+  answers: jsonb("answers").notNull(), // the sanitized wizard inputs
+  verdict: jsonb("verdict").notNull(), // { inScope, entityClass, sizeClass, reason }
+  controlStats: jsonb("control_stats"), // { applicable, excluded, total, byReasonGroup } computed at submit time
+  consentText: text("consent_text").notNull(), // exact consent string shown at capture time
+  consentMarketing: boolean("consent_marketing").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  convertedTenantId: integer("converted_tenant_id").references(() => tenants.id), // set by Phase B
+  convertedAt: timestamp("converted_at"),
+  deletedAt: timestamp("deleted_at"), // soft-delete for GDPR erasure
+});
+
+export const insertScopeCheckLeadSchema = createInsertSchema(scopeCheckLeads).omit({
+  id: true,
+  createdAt: true,
+});
+export type ScopeCheckLead = typeof scopeCheckLeads.$inferSelect;
+export type InsertScopeCheckLead = z.infer<typeof insertScopeCheckLeadSchema>;
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),

@@ -18,6 +18,15 @@ import QRCode from "qrcode";
 import sanitizeHtml from "sanitize-html";
 import { NIS2_SECTORS, NIS2_APPLICABILITY_FLAGS, EU_COUNTRIES, OTHER_COUNTRIES, NIS2_DOMAINS } from "./nis2-sectors";
 import { getAppBaseUrl } from "./email";
+import {
+  publicScopeAnswersSchema,
+  scopeReportRequestSchema,
+  buildPublicVerdictPayload,
+  computeVerdict,
+  computeControlStats,
+  SCOPE_CHECK_DISCLAIMER,
+  SCOPE_CHECK_CONSENT_TEXT,
+} from "./scope-check-public";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
 import { platformSettings, users, passwordHistory, controlObjectives, assessments as assessmentsTable, assessmentResponses, evidenceItems as evidenceItemsTable, atomicControls, atomicAssessments, atomicAssessmentResponses } from "@shared/schema";
 import { db } from "./db";
@@ -143,6 +152,31 @@ const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
   message: { message: "Too many registration attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Public scope-check limiters (unauthenticated surface, keyed by IP)
+const scopeCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { message: "Too many scope checks, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const scopeReportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { message: "Too many report requests, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const reportViewLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { message: "Too many requests, please try again later" },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -415,6 +449,14 @@ export async function registerRoutes(
     if (req.path.startsWith("/auth/login") || req.path.startsWith("/auth/register") || req.path.startsWith("/auth/forgot-password") || req.path.startsWith("/auth/reset-password") || req.path.startsWith("/auth/verify-email") || req.path.startsWith("/auth/resend-verification") || req.path.startsWith("/auth/logout") || req.path.startsWith("/auth/totp-verify") || req.path.startsWith("/auth/accept-invite")) {
       return next();
     }
+    // Sessionless public scope-check surface only — do NOT broaden to all /public/ paths.
+    if (
+      req.path === "/public/scope-check" ||
+      req.path === "/public/scope-check/report" ||
+      /^\/public\/scope-report\/[^/]+\/delete$/.test(req.path)
+    ) {
+      return next();
+    }
     const token = req.headers["x-csrf-token"] as string;
     if (!req.session.csrfToken || !token || token !== req.session.csrfToken) {
       logSecurityEvent("CSRF_VALIDATION_FAILED", { path: req.path, ip: req.ip, userId: req.session.userId || null });
@@ -505,6 +547,119 @@ export async function registerRoutes(
         return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
       }
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ---------------------------------------------------------------------
+  // PUBLIC scope-check surface (unauthenticated; touches no tenant data;
+  // the only persistence is the scope_check_leads table).
+  // ---------------------------------------------------------------------
+
+  app.post("/api/public/scope-check", scopeCheckLimiter, async (req, res) => {
+    try {
+      const answers = publicScopeAnswersSchema.parse(req.body);
+      const controls = await storage.getNis2AtomicControls();
+      const payload = buildPublicVerdictPayload(
+        answers,
+        controls.map((c) => ({ applicability: c.applicability })),
+      );
+      return res.json(payload);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      console.error("[scope-check] verdict error:", err?.message);
+      return res.status(500).json({ message: "Unable to compute verdict" });
+    }
+  });
+
+  app.post("/api/public/scope-check/report", scopeReportLimiter, async (req, res) => {
+    try {
+      const body = scopeReportRequestSchema.parse(req.body);
+      // Recompute server-side — never trust a client-supplied verdict.
+      const controls = await storage.getNis2AtomicControls();
+      const verdict = computeVerdict(body.answers);
+      const stats = computeControlStats(
+        body.answers,
+        controls.map((c) => ({ applicability: c.applicability })),
+      );
+      const reportToken = crypto.randomBytes(32).toString("base64url");
+
+      await storage.createScopeCheckLead({
+        email: body.email,
+        reportToken,
+        answers: body.answers,
+        verdict,
+        controlStats: stats,
+        consentText: SCOPE_CHECK_CONSENT_TEXT,
+        consentMarketing: body.consentMarketing === true,
+      });
+
+      const reportUrl = `${getAppBaseUrl()}/scope-report/${reportToken}`;
+      try {
+        const sent = await sendGenericEmail(
+          body.email,
+          "Your NIS2 scope check report",
+          `<p>Thank you for using the free NIS2 scope check.</p>
+           <p>Your shareable, print-ready report is available here:</p>
+           <p><a href="${reportUrl}">${reportUrl}</a></p>
+           <p style="color:#666;font-size:12px;">${SCOPE_CHECK_DISCLAIMER}</p>
+           <p style="color:#666;font-size:12px;">You can delete your data at any time using the link in the report footer.</p>`,
+        );
+        if (!sent) {
+          logSecurityEvent("SCOPE_REPORT_EMAIL_FAILED", { ip: req.ip });
+        }
+      } catch (mailErr: any) {
+        logSecurityEvent("SCOPE_REPORT_EMAIL_FAILED", { ip: req.ip, error: mailErr?.message });
+      }
+
+      // Enumeration-safe: identical response regardless of email-send outcome.
+      return res.json({ ok: true, message: "If the address is valid, the report link has been sent." });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      console.error("[scope-check] report error:", err?.message);
+      return res.status(500).json({ message: "Unable to process request" });
+    }
+  });
+
+  app.get("/api/public/scope-report/:token", reportViewLimiter, async (req, res) => {
+    try {
+      const token = String(req.params.token || "");
+      if (!token || token.length < 32) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      const lead = await storage.getScopeCheckLeadByToken(token);
+      if (!lead) return res.status(404).json({ message: "Report not found" });
+      // No email echoed back — the viewer may have been forwarded the link.
+      return res.json({
+        answers: lead.answers,
+        verdict: lead.verdict,
+        controlStats: lead.controlStats,
+        createdAt: lead.createdAt,
+        disclaimer: SCOPE_CHECK_DISCLAIMER,
+      });
+    } catch (err: any) {
+      console.error("[scope-check] report view error:", err?.message);
+      return res.status(500).json({ message: "Unable to load report" });
+    }
+  });
+
+  app.post("/api/public/scope-report/:token/delete", scopeReportLimiter, async (req, res) => {
+    try {
+      const token = String(req.params.token || "");
+      if (!token || token.length < 32) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+      const lead = await storage.getScopeCheckLeadByToken(token);
+      if (!lead) return res.status(404).json({ message: "Report not found" });
+      await storage.softDeleteScopeCheckLead(lead.id);
+      logSecurityEvent("SCOPE_LEAD_ERASED", { leadId: lead.id, ip: req.ip });
+      return res.json({ ok: true, message: "Your data has been deleted." });
+    } catch (err: any) {
+      console.error("[scope-check] delete error:", err?.message);
+      return res.status(500).json({ message: "Unable to process request" });
     }
   });
 

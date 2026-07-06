@@ -1,4 +1,4 @@
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Shield,
@@ -605,6 +605,18 @@ export default function LandingPage() {
                 >
                   Sign In to Dashboard
                   <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  asChild
+                  className="text-slate-300 border border-white/[0.08]"
+                  data-testid="button-hero-scope-check"
+                >
+                  <Link href="/scope-check">
+                    <Compass className="w-4 h-4 mr-2" />
+                    Free NIS2 Scope Check
+                  </Link>
                 </Button>
               </div>
             </div>
