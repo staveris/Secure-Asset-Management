@@ -1,10 +1,21 @@
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Shield, AlertCircle, CheckCircle2, ArrowRight, ListChecks, FilePlus2, ClipboardCheck } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Shield, AlertCircle, CheckCircle2, ArrowRight, ListChecks, FilePlus2, ClipboardCheck, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,6 +51,23 @@ export default function DoraDashboard() {
   const { data: profile, isLoading: pLoading } = useQuery<DoraProfile>({ queryKey: ["/api/dora/profile"] });
   const { data: ctrls, isLoading: cLoading } = useQuery<ControlsResp>({ queryKey: ["/api/dora/controls"] });
   const { data: assessments } = useQuery<DoraAssessmentRow[]>({ queryKey: ["/api/dora/assessments"] });
+  const [deleteTarget, setDeleteTarget] = useState<DoraAssessmentRow | null>(null);
+
+  const deleteAssessment = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/atomic-assessments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dora/assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      toast({ title: "DORA assessment deleted" });
+      setDeleteTarget(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not delete assessment", description: err?.message || "Failed", variant: "destructive" });
+    },
+  });
 
   const createAssessment = useMutation({
     mutationFn: async () => {
@@ -204,6 +232,19 @@ export default function DoraDashboard() {
                             <span className="text-sm text-muted-foreground">
                               {a.implemented}/{a.total} ({pct}%)
                             </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDeleteTarget(a);
+                              }}
+                              data-testid={`button-delete-dora-assessment-${a.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
@@ -245,6 +286,29 @@ export default function DoraDashboard() {
           Admin override active
         </Badge>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent data-testid="dialog-delete-dora-assessment">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete DORA assessment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{deleteTarget?.name}" including all its control answers and linked
+              evidence references. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-dora">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteAssessment.isPending}
+              onClick={() => deleteTarget && deleteAssessment.mutate(deleteTarget.id)}
+              data-testid="button-confirm-delete-dora"
+            >
+              {deleteAssessment.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
