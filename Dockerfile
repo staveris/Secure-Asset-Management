@@ -14,8 +14,14 @@ WORKDIR /app
 # that can abort `npm ci` mid-install while still exiting 0, leaving
 # node_modules incomplete. Upgrade npm first and verify the install
 # actually completed (tsx is required by `npm run build`).
+#
+# The lockfile may contain "resolved" URLs pointing at Replit's internal
+# package proxy (package-firewall.replit.local), which is unreachable
+# outside Replit. Rewrite them to the public npm registry before install;
+# integrity hashes remain valid because the tarballs are identical.
 COPY package.json package-lock.json ./
-RUN npm install -g npm@11 --no-audit --no-fund \
+RUN sed -i 's|http://package-firewall.replit.local/npm/|https://registry.npmjs.org/|g' package-lock.json \
+ && npm install -g npm@11 --no-audit --no-fund \
  && npm ci --no-audit --no-fund \
  && node -e "require.resolve('tsx')"
 

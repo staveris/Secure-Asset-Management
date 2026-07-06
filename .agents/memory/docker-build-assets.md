@@ -67,3 +67,8 @@ exiting 0, so the failure surfaces later as a confusing "tsx: not found".
 (integrity hashes stay valid — same tarballs). The Dockerfile builder stage also
 upgrades to npm@11 and runs `node -e "require.resolve('tsx')"` after `npm ci`
 so incomplete installs fail loudly.
+
+Note: every package install inside Replit (including by task agents) re-introduces
+proxy URLs, so a one-off lockfile cleanup regresses. The Dockerfile builder stage
+now runs the same sed on the copied lockfile before `npm ci`, making external
+builds immune regardless of lockfile state.

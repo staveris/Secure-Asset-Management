@@ -1,0 +1,71 @@
+az acr build -r cyres360stagingacr \
+  -t cyberresilience360:v2026-07-06b -t cyberresilience360:staging-latest \
+  "https://github.com/staveris/Secure-Asset-Management.git#main"
+Sending context to registry: cyres360stagingacr...
+Queued a build with ID: dn7
+Waiting for an agent...
+2026/07/06 12:42:08 Downloading source code...
+2026/07/06 12:42:10 Finished downloading source code
+2026/07/06 12:42:11 Using acb_vol_8b9fe53c-464c-40f5-99f6-90db6a7edaf5 as the home volume
+2026/07/06 12:42:11 Setting up Docker configuration...
+2026/07/06 12:42:11 Successfully set up Docker configuration
+2026/07/06 12:42:11 Logging in to registry: cyres360stagingacr.azurecr.io
+2026/07/06 12:42:12 Successfully logged into cyres360stagingacr.azurecr.io
+2026/07/06 12:42:12 Executing step ID: build. Timeout(sec): 28800, Working directory: '', Network: ''
+2026/07/06 12:42:12 Scanning for dependencies...
+2026/07/06 12:42:13 Successfully scanned dependencies
+2026/07/06 12:42:13 Launching container with name: build
+Sending build context to Docker daemon  4.558MB
+Step 1/21 : FROM node:20-bookworm-slim AS builder
+20-bookworm-slim: Pulling from library/node
+ff86ea2e5edc: Pulling fs layer
+e54aec64c365: Pulling fs layer
+804d4d68057c: Pulling fs layer
+64cfb949317c: Pulling fs layer
+3c02fd806613: Pulling fs layer
+64cfb949317c: Waiting
+3c02fd806613: Waiting
+e54aec64c365: Verifying Checksum
+e54aec64c365: Download complete
+ff86ea2e5edc: Verifying Checksum
+ff86ea2e5edc: Download complete
+64cfb949317c: Verifying Checksum
+64cfb949317c: Download complete
+804d4d68057c: Verifying Checksum
+804d4d68057c: Download complete
+3c02fd806613: Verifying Checksum
+3c02fd806613: Download complete
+ff86ea2e5edc: Pull complete
+e54aec64c365: Pull complete
+804d4d68057c: Pull complete
+64cfb949317c: Pull complete
+3c02fd806613: Pull complete
+Digest: sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+Status: Downloaded newer image for node:20-bookworm-slim
+ ---> 9da6b4e352d0
+Step 2/21 : WORKDIR /app
+ ---> Running in 490db44645e8
+Removing intermediate container 490db44645e8
+ ---> d4e736438ddf
+Step 3/21 : COPY package.json package-lock.json ./
+ ---> 4af1aa1dc6c3
+Step 4/21 : RUN npm install -g npm@11 --no-audit --no-fund  && npm ci --no-audit --no-fund  && node -e "require.resolve('tsx')"
+ ---> Running in 25ab31cf031d
+
+removed 65 packages, and changed 112 packages in 4s
+npm error code ENOTFOUND
+npm error syscall getaddrinfo
+npm error errno ENOTFOUND
+npm error network request to http://package-firewall.replit.local/npm/supertest/-/supertest-7.2.2.tgz failed, reason: getaddrinfo ENOTFOUND package-firewall.replit.local
+npm error network This is a problem related to network connectivity.
+npm error network In most cases you are behind a proxy or have bad network settings.
+npm error network
+npm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-07-06T12_42_24_717Z-debug-0.log
+The command '/bin/sh -c npm install -g npm@11 --no-audit --no-fund  && npm ci --no-audit --no-fund  && node -e "require.resolve('tsx')"' returned a non-zero code: 1
+2026/07/06 12:43:39 Container failed during run: build. No retries remaining.
+failed to run step ID: build: exit status 1
+
+Run ID: dn7 failed after 1m31s. Error: failed during run, err: exit status 1
+Run failed
+athanasios [ ~ ]$ 
