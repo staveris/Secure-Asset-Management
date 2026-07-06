@@ -4,7 +4,7 @@
 // contains the tier definitions and pure decision helpers.
 // ---------------------------------------------------------------------------
 
-export const PLAN_TIERS = ["FREE", "STARTER", "PROFESSIONAL", "PARTNER"] as const;
+export const PLAN_TIERS = ["FREE", "STARTER", "PROFESSIONAL"] as const;
 export type PlanTier = typeof PLAN_TIERS[number];
 
 export const TIER_LIMITS: Record<PlanTier, {
@@ -26,18 +26,6 @@ export const TIER_LIMITS: Record<PlanTier, {
     flagBundle: ["ATOMIC_ASSESSMENTS", "NIS2_SCOPING", "NIS2_ART21_RISK_REGISTER"],
   },
   PROFESSIONAL: {
-    nis2ResponseCap: null,
-    evidenceUpload: true,
-    crossFrameworkAccept: true,
-    flagBundle: [
-      "ATOMIC_ASSESSMENTS",
-      "NIS2_SCOPING",
-      "NIS2_ART21_RISK_REGISTER",
-      "CROSS_FRAMEWORK_MAPPING",
-      "DORA_MODULE",
-    ],
-  },
-  PARTNER: {
     nis2ResponseCap: null,
     evidenceUpload: true,
     crossFrameworkAccept: true,

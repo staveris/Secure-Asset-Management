@@ -6,13 +6,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Check, X, Mail, Sparkles, CreditCard } from "lucide-react";
 
-const TIER_ORDER: TenantPlan["tier"][] = ["FREE", "STARTER", "PROFESSIONAL", "PARTNER"];
+const TIER_ORDER: TenantPlan["tier"][] = ["FREE", "STARTER", "PROFESSIONAL"];
 
 const TIER_DESCRIPTIONS: Record<TenantPlan["tier"], string> = {
   FREE: "Get started with NIS2 scoping and up to 25 answered NIS2 controls.",
   STARTER: "Unlimited NIS2 answers, evidence vault uploads, and the Art.21 risk register.",
   PROFESSIONAL: "Everything in Starter plus cross-framework propagation and the DORA module.",
-  PARTNER: "For consultancies and MSSPs managing compliance for multiple clients.",
 };
 
 const TIER_FEATURES: { label: string; has: (t: TenantPlan["tier"]) => boolean | string }[] = [
@@ -20,8 +19,8 @@ const TIER_FEATURES: { label: string; has: (t: TenantPlan["tier"]) => boolean | 
   { label: "NIS2 control answers", has: (t) => (t === "FREE" ? "Up to 25" : "Unlimited") },
   { label: "Evidence vault uploads", has: (t) => t !== "FREE" },
   { label: "NIS2 Art.21 risk register", has: (t) => t !== "FREE" },
-  { label: "Cross-framework suggestion acceptance", has: (t) => t === "PROFESSIONAL" || t === "PARTNER" },
-  { label: "DORA module (financial entities)", has: (t) => t === "PROFESSIONAL" || t === "PARTNER" },
+  { label: "Cross-framework suggestion acceptance", has: (t) => t === "PROFESSIONAL" },
+  { label: "DORA module (financial entities)", has: (t) => t === "PROFESSIONAL" },
 ];
 
 export default function PlanPage() {
@@ -78,7 +77,7 @@ export default function PlanPage() {
               )}
             </div>
             <Button asChild data-testid="button-contact-upgrade">
-              <a href={`mailto:sales@cyberresilience360.eu?subject=${encodeURIComponent("Plan upgrade request")}`}>
+              <a href={`mailto:info@toolsoftech.eu?subject=${encodeURIComponent("Plan upgrade request")}`}>
                 <Mail className="w-4 h-4 mr-2" />
                 Contact us to upgrade
               </a>
@@ -106,7 +105,7 @@ export default function PlanPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         {TIER_ORDER.map((tier) => {
           const isCurrent = tier === plan.effectiveTier;
           return (

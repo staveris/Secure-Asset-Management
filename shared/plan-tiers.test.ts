@@ -10,8 +10,8 @@ import {
 } from "./plan-tiers";
 
 describe("plan-tiers: tier table", () => {
-  it("defines exactly the four tiers", () => {
-    expect(PLAN_TIERS).toEqual(["FREE", "STARTER", "PROFESSIONAL", "PARTNER"]);
+  it("defines exactly the three tiers", () => {
+    expect(PLAN_TIERS).toEqual(["FREE", "STARTER", "PROFESSIONAL"]);
     expect(Object.keys(TIER_LIMITS).sort()).toEqual([...PLAN_TIERS].sort());
   });
 
@@ -19,7 +19,6 @@ describe("plan-tiers: tier table", () => {
     expect(TIER_LIMITS.FREE.nis2ResponseCap).toBe(25);
     expect(TIER_LIMITS.STARTER.nis2ResponseCap).toBeNull();
     expect(TIER_LIMITS.PROFESSIONAL.nis2ResponseCap).toBeNull();
-    expect(TIER_LIMITS.PARTNER.nis2ResponseCap).toBeNull();
   });
 });
 
@@ -50,7 +49,7 @@ describe("plan-tiers: canSubmitNis2Response cap boundary", () => {
     expect(canSubmitNis2Response("FREE", 500).allowed).toBe(false);
   });
   it("paid tiers are unlimited", () => {
-    for (const t of ["STARTER", "PROFESSIONAL", "PARTNER"] as PlanTier[]) {
+    for (const t of ["STARTER", "PROFESSIONAL"] as PlanTier[]) {
       expect(canSubmitNis2Response(t, 10_000).allowed).toBe(true);
     }
   });
@@ -64,13 +63,11 @@ describe("plan-tiers: tierAllows capabilities per tier", () => {
     expect(tierAllows("FREE", "evidenceUpload")).toBe(false);
     expect(tierAllows("STARTER", "evidenceUpload")).toBe(true);
     expect(tierAllows("PROFESSIONAL", "evidenceUpload")).toBe(true);
-    expect(tierAllows("PARTNER", "evidenceUpload")).toBe(true);
   });
   it("crossFrameworkAccept: PROFESSIONAL+", () => {
     expect(tierAllows("FREE", "crossFrameworkAccept")).toBe(false);
     expect(tierAllows("STARTER", "crossFrameworkAccept")).toBe(false);
     expect(tierAllows("PROFESSIONAL", "crossFrameworkAccept")).toBe(true);
-    expect(tierAllows("PARTNER", "crossFrameworkAccept")).toBe(true);
   });
   it("unknown tier fails closed (no capabilities)", () => {
     expect(tierAllows("GOLD" as PlanTier, "evidenceUpload")).toBe(false);
@@ -94,7 +91,6 @@ describe("plan-tiers: effectiveTier trial window", () => {
   });
   it("trial never downgrades a paid tier", () => {
     expect(effectiveTier("PROFESSIONAL", future, now)).toBe("PROFESSIONAL");
-    expect(effectiveTier("PARTNER", future, now)).toBe("PARTNER");
     expect(effectiveTier("STARTER", future, now)).toBe("STARTER");
   });
   it("unknown stored tier fails closed to FREE (and can trial to STARTER)", () => {

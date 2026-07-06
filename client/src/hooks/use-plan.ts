@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 export interface TenantPlan {
-  tier: "FREE" | "STARTER" | "PROFESSIONAL" | "PARTNER";
-  effectiveTier: "FREE" | "STARTER" | "PROFESSIONAL" | "PARTNER";
+  tier: "FREE" | "STARTER" | "PROFESSIONAL";
+  effectiveTier: "FREE" | "STARTER" | "PROFESSIONAL";
   trialEndsAt: string | null;
   trialActive: boolean;
   limits: {
@@ -43,5 +43,4 @@ export const PLAN_LABELS: Record<TenantPlan["tier"], string> = {
   FREE: "Free",
   STARTER: "Starter",
   PROFESSIONAL: "Professional",
-  PARTNER: "Partner",
 };
