@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Switch as SwitchUI } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Building2, Users, Target, Plus, Ban, CheckCircle, Trash2, Search, ChevronDown, ChevronRight, Lock, Unlock, Mail, Atom, Pencil, Shield, UserPlus, Send, X, Clock, AlertCircle, Flag } from "lucide-react";
@@ -118,6 +119,7 @@ export default function AdminTenants() {
   const [inviteTenant, setInviteTenant] = useState<TenantInfo | null>(null);
   const [inviteForm, setInviteForm] = useState<{ email: string; fullName: string; role: string }>({ email: "", fullName: "", role: "TENANT_USER" });
   const [revokeInvite, setRevokeInvite] = useState<{ tenantId: number; inviteId: number; email: string } | null>(null);
+  const [inviteFilter, setInviteFilter] = useState<"pending" | "accepted" | "expired" | "revoked" | "all">("pending");
 
   const { data: tenants, isLoading } = useQuery<TenantInfo[]>({
     queryKey: ["/api/admin/tenants"],
@@ -133,8 +135,24 @@ export default function AdminTenants() {
     enabled: !!expandedTenant,
   });
 
-  const { data: pendingInvites, isLoading: invitesLoading } = useQuery<Array<{ id: number; email: string; role: string; createdAt: string; expiresAt: string; invitedBy: string; expired: boolean }>>({
-    queryKey: ["/api/admin/tenants", expandedTenant, "invites"],
+  const { data: tenantInvites, isLoading: invitesLoading } = useQuery<Array<{
+    id: number;
+    email: string;
+    role: string;
+    createdAt: string;
+    expiresAt: string;
+    invitedBy: string;
+    expired: boolean;
+    status: "pending" | "accepted" | "expired" | "revoked";
+    acceptedAt: string | null;
+    acceptedByUser: { id: number; email: string; fullName: string; role: string; isActive: boolean } | null;
+  }>>({
+    queryKey: ["/api/admin/tenants", expandedTenant, "invites", inviteFilter],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/tenants/${expandedTenant}/invites?status=${inviteFilter}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load invitations");
+      return res.json();
+    },
     enabled: !!expandedTenant,
   });
 
@@ -747,68 +765,101 @@ export default function AdminTenants() {
                     )}
 
                     <div className="mt-4 pt-3 border-t">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                         <p className="text-xs font-medium text-muted-foreground">
-                          Pending Invitations {pendingInvites && pendingInvites.length > 0 ? `(${pendingInvites.length})` : ""}
+                          Invitations {tenantInvites && tenantInvites.length > 0 ? `(${tenantInvites.length})` : ""}
                         </p>
+                        <Tabs value={inviteFilter} onValueChange={(v) => setInviteFilter(v as any)}>
+                          <TabsList className="h-7" data-testid="admin-tabs-invite-filter">
+                            <TabsTrigger value="pending" className="text-xs px-2 py-0.5" data-testid="admin-tab-invite-pending">Pending</TabsTrigger>
+                            <TabsTrigger value="accepted" className="text-xs px-2 py-0.5" data-testid="admin-tab-invite-accepted">Accepted</TabsTrigger>
+                            <TabsTrigger value="expired" className="text-xs px-2 py-0.5" data-testid="admin-tab-invite-expired">Expired</TabsTrigger>
+                            <TabsTrigger value="revoked" className="text-xs px-2 py-0.5" data-testid="admin-tab-invite-revoked">Revoked</TabsTrigger>
+                            <TabsTrigger value="all" className="text-xs px-2 py-0.5" data-testid="admin-tab-invite-all">All</TabsTrigger>
+                          </TabsList>
+                        </Tabs>
                       </div>
                       {invitesLoading ? (
                         <Skeleton className="h-10" />
-                      ) : pendingInvites && pendingInvites.length > 0 ? (
+                      ) : tenantInvites && tenantInvites.length > 0 ? (
                         <div className="space-y-2">
-                          {pendingInvites.map(inv => (
+                          {tenantInvites.map(inv => {
+                            const showActions = inv.status === "pending" || inv.status === "expired";
+                            return (
                             <div key={inv.id} className="flex items-center gap-3 p-2 rounded-md bg-muted/30" data-testid={`admin-invite-row-${inv.id}`}>
                               <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="text-sm font-medium truncate" data-testid={`admin-text-invite-email-${inv.id}`}>{inv.email}</p>
                                   <Badge variant="secondary" className="text-xs">{inv.role.replace(/_/g, " ")}</Badge>
-                                  {inv.expired ? (
-                                    <Badge variant="destructive" className="text-xs gap-1">
+                                  {inv.status === "accepted" ? (
+                                    <Badge variant="default" className="text-xs gap-1" data-testid={`admin-badge-invite-status-${inv.id}`}>
+                                      <CheckCircle className="w-3 h-3" /> Accepted
+                                    </Badge>
+                                  ) : inv.status === "revoked" ? (
+                                    <Badge variant="secondary" className="text-xs gap-1" data-testid={`admin-badge-invite-status-${inv.id}`}>
+                                      <X className="w-3 h-3" /> Revoked
+                                    </Badge>
+                                  ) : inv.status === "expired" ? (
+                                    <Badge variant="destructive" className="text-xs gap-1" data-testid={`admin-badge-invite-status-${inv.id}`}>
                                       <AlertCircle className="w-3 h-3" /> Expired
                                     </Badge>
                                   ) : (
-                                    <Badge variant="outline" className="text-xs gap-1">
+                                    <Badge variant="outline" className="text-xs gap-1" data-testid={`admin-badge-invite-status-${inv.id}`}>
                                       <Clock className="w-3 h-3" /> Pending
                                     </Badge>
                                   )}
                                 </div>
                                 <p className="text-xs text-muted-foreground truncate">
-                                  Invited by {inv.invitedBy} · sent {new Date(inv.createdAt).toLocaleDateString()} · {inv.expired ? "expired" : "expires"} {new Date(inv.expiresAt).toLocaleDateString()}
+                                  Invited by {inv.invitedBy} · sent {new Date(inv.createdAt).toLocaleDateString()}
+                                  {inv.status === "accepted" && inv.acceptedAt
+                                    ? ` · accepted ${new Date(inv.acceptedAt).toLocaleDateString()}`
+                                    : ` · ${inv.status === "expired" ? "expired" : "expires"} ${new Date(inv.expiresAt).toLocaleDateString()}`}
                                 </p>
+                                {inv.status === "accepted" && inv.acceptedByUser && (
+                                  <p className="text-xs text-muted-foreground truncate" data-testid={`admin-text-invite-accepted-by-${inv.id}`}>
+                                    Joined as {inv.acceptedByUser.fullName} ({inv.acceptedByUser.email})
+                                    {!inv.acceptedByUser.isActive && " · inactive"}
+                                  </p>
+                                )}
                               </div>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => resendInviteMutation.mutate({ tenantId: tenant.id, inviteId: inv.id })}
-                                    disabled={resendInviteMutation.isPending}
-                                    data-testid={`button-resend-invite-${inv.id}`}
-                                  >
-                                    <Send className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Resend invitation (new token + email)</TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => setRevokeInvite({ tenantId: tenant.id, inviteId: inv.id, email: inv.email })}
-                                    data-testid={`button-revoke-invite-${inv.id}`}
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Revoke invitation</TooltipContent>
-                              </Tooltip>
+                              {showActions && (
+                                <>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => resendInviteMutation.mutate({ tenantId: tenant.id, inviteId: inv.id })}
+                                        disabled={resendInviteMutation.isPending}
+                                        data-testid={`button-resend-invite-${inv.id}`}
+                                      >
+                                        <Send className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Resend invitation (new token + email)</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => setRevokeInvite({ tenantId: tenant.id, inviteId: inv.id, email: inv.email })}
+                                        data-testid={`button-revoke-invite-${inv.id}`}
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Revoke invitation</TooltipContent>
+                                  </Tooltip>
+                                </>
+                              )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground py-1">No pending invitations</p>
+                        <p className="text-sm text-muted-foreground py-1">No {inviteFilter === "all" ? "" : inviteFilter} invitations</p>
                       )}
                     </div>
                   </div>

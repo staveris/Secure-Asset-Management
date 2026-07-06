@@ -3646,31 +3646,127 @@ export async function registerRoutes(
     }
   });
 
+  async function buildTenantInviteList(tenantId: number, statusParam: string) {
+    const allowedStatuses = ["pending", "accepted", "expired", "revoked", "all"];
+    const status = allowedStatuses.includes(statusParam) ? statusParam : "pending";
+
+    const invites = await storage.getInviteTokensByTenant(tenantId);
+    const now = new Date();
+
+    const tenantUsers = await storage.getUsersByTenant(tenantId);
+    const userByEmail = new Map<string, typeof tenantUsers[number]>();
+    for (const u of tenantUsers) {
+      userByEmail.set(u.email.toLowerCase(), u);
+    }
+
+    const revokedIds = new Set<number>();
+    const acceptedAuditByInviteId = new Map<number, { at: Date; userId: number | null }>();
+    if (invites.some(i => i.usedAt)) {
+      const auditLogs = await storage.getAuditLogsByTenant(tenantId, 1000);
+      for (const log of auditLogs) {
+        if (log.entityType !== "INVITE" || !log.entityId) continue;
+        const id = parseInt(log.entityId);
+        if (isNaN(id)) continue;
+        if (log.action === "INVITE_REVOKE") {
+          revokedIds.add(id);
+        } else if (log.action === "INVITE_ACCEPT") {
+          const details = log.details as { userId?: number } | null;
+          acceptedAuditByInviteId.set(id, {
+            at: new Date(log.createdAt),
+            userId: details?.userId ?? log.actorUserId ?? null,
+          });
+        }
+      }
+    }
+
+    const userById = new Map<number, typeof tenantUsers[number]>();
+    for (const u of tenantUsers) userById.set(u.id, u);
+
+    const classify = (i: typeof invites[number]): "pending" | "accepted" | "expired" | "revoked" => {
+      if (i.usedAt) {
+        if (i.acceptedByUserId) return "accepted";
+        if (revokedIds.has(i.id)) return "revoked";
+        return "accepted";
+      }
+      if (new Date(i.expiresAt) <= now) return "expired";
+      return "pending";
+    };
+
+    const resolveAcceptedUser = (i: typeof invites[number]) => {
+      if (i.acceptedByUserId) {
+        const u = userById.get(i.acceptedByUserId);
+        if (u) return u;
+      }
+      const audit = acceptedAuditByInviteId.get(i.id);
+      if (audit?.userId) {
+        const u = userById.get(audit.userId);
+        if (u) return u;
+      }
+      if (i.acceptedByUserId) return null;
+      const matchingUser = userByEmail.get(i.email.toLowerCase());
+      if (!matchingUser) return null;
+      const userCreated = new Date(matchingUser.createdAt).getTime();
+      const inviteCreated = new Date(i.createdAt).getTime();
+      const inviteUsed = i.usedAt ? new Date(i.usedAt).getTime() : null;
+      if (userCreated < inviteCreated) return null;
+      if (inviteUsed !== null && Math.abs(userCreated - inviteUsed) > 24 * 60 * 60 * 1000) {
+        return null;
+      }
+      return matchingUser;
+    };
+
+    const filtered = invites.filter(i => {
+      const s = classify(i);
+      if (status === "all") return true;
+      return s === status;
+    });
+
+    const creatorIds = Array.from(new Set(filtered.map(i => i.createdBy)));
+    const creators = await Promise.all(creatorIds.map(id => storage.getUser(id)));
+    const creatorMap = new Map<number, string>();
+    for (const c of creators) {
+      if (c) creatorMap.set(c.id, c.fullName || c.email);
+    }
+
+    return filtered.map(i => {
+      const s = classify(i);
+      const acceptedUser = s === "accepted" ? resolveAcceptedUser(i) : null;
+      const acceptedAtSource = s === "accepted"
+        ? (i.usedAt ?? acceptedAuditByInviteId.get(i.id)?.at ?? null)
+        : null;
+      return {
+        id: i.id,
+        email: i.email,
+        role: i.role,
+        createdAt: i.createdAt,
+        expiresAt: i.expiresAt,
+        usedAt: i.usedAt,
+        invitedBy: creatorMap.get(i.createdBy) || "Unknown",
+        invitedById: i.createdBy,
+        expired: s === "expired",
+        status: s,
+        acceptedAt: acceptedAtSource,
+        acceptedByUser: acceptedUser
+          ? {
+              id: acceptedUser.id,
+              email: acceptedUser.email,
+              fullName: acceptedUser.fullName,
+              role: acceptedUser.role,
+              isActive: acceptedUser.isActive,
+            }
+          : null,
+      };
+    });
+  }
+
   app.get("/api/admin/tenants/:tenantId/invites", requirePlatformAdmin, async (req, res) => {
     try {
       const tenantId = parseInt(req.params.tenantId);
       const tenant = await storage.getTenant(tenantId);
       if (!tenant) return res.status(404).json({ message: "Tenant not found" });
 
-      const invites = await storage.getInviteTokensByTenant(tenantId);
-      const pending = invites.filter(i => !i.usedAt);
-      const creatorIds = Array.from(new Set(pending.map(i => i.createdBy)));
-      const creators = await Promise.all(creatorIds.map(id => storage.getUser(id)));
-      const creatorMap = new Map<number, string>();
-      for (const c of creators) {
-        if (c) creatorMap.set(c.id, c.fullName || c.email);
-      }
-      const now = new Date();
-      const enriched = pending.map(i => ({
-        id: i.id,
-        email: i.email,
-        role: i.role,
-        createdAt: i.createdAt,
-        expiresAt: i.expiresAt,
-        invitedBy: creatorMap.get(i.createdBy) || "Unknown",
-        invitedById: i.createdBy,
-        expired: new Date(i.expiresAt) <= now,
-      }));
+      const statusParam = String(req.query.status || "pending").toLowerCase();
+      const enriched = await buildTenantInviteList(tenantId, statusParam);
       res.json(enriched);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4095,116 +4191,7 @@ export async function registerRoutes(
       }
 
       const statusParam = String(req.query.status || "pending").toLowerCase();
-      const allowedStatuses = ["pending", "accepted", "expired", "revoked", "all"];
-      const status = allowedStatuses.includes(statusParam) ? statusParam : "pending";
-
-      const invites = await storage.getInviteTokensByTenant(user.tenantId);
-      const now = new Date();
-
-      const tenantUsers = await storage.getUsersByTenant(user.tenantId);
-      const userByEmail = new Map<string, typeof tenantUsers[number]>();
-      for (const u of tenantUsers) {
-        userByEmail.set(u.email.toLowerCase(), u);
-      }
-
-      const revokedIds = new Set<number>();
-      const acceptedAuditByInviteId = new Map<number, { at: Date; userId: number | null }>();
-      if (invites.some(i => i.usedAt)) {
-        const auditLogs = await storage.getAuditLogsByTenant(user.tenantId, 1000);
-        for (const log of auditLogs) {
-          if (log.entityType !== "INVITE" || !log.entityId) continue;
-          const id = parseInt(log.entityId);
-          if (isNaN(id)) continue;
-          if (log.action === "INVITE_REVOKE") {
-            revokedIds.add(id);
-          } else if (log.action === "INVITE_ACCEPT") {
-            const details = log.details as { userId?: number } | null;
-            acceptedAuditByInviteId.set(id, {
-              at: new Date(log.createdAt),
-              userId: details?.userId ?? log.actorUserId ?? null,
-            });
-          }
-        }
-      }
-
-      const userById = new Map<number, typeof tenantUsers[number]>();
-      for (const u of tenantUsers) userById.set(u.id, u);
-
-      const classify = (i: typeof invites[number]): "pending" | "accepted" | "expired" | "revoked" => {
-        if (i.usedAt) {
-          if (i.acceptedByUserId) return "accepted";
-          if (revokedIds.has(i.id)) return "revoked";
-          return "accepted";
-        }
-        if (new Date(i.expiresAt) <= now) return "expired";
-        return "pending";
-      };
-
-      const resolveAcceptedUser = (i: typeof invites[number]) => {
-        if (i.acceptedByUserId) {
-          const u = userById.get(i.acceptedByUserId);
-          if (u) return u;
-        }
-        const audit = acceptedAuditByInviteId.get(i.id);
-        if (audit?.userId) {
-          const u = userById.get(audit.userId);
-          if (u) return u;
-        }
-        if (i.acceptedByUserId) return null;
-        const matchingUser = userByEmail.get(i.email.toLowerCase());
-        if (!matchingUser) return null;
-        const userCreated = new Date(matchingUser.createdAt).getTime();
-        const inviteCreated = new Date(i.createdAt).getTime();
-        const inviteUsed = i.usedAt ? new Date(i.usedAt).getTime() : null;
-        if (userCreated < inviteCreated) return null;
-        if (inviteUsed !== null && Math.abs(userCreated - inviteUsed) > 24 * 60 * 60 * 1000) {
-          return null;
-        }
-        return matchingUser;
-      };
-
-      const filtered = invites.filter(i => {
-        const s = classify(i);
-        if (status === "all") return true;
-        return s === status;
-      });
-
-      const creatorIds = Array.from(new Set(filtered.map(i => i.createdBy)));
-      const creators = await Promise.all(creatorIds.map(id => storage.getUser(id)));
-      const creatorMap = new Map<number, string>();
-      for (const c of creators) {
-        if (c) creatorMap.set(c.id, c.fullName || c.email);
-      }
-
-      const enriched = filtered.map(i => {
-        const s = classify(i);
-        const acceptedUser = s === "accepted" ? resolveAcceptedUser(i) : null;
-        const acceptedAtSource = s === "accepted"
-          ? (i.usedAt ?? acceptedAuditByInviteId.get(i.id)?.at ?? null)
-          : null;
-        return {
-          id: i.id,
-          email: i.email,
-          role: i.role,
-          createdAt: i.createdAt,
-          expiresAt: i.expiresAt,
-          usedAt: i.usedAt,
-          invitedBy: creatorMap.get(i.createdBy) || "Unknown",
-          invitedById: i.createdBy,
-          expired: s === "expired",
-          status: s,
-          acceptedAt: acceptedAtSource,
-          acceptedByUser: acceptedUser
-            ? {
-                id: acceptedUser.id,
-                email: acceptedUser.email,
-                fullName: acceptedUser.fullName,
-                role: acceptedUser.role,
-                isActive: acceptedUser.isActive,
-              }
-            : null,
-        };
-      });
+      const enriched = await buildTenantInviteList(user.tenantId, statusParam);
       res.json(enriched);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
