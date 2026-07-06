@@ -66,8 +66,9 @@ import {
   FileText,
   Lock,
 } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useAuth } from "@/lib/auth";
+import { usePlan, isUpgradeError, upgradeMessage } from "@/hooks/use-plan";
 import type { AtomicAssessmentResponse, AtomicControl, EvidenceItem } from "@shared/schema";
 
 interface AtomicAssessmentDetail {
@@ -210,11 +211,16 @@ function ControlResponseCard({
       queryClient.invalidateQueries({ queryKey: ["/api/snapshots"] });
       queryClient.invalidateQueries({ queryKey: ["/api/assessment-history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenant/plan"] });
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      if (isUpgradeError(err)) {
+        toast({ title: "Upgrade required", description: upgradeMessage(err), variant: "destructive" });
+      } else {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
       setSaveState("error");
     },
   });
@@ -753,11 +759,16 @@ function AtomicFocusModeView({
       queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments", assessmentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenant/plan"] });
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
     },
     onError: (err: any) => {
-      toast({ title: "Error saving", description: err.message, variant: "destructive" });
+      if (isUpgradeError(err)) {
+        toast({ title: "Upgrade required", description: upgradeMessage(err), variant: "destructive" });
+      } else {
+        toast({ title: "Error saving", description: err.message, variant: "destructive" });
+      }
       setSaveState("error");
     },
   });
@@ -1142,6 +1153,8 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
     queryKey: ["/api/evidence"],
   });
 
+  const { data: plan } = usePlan(!isPlatformAdmin);
+
   const getControlEvidence = useCallback((atomicControlId: number): EvidenceItem[] => {
     if (!evidenceItems) return [];
     return evidenceItems.filter(
@@ -1369,6 +1382,16 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
 
   return (
     <div className="p-6 space-y-6" data-testid="atomic-assessment-detail-page">
+      {plan?.limits.nis2ResponseCap != null && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm flex items-center gap-3 flex-wrap" data-testid="banner-free-cap">
+          <span>
+            Free plan: <span className="font-semibold">{plan.nis2ResponseCount ?? 0} of {plan.limits.nis2ResponseCap}</span> NIS2 control answers used.
+          </span>
+          <Link href="/settings/plan" className="underline font-medium" data-testid="link-upgrade-from-cap">
+            Upgrade for unlimited answers
+          </Link>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
           <Button variant="outline" size="icon" onClick={() => navigate("/atomic-assessments")} data-testid="button-back-to-list">

@@ -40,6 +40,7 @@ import Nis2ScopingDashboard from "@/pages/nis2-scoping-dashboard";
 import Nis2ScopingWizard from "@/pages/nis2-scoping-wizard";
 import Nis2ScopingControls from "@/pages/nis2-scoping-controls";
 import CrossFramework from "@/pages/cross-framework";
+import PlanPage from "@/pages/plan";
 import Onboarding from "@/pages/onboarding";
 import VerifyEmail from "@/pages/verify-email";
 import AcceptInvite from "@/pages/accept-invite";
@@ -185,6 +186,7 @@ function TenantRouter() {
       <Route path="/reports">{() => <WithFullAccess component={Reports} />}</Route>
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/users">{() => <WithFullAccess component={UsersPage} />}</Route>
+      <Route path="/settings/plan" component={PlanPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>

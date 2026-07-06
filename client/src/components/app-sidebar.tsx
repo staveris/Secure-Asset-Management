@@ -50,6 +50,7 @@ import {
   Banknote,
   Radar,
   Network,
+  CreditCard,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -68,6 +69,7 @@ const tenantMenuItems = [
   { title: "Risks", url: "/risks", icon: Shield, requiresFullAccess: true },
   { title: "Reports", url: "/reports", icon: FileText, requiresFullAccess: true },
   { title: "Users", url: "/users", icon: Users, requiresFullAccess: false },
+  { title: "Plan & Billing", url: "/settings/plan", icon: CreditCard, requiresFullAccess: false },
   { title: "Settings", url: "/settings", icon: Settings, requiresFullAccess: false },
 ];
 

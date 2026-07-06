@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { usePlan, isUpgradeError, upgradeMessage } from "@/hooks/use-plan";
 import { useSearch, Link } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +82,8 @@ interface LinkableEntities {
 
 export default function Evidence() {
   const { toast } = useToast();
+  const { data: plan } = usePlan();
+  const uploadLocked = plan ? !plan.limits.evidenceUpload : false;
   const { user } = useAuth();
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
@@ -176,6 +179,10 @@ export default function Evidence() {
       setSelectedAtomicAssessmentId("");
     },
     onError: (error: Error) => {
+      if (isUpgradeError(error)) {
+        toast({ title: "Upgrade required", description: upgradeMessage(error), variant: "destructive" });
+        return;
+      }
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
     },
   });
@@ -297,11 +304,17 @@ export default function Evidence() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Evidence Vault</h1>
           <p className="text-muted-foreground mt-1">Manage compliance evidence and documentation</p>
+          {uploadLocked && (
+            <p className="text-xs text-muted-foreground mt-1" data-testid="text-evidence-upload-locked">
+              Evidence upload is available on the Starter plan and above —{" "}
+              <Link href="/settings/plan" className="underline">view plans</Link>
+            </p>
+          )}
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setRelatedType(""); setRelatedId(""); setSelectedFile(null); setSelectedAssessmentId(""); setSelectedControlId(""); setSelectedAtomicAssessmentId(""); } }}>
           <DialogTrigger asChild>
-            <Button data-testid="button-upload-evidence">
-              <Plus className="w-4 h-4 mr-2" />
+            <Button data-testid="button-upload-evidence" disabled={uploadLocked}>
+              {uploadLocked ? <Lock className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
               Upload Evidence
             </Button>
           </DialogTrigger>

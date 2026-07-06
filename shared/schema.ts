@@ -120,6 +120,8 @@ export const tenants = pgTable("tenants", {
   storageUsedBytes: bigint("storage_used_bytes", { mode: "number" }).notNull().default(0),
   maxUsers: integer("max_users").notNull().default(10),
   maxFileSizeBytes: integer("max_file_size_bytes").notNull().default(26214400),
+  planTier: text("plan_tier").notNull().default("PROFESSIONAL"),
+  trialEndsAt: timestamp("trial_ends_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

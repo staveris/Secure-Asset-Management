@@ -14,7 +14,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Network, Check, X, Inbox, Grid3X3, ArrowRight, Loader2, AlertTriangle } from "lucide-react";
+import { Network, Check, X, Inbox, Grid3X3, ArrowRight, Loader2, AlertTriangle, Lock } from "lucide-react";
+import { Link } from "wouter";
+import { usePlan, isUpgradeError, upgradeMessage } from "@/hooks/use-plan";
 
 interface SuggestionRow {
   id: number;
@@ -69,6 +71,8 @@ function SuggestionsInbox() {
   const { data, isLoading } = useQuery<{ suggestions: SuggestionRow[] }>({
     queryKey: ["/api/cross-framework/suggestions"],
   });
+  const { data: plan } = usePlan();
+  const acceptLocked = plan ? !plan.limits.crossFrameworkAccept : false;
 
   const decideMutation = useMutation({
     mutationFn: async ({ id, action }: { id: number; action: "accept" | "reject" }) => {
@@ -90,6 +94,10 @@ function SuggestionsInbox() {
       }
     },
     onError: (err: any) => {
+      if (isUpgradeError(err)) {
+        toast({ title: "Upgrade required", description: upgradeMessage(err), variant: "destructive" });
+        return;
+      }
       toast({ title: "Action failed", description: err?.message || "Please try again.", variant: "destructive" });
     },
   });
@@ -167,12 +175,18 @@ function SuggestionsInbox() {
               <Button
                 size="sm"
                 onClick={() => decideMutation.mutate({ id: s.id, action: "accept" })}
-                disabled={decideMutation.isPending}
+                disabled={decideMutation.isPending || acceptLocked}
                 data-testid={`button-accept-suggestion-${s.id}`}
               >
-                {decideMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+                {acceptLocked ? <Lock className="w-3.5 h-3.5 mr-1" /> : decideMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1" />}
                 Accept
               </Button>
+              {acceptLocked && (
+                <span className="text-[11px] text-muted-foreground" data-testid={`text-accept-locked-${s.id}`}>
+                  Accepting requires the Professional plan —{" "}
+                  <Link href="/settings/plan" className="underline">view plans</Link>
+                </span>
+              )}
               <Button
                 size="sm"
                 variant="outline"

@@ -28,6 +28,7 @@ import {
   SCOPE_CHECK_DISCLAIMER,
   SCOPE_CHECK_CONSENT_TEXT,
 } from "./scope-check-public";
+import { PLAN_TIERS, canSubmitNis2Response, tierAllows, type PlanTier } from "@shared/plan-tiers";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
 import { platformSettings, users, passwordHistory, controlObjectives, assessments as assessmentsTable, assessmentResponses, evidenceItems as evidenceItemsTable, atomicControls, atomicAssessments, atomicAssessmentResponses } from "@shared/schema";
 import { db } from "./db";
@@ -501,6 +502,8 @@ export async function registerRoutes(
         entityType: "essential",
         country: null,
         applicabilityProfile: null,
+        planTier: "FREE",
+        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       });
 
       const verificationToken = generateVerificationToken();
@@ -567,6 +570,16 @@ export async function registerRoutes(
         } catch (handoffErr: any) {
           console.error("Scope-check handoff failed (registration continues):", handoffErr?.message || handoffErr);
         }
+      }
+
+      // 14-day trial grants STARTER — enable its flag bundle (enable-only).
+      try {
+        const { TIER_LIMITS } = await import("@shared/plan-tiers");
+        for (const flagKey of TIER_LIMITS.STARTER.flagBundle) {
+          await storage.setFeatureFlag(tenant.id, flagKey, true);
+        }
+      } catch (bundleErr: any) {
+        console.error("Plan flag bundle failed (registration continues):", bundleErr?.message || bundleErr);
       }
 
       const emailSent = await sendVerificationEmail(data.email, data.fullName, verificationToken);
@@ -2249,6 +2262,18 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Tenant not found" });
       }
 
+      // Plan-tier wall: evidence upload requires STARTER+ (platform admins bypass).
+      if (user.role !== "PLATFORM_ADMIN") {
+        const plan = await storage.getTenantPlan(user.tenantId);
+        if (plan && !tierAllows(plan.effectiveTier, "evidenceUpload")) {
+          return res.status(402).json({
+            error: "upgrade_required",
+            wall: "evidence_upload",
+            message: "Evidence upload is available on the Starter plan and above.",
+          });
+        }
+      }
+
       if (file.size > tenant.maxFileSizeBytes) {
         const maxMB = (tenant.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
         return res.status(413).json({ message: `File exceeds maximum size of ${maxMB} MB per file` });
@@ -3679,6 +3704,51 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/admin/tenants/:id/plan", requirePlatformAdmin, async (req, res) => {
+    try {
+      const tenantId = parseInt(String(req.params.id));
+      if (!Number.isFinite(tenantId)) return res.status(400).json({ message: "Invalid tenant id" });
+      const planSchema = z.object({
+        planTier: z.enum(PLAN_TIERS),
+      });
+      const parsed = planSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid plan tier", errors: parsed.error.flatten() });
+      }
+      const tenant = await storage.getTenant(tenantId);
+      if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+      const oldTier = tenant.planTier;
+      const newTier = parsed.data.planTier;
+      const updated = await storage.setTenantPlan(tenantId, newTier);
+
+      // Enable-only: turn on the feature flags bundled with the new tier.
+      // Never disables flags an admin enabled manually.
+      const { TIER_LIMITS } = await import("@shared/plan-tiers");
+      for (const flagKey of TIER_LIMITS[newTier].flagBundle) {
+        try {
+          await storage.setFeatureFlag(tenantId, flagKey, true);
+        } catch (flagErr) {
+          console.error(`[admin plan] failed to enable flag ${flagKey} for tenant ${tenantId}:`, flagErr);
+        }
+      }
+
+      const adminUser = await getAuthUser(req);
+      await storage.createAuditLog({
+        tenantId,
+        userId: adminUser?.id ?? null,
+        action: "UPDATE_TENANT_PLAN",
+        entityType: "tenant",
+        entityId: tenantId,
+        details: JSON.stringify({ oldTier, newTier }),
+      });
+
+      res.json({ tenant: updated });
+    } catch (err: any) {
+      console.error("[PATCH /api/admin/tenants/:id/plan] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to update plan" });
+    }
+  });
+
   app.get("/api/admin/storage-overview", requirePlatformAdmin, async (req, res) => {
     try {
       const allTenants = await storage.getAllTenants();
@@ -4958,6 +5028,31 @@ export async function registerRoutes(
     }
     if (user.role === "READONLY_AUDITOR") return res.status(403).json({ message: "Auditors cannot answer" });
     const { atomicControlId, implementationStatus, maturityLevel, confidence, notes } = req.body;
+    // Plan-tier wall: NIS2 response cap on FREE (platform admins bypass).
+    // New answers only — editing an already-answered control is always allowed.
+    if (user.role !== "PLATFORM_ADMIN" && user.tenantId && implementationStatus && implementationStatus !== "NOT_STARTED") {
+      const plan = await storage.getTenantPlan(user.tenantId);
+      if (plan && plan.effectiveTier === "FREE") {
+        const [ctrl] = await db.select({ sourceKey: atomicControls.sourceKey }).from(atomicControls).where(eq(atomicControls.id, atomicControlId));
+        if (ctrl?.sourceKey === "NIS2_2022_2555") {
+          const existing = (await storage.getAtomicAssessmentResponses(assessmentId))
+            .find(r => r.atomicControlId === atomicControlId && r.implementationStatus !== "NOT_STARTED");
+          if (!existing) {
+            const current = await storage.countNis2Responses(user.tenantId);
+            const check = canSubmitNis2Response("FREE", current);
+            if (!check.allowed) {
+              return res.status(402).json({
+                error: "upgrade_required",
+                wall: "nis2_response_cap",
+                limit: 25,
+                current,
+                message: check.reason,
+              });
+            }
+          }
+        }
+      }
+    }
     const response = await storage.upsertAtomicAssessmentResponse({
       atomicAssessmentId: assessmentId,
       atomicControlId,
@@ -5058,6 +5153,35 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/tenant/plan", requireAuth, async (req, res) => {
+    try {
+      const user = await getAuthUser(req);
+      if (!user?.tenantId) return res.status(400).json({ message: "No tenant" });
+      const plan = await storage.getTenantPlan(user.tenantId);
+      if (!plan) return res.status(404).json({ message: "Tenant not found" });
+      const { TIER_LIMITS } = await import("@shared/plan-tiers");
+      const limits = TIER_LIMITS[plan.effectiveTier];
+      const nis2ResponseCount = limits.nis2ResponseCap !== null
+        ? await storage.countNis2Responses(user.tenantId)
+        : null;
+      res.json({
+        tier: plan.tier,
+        effectiveTier: plan.effectiveTier,
+        trialEndsAt: plan.trialEndsAt,
+        trialActive: plan.trialEndsAt ? new Date() < new Date(plan.trialEndsAt) : false,
+        limits: {
+          nis2ResponseCap: limits.nis2ResponseCap,
+          evidenceUpload: limits.evidenceUpload,
+          crossFrameworkAccept: limits.crossFrameworkAccept,
+        },
+        nis2ResponseCount,
+      });
+    } catch (err: any) {
+      console.error("[GET /api/tenant/plan] failed:", err);
+      res.status(500).json({ message: err?.message || "Failed to load plan" });
     }
   });
 
@@ -5860,6 +5984,19 @@ export async function registerRoutes(
       if (!suggestion) return res.status(404).json({ message: "Suggestion not found" });
       if (suggestion.status !== "PENDING") {
         return res.status(409).json({ message: `Suggestion already ${suggestion.status.toLowerCase()}` });
+      }
+
+      // Plan-tier wall: accepting suggestions requires PROFESSIONAL+ (platform admins bypass).
+      // Viewing suggestions and coverage remains available on lower tiers.
+      if (user.role !== "PLATFORM_ADMIN") {
+        const plan = await storage.getTenantPlan(user.tenantId);
+        if (plan && !tierAllows(plan.effectiveTier, "crossFrameworkAccept")) {
+          return res.status(402).json({
+            error: "upgrade_required",
+            wall: "cross_framework_accept",
+            message: "Accepting cross-framework suggestions is available on the Professional plan and above.",
+          });
+        }
       }
 
       // Never auto-apply RELATED edges — they are informational only.

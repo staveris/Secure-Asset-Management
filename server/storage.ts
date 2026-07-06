@@ -1,4 +1,5 @@
 import { eq, and, desc, sql, count, avg, ne, like, or, isNull, asc, inArray } from "drizzle-orm";
+import { normalizeTier, effectiveTier, type PlanTier } from "@shared/plan-tiers";
 import { db } from "./db";
 import fs from "fs";
 import path from "path";
@@ -338,6 +339,10 @@ export interface IStorage {
   getNis2Profile(tenantId: number): Promise<Nis2RegulatoryProfile | undefined>;
   upsertNis2Profile(tenantId: number, values: Partial<InsertNis2RegulatoryProfile>): Promise<Nis2RegulatoryProfile>;
   getNis2AtomicControls(): Promise<AtomicControl[]>;
+
+  getTenantPlan(tenantId: number): Promise<{ tier: PlanTier; trialEndsAt: Date | null; effectiveTier: PlanTier } | undefined>;
+  setTenantPlan(tenantId: number, tier: PlanTier): Promise<Tenant | undefined>;
+  countNis2Responses(tenantId: number): Promise<number>;
 
   createScopeCheckLead(data: InsertScopeCheckLead): Promise<ScopeCheckLead>;
   getScopeCheckLeadByToken(reportToken: string): Promise<ScopeCheckLead | undefined>;
@@ -1694,6 +1699,40 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(atomicControls)
       .where(and(eq(atomicControls.sourceKey, "NIS2_2022_2555"), eq(atomicControls.isActive, true)));
+  }
+
+  async getTenantPlan(tenantId: number): Promise<{ tier: PlanTier; trialEndsAt: Date | null; effectiveTier: PlanTier } | undefined> {
+    const tenant = await this.getTenant(tenantId);
+    if (!tenant) return undefined;
+    const tier = normalizeTier(tenant.planTier);
+    return {
+      tier,
+      trialEndsAt: tenant.trialEndsAt ?? null,
+      effectiveTier: effectiveTier(tenant.planTier, tenant.trialEndsAt ?? null),
+    };
+  }
+
+  async setTenantPlan(tenantId: number, tier: PlanTier): Promise<Tenant | undefined> {
+    const [updated] = await db
+      .update(tenants)
+      .set({ planTier: tier })
+      .where(eq(tenants.id, tenantId))
+      .returning();
+    return updated;
+  }
+
+  async countNis2Responses(tenantId: number): Promise<number> {
+    const [row] = await db
+      .select({ value: count() })
+      .from(atomicAssessmentResponses)
+      .innerJoin(atomicAssessments, eq(atomicAssessmentResponses.atomicAssessmentId, atomicAssessments.id))
+      .innerJoin(atomicControls, eq(atomicAssessmentResponses.atomicControlId, atomicControls.id))
+      .where(and(
+        eq(atomicAssessments.tenantId, tenantId),
+        eq(atomicControls.sourceKey, "NIS2_2022_2555"),
+        ne(atomicAssessmentResponses.implementationStatus, "NOT_STARTED"),
+      ));
+    return row?.value ?? 0;
   }
 
   async createScopeCheckLead(data: InsertScopeCheckLead): Promise<ScopeCheckLead> {
