@@ -27,6 +27,8 @@ import {
   Landmark,
   ShieldAlert,
   Network,
+  Compass,
+  GitCompare,
 } from "lucide-react";
 import faviconLogo from "@assets/browser_1770569283054.png";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
@@ -60,6 +62,20 @@ const features = [
     description: "Tenant register seeded from a 100-entry NIS2 Art.21 risk library with residual scoring, treatment workflow, evidence linking, and acceptance trail.",
     color: "from-rose-500/20 to-rose-600/20",
     iconColor: "text-rose-400",
+  },
+  {
+    icon: Compass,
+    title: "NIS2 Applicability & Scoping",
+    description: "Guided scoping wizard that classifies your organisation as Essential or Important under Annex I/II sectors and EU 2003/361 size rules — with a per-control applicability decision and an auditable \"why\" for every inclusion or exclusion.",
+    color: "from-sky-500/20 to-blue-500/20",
+    iconColor: "text-sky-400",
+  },
+  {
+    icon: GitCompare,
+    title: "Cross-Framework Mapping",
+    description: "Editorial crosswalks linking NIS2 atomic controls to ISO/IEC 27001:2022 Annex A and NIST CSF 2.0 — answer once, receive review-gated propagation suggestions, and track coverage across frameworks in one matrix.",
+    color: "from-fuchsia-500/20 to-violet-600/20",
+    iconColor: "text-fuchsia-400",
   },
   {
     icon: Layers,
@@ -102,7 +118,7 @@ const stats = [
   { value: "3", label: "EU Frameworks", description: "NIS2 · CIR · DORA" },
   { value: "300+", label: "Mapped Controls", description: "41 NIS2 + 17 CIR + 155 DORA + atomic" },
   { value: "100", label: "Art.21 Cyber Risks", description: "Pre-seeded risk register" },
-  { value: "27", label: "Member States", description: "EU-wide regulatory coverage" },
+  { value: "199", label: "ISO & NIST Controls", description: "Mapped via ISO 27001:2022 · NIST CSF 2.0 crosswalks" },
 ];
 
 const capabilities = [
@@ -113,8 +129,8 @@ const capabilities = [
 ];
 
 const processSteps = [
-  { step: "01", icon: Building2, title: "Onboard Your Organization", description: "Set up your tenant, classify your sector, and define your entity type with our guided onboarding wizard. Financial-sector tenants run the DORA scope wizard." },
-  { step: "02", icon: Target, title: "Assess Across Frameworks", description: "Run unified assessments across NIS2 objectives, atomic controls, CIR requirements, and DORA controls — each scoped automatically to your applicability profile." },
+  { step: "01", icon: Building2, title: "Onboard & Determine Scope", description: "Set up your tenant, then run the NIS2 scoping wizard to classify your entity as Essential or Important with a live applicability preview. Financial-sector tenants run the DORA scope wizard." },
+  { step: "02", icon: Target, title: "Assess Across Frameworks", description: "Run unified assessments across NIS2 objectives, atomic controls, CIR requirements, and DORA controls — each scoped automatically to your applicability profile, with ISO 27001 and NIST CSF crosswalks surfaced per control." },
   { step: "03", icon: ListTodo, title: "Remediate & Track", description: "Generate and manage remediation tasks with priority-based workflows, due dates, owners, and Gantt-style project planning, tagged per framework." },
   { step: "04", icon: FileText, title: "Report, Sign-Off & Audit", description: "Produce print-ready audit-grade reports with Article 21 measure coverage, audit-readiness scoring, incident posture, and a document control + sign-off block." },
 ];
@@ -551,7 +567,7 @@ export default function LandingPage() {
               </p>
 
               <p className="text-base sm:text-lg text-slate-400 leading-relaxed mb-10 max-w-xl" data-testid="text-hero-description">
-                Unified compliance for the NIS2 Directive, Commission Implementing Regulation 2024/2690, and the Digital Operational Resilience Act (DORA). Enterprise-grade assessments, applicability-driven control sets, EU incident-reporting timelines, and sign-off-ready reporting in a single multi-tenant SaaS.
+                Unified compliance for the NIS2 Directive, Commission Implementing Regulation 2024/2690, and the Digital Operational Resilience Act (DORA). Guided applicability scoping, enterprise-grade assessments, cross-framework mapping to ISO 27001 and NIST CSF, EU incident-reporting timelines, and sign-off-ready reporting in a single multi-tenant SaaS.
               </p>
 
               <div className="flex flex-wrap items-center gap-2 mb-10" data-testid="hero-framework-chips">
@@ -563,6 +579,9 @@ export default function LandingPage() {
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-semibold tracking-wider uppercase">
                   <Landmark className="w-3 h-3" /> DORA · 2022/2554
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-semibold tracking-wider uppercase">
+                  <GitCompare className="w-3 h-3" /> ISO 27001 · NIST CSF Mapped
                 </span>
               </div>
 
@@ -763,6 +782,7 @@ export default function LandingPage() {
                 { title: "Risk Assessment & Management", desc: "Article 21 cyber-risk register with 100 pre-seeded entries, residual scoring, treatment workflow, and acceptance trail.", icon: Target },
                 { title: "Supply Chain & ICT Third-Party Risk", desc: "Supplier assessments mapped to NIS2 Art. 21(2)(d) and the DORA ICT third-party register requirements.", icon: Users },
                 { title: "DORA Digital Operational Resilience", desc: "Scope-aware control set for financial entities — applicability tags for simplified scope, TLPT, CTPP, and ICT TPPs.", icon: Landmark },
+                { title: "Scoping & Cross-Framework Coverage", desc: "NIS2 applicability engine with an auditable inclusion reason per control, plus ISO 27001 and NIST CSF coverage mapping with human-approved propagation.", icon: GitCompare },
                 { title: "Audit Trail & Evidence Vault", desc: "Tamper-evident audit logs, secure evidence storage, and document control with formal Prepared / Reviewed / Approved sign-off.", icon: FileCheck },
               ].map((item) => (
                 <div key={item.title} className="flex gap-4 p-4 rounded-lg bg-white/[0.03] border border-white/[0.06]" data-testid={`checklist-${item.title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`}>
@@ -851,6 +871,8 @@ export default function LandingPage() {
                 <span className="block text-slate-400 text-sm">CIR 2024/2690</span>
                 <span className="block text-slate-400 text-sm">DORA (EU 2022/2554)</span>
                 <span className="block text-slate-400 text-sm">Article 21 Risk Register</span>
+                <span className="block text-slate-400 text-sm">NIS2 Applicability Scoping</span>
+                <span className="block text-slate-400 text-sm">ISO 27001 · NIST CSF Mapping</span>
                 <span className="block text-slate-400 text-sm">Incident Reporting (Art. 23)</span>
               </div>
             </div>
