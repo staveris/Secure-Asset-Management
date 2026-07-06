@@ -49,3 +49,21 @@ rebuilding for the session crash: manually create the `session` table (sid pk /
 sess json / expire timestamptz) in the DB — connect-pg-simple skips table.sql when
 the table already exists. The `data/` 404 has no DB workaround; it requires the
 image rebuild.
+
+## package-lock.json can contain Replit-proxy URLs that break external builds
+Installing packages inside Replit can write `resolved` URLs pointing at
+`http://package-firewall.replit.local/npm/...` into `package-lock.json`. That
+host only exists inside Replit, so any external `npm ci` (Docker/ACR/CI) fails
+with `ENOTFOUND package-firewall.replit.local`.
+
+**Why:** npm downloads tarballs from the lockfile's `resolved` URLs; outside
+Replit the proxy hostname doesn't resolve. Worse, npm 10.8.x bundled with
+node:20 images can crash mid-`npm ci` ("Exit handler never called!") while
+exiting 0, so the failure surfaces later as a confusing "tsx: not found".
+
+**How to apply:** before external builds, check
+`grep -c package-firewall package-lock.json`; if >0, rewrite with
+`sed -i 's|http://package-firewall.replit.local/npm/|https://registry.npmjs.org/|g' package-lock.json`
+(integrity hashes stay valid — same tarballs). The Dockerfile builder stage also
+upgrades to npm@11 and runs `node -e "require.resolve('tsx')"` after `npm ci`
+so incomplete installs fail loudly.
