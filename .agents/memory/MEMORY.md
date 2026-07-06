@@ -5,3 +5,4 @@
 - [Replit prod DB -> external clone](replit-to-external-db-clone.md) — only read-replica access to prod; clone small datasets via introspect + base64-INSERT dump (topo order, quote_nullable), psql load; evidence binaries not in DB.
 - [API smoke-test login](api-smoke-login.md) — seeded demo passwords may be changed in dev DB; swap a known bcrypt hash via psql, restore after; POSTs need x-csrf-token from /api/auth/csrf-token.
 - [Control deep-link keys](control-deep-link-keys.md) — `?control=<PREFIX>-<responseId>` is a cross-file contract (OBJ vs NIS2/CIR/DORA); never let two response tables share a prefix.
+- [Route integration tests](route-integration-tests.md) — supertest against registerRoutes + real dev DB works; watch in-memory rate limits (5 register POSTs/hr) and clean up + pool.end() in afterAll.
