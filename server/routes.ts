@@ -28,7 +28,7 @@ import {
   SCOPE_CHECK_DISCLAIMER,
   SCOPE_CHECK_CONSENT_TEXT,
 } from "./scope-check-public";
-import { PLAN_TIERS, canSubmitNis2Response, tierAllows, type PlanTier } from "@shared/plan-tiers";
+import { PLAN_TIERS, FREE_CAPPED_SOURCE_KEYS, freeTierControlLocked, tierAllows, type PlanTier } from "@shared/plan-tiers";
 import { generateVerificationToken, getVerificationExpiry, sendVerificationEmail, sendPasswordResetEmail, sendGenericEmail } from "./email";
 import { platformSettings, users, passwordHistory, controlObjectives, assessments as assessmentsTable, assessmentResponses, evidenceItems as evidenceItemsTable, atomicControls, atomicAssessments, atomicAssessmentResponses } from "@shared/schema";
 import { db } from "./db";
@@ -5033,27 +5033,23 @@ export async function registerRoutes(
     }
     if (user.role === "READONLY_AUDITOR") return res.status(403).json({ message: "Auditors cannot answer" });
     const { atomicControlId, implementationStatus, maturityLevel, confidence, notes } = req.body;
-    // Plan-tier wall: NIS2 response cap on FREE (platform admins bypass).
-    // New answers only — editing an already-answered control is always allowed.
-    if (user.role !== "PLATFORM_ADMIN" && user.tenantId && implementationStatus && implementationStatus !== "NOT_STARTED") {
+    // Plan-tier wall: on FREE, only the first 25 controls (by controlId order)
+    // of each capped framework (NIS2, DORA) are usable — the rest are locked
+    // entirely (platform admins bypass).
+    if (user.role !== "PLATFORM_ADMIN" && user.tenantId) {
       const plan = await storage.getTenantPlan(user.tenantId);
       if (plan && plan.effectiveTier === "FREE") {
         const [ctrl] = await db.select({ sourceKey: atomicControls.sourceKey }).from(atomicControls).where(eq(atomicControls.id, atomicControlId));
-        if (ctrl?.sourceKey === "NIS2_2022_2555") {
-          const existing = (await storage.getAtomicAssessmentResponses(assessmentId))
-            .find(r => r.atomicControlId === atomicControlId && r.implementationStatus !== "NOT_STARTED");
-          if (!existing) {
-            const current = await storage.countNis2Responses(user.tenantId);
-            const check = canSubmitNis2Response("FREE", current);
-            if (!check.allowed) {
-              return res.status(402).json({
-                error: "upgrade_required",
-                wall: "nis2_response_cap",
-                limit: 25,
-                current,
-                message: check.reason,
-              });
-            }
+        if (ctrl && (FREE_CAPPED_SOURCE_KEYS as readonly string[]).includes(ctrl.sourceKey)) {
+          const unlockedIds = await storage.getFreeTierUnlockedControlIds(ctrl.sourceKey);
+          if (!unlockedIds.includes(atomicControlId)) {
+            const check = freeTierControlLocked("FREE", ctrl.sourceKey, unlockedIds.length);
+            return res.status(402).json({
+              error: "upgrade_required",
+              wall: "free_control_cap",
+              limit: 25,
+              message: check.reason ?? "This control is locked on the Free plan. Upgrade to unlock it.",
+            });
           }
         }
       }
@@ -5135,7 +5131,7 @@ export async function registerRoutes(
     res.json({ created, skipped, gaps: gaps.length });
   });
 
-  app.delete("/api/atomic-assessments/:id", requireAuth, async (req, res) => {
+  app.delete("/api/atomic-assessments/:id", requireAuth, requireWriteAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -5169,20 +5165,16 @@ export async function registerRoutes(
       if (!plan) return res.status(404).json({ message: "Tenant not found" });
       const { TIER_LIMITS } = await import("@shared/plan-tiers");
       const limits = TIER_LIMITS[plan.effectiveTier];
-      const nis2ResponseCount = limits.nis2ResponseCap !== null
-        ? await storage.countNis2Responses(user.tenantId)
-        : null;
       res.json({
         tier: plan.tier,
         effectiveTier: plan.effectiveTier,
         trialEndsAt: plan.trialEndsAt,
         trialActive: plan.trialEndsAt ? new Date() < new Date(plan.trialEndsAt) : false,
         limits: {
-          nis2ResponseCap: limits.nis2ResponseCap,
+          freeControlCap: limits.freeControlCap,
           evidenceUpload: limits.evidenceUpload,
           crossFrameworkAccept: limits.crossFrameworkAccept,
         },
-        nis2ResponseCount,
       });
     } catch (err: any) {
       console.error("[GET /api/tenant/plan] failed:", err);

@@ -988,7 +988,7 @@ export default function AdminTenants() {
               <strong>{PLAN_LABELS[(planDowngrade?.tenant.planTier || "FREE") as PlanTier]}</strong> plan to{" "}
               <strong>{planDowngrade ? PLAN_LABELS[planDowngrade.newTier] : ""}</strong>?
               {planDowngrade?.newTier === "FREE" && (
-                <> On the Free plan, new NIS2 control answers are capped at 25, and evidence uploads and
+                <> On the Free plan, only the first 25 NIS2 and first 25 DORA controls are usable, and evidence uploads and
                 cross-framework acceptance are locked.</>
               )}{" "}
               Feature flags that are already enabled will not be turned off automatically.

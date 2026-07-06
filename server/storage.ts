@@ -346,7 +346,7 @@ export interface IStorage {
 
   getTenantPlan(tenantId: number): Promise<{ tier: PlanTier; trialEndsAt: Date | null; effectiveTier: PlanTier } | undefined>;
   setTenantPlan(tenantId: number, tier: PlanTier): Promise<Tenant | undefined>;
-  countNis2Responses(tenantId: number): Promise<number>;
+  getFreeTierUnlockedControlIds(sourceKey: string): Promise<number[]>;
 
   createScopeCheckLead(data: InsertScopeCheckLead): Promise<ScopeCheckLead>;
   getScopeCheckLeadByToken(reportToken: string): Promise<ScopeCheckLead | undefined>;
@@ -1863,18 +1863,16 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async countNis2Responses(tenantId: number): Promise<number> {
-    const [row] = await db
-      .select({ value: count() })
-      .from(atomicAssessmentResponses)
-      .innerJoin(atomicAssessments, eq(atomicAssessmentResponses.atomicAssessmentId, atomicAssessments.id))
-      .innerJoin(atomicControls, eq(atomicAssessmentResponses.atomicControlId, atomicControls.id))
-      .where(and(
-        eq(atomicAssessments.tenantId, tenantId),
-        eq(atomicControls.sourceKey, "NIS2_2022_2555"),
-        ne(atomicAssessmentResponses.implementationStatus, "NOT_STARTED"),
-      ));
-    return row?.value ?? 0;
+  async getFreeTierUnlockedControlIds(sourceKey: string): Promise<number[]> {
+    // First 25 active controls of the framework, ordered by controlId — the
+    // canonical order used by the /api/atomic-controls listing and the client.
+    const rows = await db
+      .select({ id: atomicControls.id })
+      .from(atomicControls)
+      .where(and(eq(atomicControls.sourceKey, sourceKey), eq(atomicControls.isActive, true)))
+      .orderBy(asc(atomicControls.controlId))
+      .limit(25);
+    return rows.map((r) => r.id);
   }
 
   async createScopeCheckLead(data: InsertScopeCheckLead): Promise<ScopeCheckLead> {

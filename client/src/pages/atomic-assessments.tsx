@@ -16,8 +16,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Atom, Calendar, ChevronRight, ShieldOff } from "lucide-react";
+import { Plus, Atom, Calendar, ChevronRight, ShieldOff, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import type { AtomicAssessment } from "@shared/schema";
@@ -38,6 +48,7 @@ export default function AtomicAssessments() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [scope, setScope] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<EnrichedAtomicAssessment | null>(null);
   const { toast } = useToast();
   const { isPlatformAdmin } = useAuth();
   const [, navigate] = useLocation();
@@ -61,6 +72,21 @@ export default function AtomicAssessments() {
       setName("");
       setScope("");
       toast({ title: "Atomic assessment created" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/atomic-assessments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/atomic-assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      setDeleteTarget(null);
+      toast({ title: "Assessment deleted", description: "The assessment and all its responses were removed." });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -190,8 +216,22 @@ export default function AtomicAssessments() {
                       <Calendar className="w-3 h-3" />
                       {new Date(assessment.createdAt).toLocaleDateString()}
                     </span>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      Open <ChevronRight className="w-3 h-3" />
+                    <span className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(assessment);
+                        }}
+                        data-testid={`button-delete-atomic-assessment-${assessment.id}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        Open <ChevronRight className="w-3 h-3" />
+                      </span>
                     </span>
                   </div>
                 </CardContent>
@@ -212,6 +252,29 @@ export default function AtomicAssessments() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent data-testid="dialog-delete-atomic-assessment">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this assessment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deleteTarget?.name}" and all of its control responses, linked tasks, and related data will be
+              permanently deleted. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-atomic-assessment">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              data-testid="button-confirm-delete-atomic-assessment"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

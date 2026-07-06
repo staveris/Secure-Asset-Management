@@ -6,11 +6,10 @@ export interface TenantPlan {
   trialEndsAt: string | null;
   trialActive: boolean;
   limits: {
-    nis2ResponseCap: number | null;
+    freeControlCap: number | null;
     evidenceUpload: boolean;
     crossFrameworkAccept: boolean;
   };
-  nis2ResponseCount: number | null;
 }
 
 export function usePlan(enabled: boolean = true) {

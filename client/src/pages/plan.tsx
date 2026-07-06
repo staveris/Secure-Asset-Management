@@ -3,20 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import { Check, X, Mail, Sparkles, CreditCard } from "lucide-react";
 
 const TIER_ORDER: TenantPlan["tier"][] = ["FREE", "STARTER", "PROFESSIONAL"];
 
 const TIER_DESCRIPTIONS: Record<TenantPlan["tier"], string> = {
-  FREE: "Get started with NIS2 scoping and up to 25 answered NIS2 controls.",
-  STARTER: "Unlimited NIS2 answers, evidence vault uploads, and the Art.21 risk register.",
+  FREE: "Get started with NIS2 scoping and the first 25 NIS2 and first 25 DORA controls.",
+  STARTER: "Unlimited controls, evidence vault uploads, and the Art.21 risk register.",
   PROFESSIONAL: "Everything in Starter plus cross-framework propagation and the DORA module.",
 };
 
 const TIER_FEATURES: { label: string; has: (t: TenantPlan["tier"]) => boolean | string }[] = [
   { label: "NIS2 scope check & scoped assessments", has: () => true },
-  { label: "NIS2 control answers", has: (t) => (t === "FREE" ? "Up to 25" : "Unlimited") },
+  { label: "NIS2 controls", has: (t) => (t === "FREE" ? "First 25" : "All") },
+  { label: "DORA controls", has: (t) => (t === "FREE" ? "First 25" : "All") },
   { label: "Evidence vault uploads", has: (t) => t !== "FREE" },
   { label: "NIS2 Art.21 risk register", has: (t) => t !== "FREE" },
   { label: "Cross-framework suggestion acceptance", has: (t) => t === "PROFESSIONAL" },
@@ -50,9 +50,6 @@ export default function PlanPage() {
     ? Math.max(0, Math.ceil((new Date(plan.trialEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : 0;
 
-  const capUsedPct = plan.limits.nis2ResponseCap
-    ? Math.min(100, Math.round(((plan.nis2ResponseCount ?? 0) / plan.limits.nis2ResponseCap) * 100))
-    : 0;
 
   return (
     <div className="p-6 space-y-6 max-w-5xl" data-testid="plan-page">
@@ -91,16 +88,11 @@ export default function PlanPage() {
               When your trial ends you will move to the {PLAN_LABELS[plan.tier]} plan.
             </p>
           )}
-          {plan.limits.nis2ResponseCap != null && (
-            <div className="space-y-1.5" data-testid="section-cap-usage">
-              <div className="flex items-center justify-between text-sm">
-                <span>NIS2 control answers used</span>
-                <span className="font-medium" data-testid="text-cap-usage">
-                  {plan.nis2ResponseCount ?? 0} / {plan.limits.nis2ResponseCap}
-                </span>
-              </div>
-              <Progress value={capUsedPct} className="h-2" />
-            </div>
+          {plan.limits.freeControlCap != null && (
+            <p className="text-sm text-muted-foreground" data-testid="section-cap-usage">
+              Your plan includes the first {plan.limits.freeControlCap} NIS2 and first {plan.limits.freeControlCap} DORA
+              controls. The remaining controls are locked until you upgrade.
+            </p>
           )}
         </CardContent>
       </Card>

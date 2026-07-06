@@ -4,7 +4,8 @@ import {
   TIER_LIMITS,
   normalizeTier,
   effectiveTier,
-  canSubmitNis2Response,
+  freeTierControlLocked,
+  FREE_CAPPED_SOURCE_KEYS,
   tierAllows,
   type PlanTier,
 } from "./plan-tiers";
@@ -15,10 +16,10 @@ describe("plan-tiers: tier table", () => {
     expect(Object.keys(TIER_LIMITS).sort()).toEqual([...PLAN_TIERS].sort());
   });
 
-  it("FREE has a 25-response cap; all others unlimited", () => {
-    expect(TIER_LIMITS.FREE.nis2ResponseCap).toBe(25);
-    expect(TIER_LIMITS.STARTER.nis2ResponseCap).toBeNull();
-    expect(TIER_LIMITS.PROFESSIONAL.nis2ResponseCap).toBeNull();
+  it("FREE has a 25-control cap per capped framework; all others unlimited", () => {
+    expect(TIER_LIMITS.FREE.freeControlCap).toBe(25);
+    expect(TIER_LIMITS.STARTER.freeControlCap).toBeNull();
+    expect(TIER_LIMITS.PROFESSIONAL.freeControlCap).toBeNull();
   });
 });
 
@@ -35,26 +36,33 @@ describe("plan-tiers: normalizeTier (fail closed)", () => {
   });
 });
 
-describe("plan-tiers: canSubmitNis2Response cap boundary", () => {
-  it("FREE: 24 existing answers -> 25th allowed", () => {
-    expect(canSubmitNis2Response("FREE", 24).allowed).toBe(true);
+describe("plan-tiers: freeTierControlLocked cap boundary", () => {
+  it("caps exactly NIS2 and DORA", () => {
+    expect([...FREE_CAPPED_SOURCE_KEYS]).toEqual(["NIS2_2022_2555", "DORA_2022_2554"]);
   });
-  it("FREE: 25 existing answers -> 26th blocked with reason", () => {
-    const r = canSubmitNis2Response("FREE", 25);
-    expect(r.allowed).toBe(false);
+  it("FREE: 25th control (rank 24) unlocked, 26th (rank 25) locked with reason", () => {
+    expect(freeTierControlLocked("FREE", "NIS2_2022_2555", 24).locked).toBe(false);
+    const r = freeTierControlLocked("FREE", "NIS2_2022_2555", 25);
+    expect(r.locked).toBe(true);
     expect(r.reason).toContain("25");
+    expect(r.reason).toContain("NIS2");
   });
-  it("FREE: 0 answers allowed; far over cap still blocked", () => {
-    expect(canSubmitNis2Response("FREE", 0).allowed).toBe(true);
-    expect(canSubmitNis2Response("FREE", 500).allowed).toBe(false);
+  it("FREE: DORA is capped like NIS2", () => {
+    expect(freeTierControlLocked("FREE", "DORA_2022_2554", 0).locked).toBe(false);
+    const r = freeTierControlLocked("FREE", "DORA_2022_2554", 30);
+    expect(r.locked).toBe(true);
+    expect(r.reason).toContain("DORA");
+  });
+  it("FREE: uncapped frameworks (e.g. CIR) are never locked", () => {
+    expect(freeTierControlLocked("FREE", "CIR_2024_2690", 500).locked).toBe(false);
   });
   it("paid tiers are unlimited", () => {
     for (const t of ["STARTER", "PROFESSIONAL"] as PlanTier[]) {
-      expect(canSubmitNis2Response(t, 10_000).allowed).toBe(true);
+      expect(freeTierControlLocked(t, "NIS2_2022_2555", 10_000).locked).toBe(false);
     }
   });
   it("unknown tier fails closed to the FREE cap", () => {
-    expect(canSubmitNis2Response("BOGUS" as PlanTier, 25).allowed).toBe(false);
+    expect(freeTierControlLocked("BOGUS" as PlanTier, "NIS2_2022_2555", 25).locked).toBe(true);
   });
 });
 

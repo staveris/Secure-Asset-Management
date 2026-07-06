@@ -174,6 +174,7 @@ function ControlResponseCard({
   controlEvidence,
   isExpanded,
   onToggleExpand,
+  locked = false,
 }: {
   control: AtomicControl;
   assessmentId: string;
@@ -182,6 +183,7 @@ function ControlResponseCard({
   controlEvidence: EvidenceItem[];
   isExpanded: boolean;
   onToggleExpand: () => void;
+  locked?: boolean;
 }) {
 
   const { toast } = useToast();
@@ -326,6 +328,40 @@ function ControlResponseCard({
   const StatusIcon = statusCfg.icon;
   const obligationTruncated = control.obligationText.length > 150;
   const [obligationExpanded, setObligationExpanded] = useState(false);
+
+  if (locked) {
+    const frameworkLabel = control.sourceKey === "DORA_2022_2554" ? "DORA" : "NIS2";
+    return (
+      <Card data-testid={`card-atomic-control-${control.id}`} className="opacity-55 bg-muted/30">
+        <CardContent className="p-0">
+          <button
+            type="button"
+            className="w-full text-left p-3 flex items-center gap-3 cursor-pointer"
+            onClick={() =>
+              showUpgradeDialog(
+                `Free plan includes the first 25 ${frameworkLabel} controls. Upgrade to unlock ${control.controlId} and all remaining controls.`
+              )
+            }
+            data-testid={`button-locked-atomic-control-${control.id}`}
+          >
+            <div className="p-1.5 rounded-md bg-muted shrink-0">
+              <Lock className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="text-xs font-mono">{control.controlId}</Badge>
+                <Badge variant="secondary" className="text-[10px]">{control.sourceKey}</Badge>
+                <span className="text-sm font-medium truncate text-muted-foreground">{control.shortTitle}</span>
+              </div>
+            </div>
+            <Badge variant="outline" className="text-[10px] shrink-0" data-testid={`badge-locked-${control.id}`}>
+              Upgrade to unlock
+            </Badge>
+          </button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card
@@ -1226,6 +1262,20 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
     return allControls.filter((c) => c.sourceKey !== "DORA_2022_2554");
   }, [allControls, responseMap]);
 
+  // Free-plan gating: only the first 25 controls (by controlId order — the
+  // API's canonical order) of each capped framework (NIS2, DORA) are usable;
+  // the rest render locked/grayed out. Server enforces the same rule.
+  const lockedControlIds = useMemo(() => {
+    const locked = new Set<number>();
+    if (isPlatformAdmin || plan?.limits.freeControlCap == null) return locked;
+    const cap = plan.limits.freeControlCap;
+    for (const key of ["NIS2_2022_2555", "DORA_2022_2554"]) {
+      const inFramework = allControls.filter((c) => c.sourceKey === key);
+      for (const c of inFramework.slice(cap)) locked.add(c.id);
+    }
+    return locked;
+  }, [allControls, plan, isPlatformAdmin]);
+
   const filteredControls = useMemo(() => {
     let filtered = controls;
     if (statusFilter !== "ALL") {
@@ -1417,13 +1467,14 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
 
   return (
     <div className="p-6 space-y-6" data-testid="atomic-assessment-detail-page">
-      {plan?.limits.nis2ResponseCap != null && (
+      {plan?.limits.freeControlCap != null && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm flex items-center gap-3 flex-wrap" data-testid="banner-free-cap">
           <span>
-            Free plan: <span className="font-semibold">{plan.nis2ResponseCount ?? 0} of {plan.limits.nis2ResponseCap}</span> NIS2 control answers used.
+            Free plan: the first <span className="font-semibold">{plan.limits.freeControlCap}</span> NIS2 and first{" "}
+            <span className="font-semibold">{plan.limits.freeControlCap}</span> DORA controls are included — the rest are locked.
           </span>
           <Link href="/settings/plan" className="underline font-medium" data-testid="link-upgrade-from-cap">
-            Upgrade for unlimited answers
+            Upgrade to unlock all controls
           </Link>
         </div>
       )}
@@ -1570,7 +1621,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
 
       {focusMode ? (
         <AtomicFocusModeView
-          controls={filteredControls}
+          controls={filteredControls.filter((c) => !lockedControlIds.has(c.id))}
           assessmentId={id}
           parentAssessmentId={assessment?.parentAssessmentId}
           responseMap={responseMap}
@@ -1661,6 +1712,7 @@ export default function AtomicAssessmentDetail({ id }: { id: string }) {
                       controlEvidence={getControlEvidence(control.id)}
                       isExpanded={expandedCards.has(control.id)}
                       onToggleExpand={() => toggleCard(control.id)}
+                      locked={lockedControlIds.has(control.id)}
                     />
                   </div>
                 ))}
