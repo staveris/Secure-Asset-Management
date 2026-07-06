@@ -226,6 +226,10 @@ export interface IStorage {
   getEvidenceUnlockRequests(tenantId: number): Promise<EvidenceUnlockRequest[]>;
   updateEvidenceUnlockRequest(id: number, data: {status: string, approvedBy: number}): Promise<EvidenceUnlockRequest | undefined>;
   unlockEvidenceForTenant(evidenceId: number, tenantId: number): Promise<EvidenceItem | undefined>;
+  getEvidenceForControl(tenantId: number, atomicControlId: number): Promise<EvidenceItem[]>;
+  checkEvidenceLink(tenantId: number, sourceEvidenceId: number, targetControlId: number): Promise<import("./evidence-links").LinkPlan>;
+  linkEvidenceToControl(tenantId: number, sourceEvidenceId: number, targetControlId: number, suggestionId: number, userId: number): Promise<EvidenceItem>;
+  countEvidenceRowsForStoragePath(tenantId: number, storagePath: string): Promise<number>;
 
   createIncidentCase(data: InsertIncidentCase): Promise<IncidentCase>;
   getIncidentCase(id: number): Promise<IncidentCase | undefined>;
@@ -414,6 +418,7 @@ export interface EnrichedSuggestion extends CrossFrameworkSuggestion {
   targetControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
   targetAssessmentName: string | null;
   crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null } | null;
+  sourceEvidence: Array<{ id: number; filename: string; size: number | null; sha256: string | null }>;
 }
 
 export interface CoverageMatrixRow {
@@ -781,10 +786,120 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEvidenceItem(id: number): Promise<EvidenceItem | undefined> {
     const [item] = await db.select().from(evidenceItems).where(eq(evidenceItems.id, id));
+    if (!item) return undefined;
+    // Re-anchor: if this row is an original with live links, promote the oldest
+    // link to be the new original and repoint the others so provenance chains
+    // never dangle (and the FK on linked_from_evidence_id is never violated).
+    const links = await db
+      .select({ id: evidenceItems.id, uploadedAt: evidenceItems.uploadedAt })
+      .from(evidenceItems)
+      .where(eq(evidenceItems.linkedFromEvidenceId, id));
+    if (links.length > 0) {
+      const { planReanchor } = await import("./evidence-links");
+      const plan = planReanchor(links);
+      if (plan) {
+        await db.update(evidenceItems).set({ linkedFromEvidenceId: null }).where(eq(evidenceItems.id, plan.promoteId));
+        if (plan.repointIds.length > 0) {
+          await db.update(evidenceItems).set({ linkedFromEvidenceId: plan.promoteId }).where(inArray(evidenceItems.id, plan.repointIds));
+        }
+      }
+    }
     await db.delete(evidenceAccessLogs).where(eq(evidenceAccessLogs.evidenceId, id));
     await db.delete(evidenceUnlockRequests).where(eq(evidenceUnlockRequests.evidenceId, id));
     await db.delete(evidenceItems).where(eq(evidenceItems.id, id));
     return item;
+  }
+
+  async getEvidenceForControl(tenantId: number, atomicControlId: number): Promise<EvidenceItem[]> {
+    return db
+      .select()
+      .from(evidenceItems)
+      .where(
+        and(
+          eq(evidenceItems.tenantId, tenantId),
+          eq(evidenceItems.relatedType, "AtomicControl"),
+          eq(evidenceItems.relatedId, atomicControlId),
+        ),
+      )
+      .orderBy(desc(evidenceItems.uploadedAt));
+  }
+
+  async countEvidenceRowsForStoragePath(tenantId: number, storagePath: string): Promise<number> {
+    const rows = await db
+      .select({ id: evidenceItems.id })
+      .from(evidenceItems)
+      .where(and(eq(evidenceItems.tenantId, tenantId), eq(evidenceItems.storagePath, storagePath)));
+    return rows.length;
+  }
+
+  private async resolveEvidenceLinkSource(
+    tenantId: number,
+    sourceEvidenceId: number,
+  ): Promise<{ source: EvidenceItem | null; root: EvidenceItem | null }> {
+    const [source] = await db
+      .select()
+      .from(evidenceItems)
+      .where(and(eq(evidenceItems.id, sourceEvidenceId), eq(evidenceItems.tenantId, tenantId)));
+    if (!source) return { source: null, root: null };
+    let root: EvidenceItem | null = null;
+    if (source.linkedFromEvidenceId != null) {
+      const [r] = await db
+        .select()
+        .from(evidenceItems)
+        .where(and(eq(evidenceItems.id, source.linkedFromEvidenceId), eq(evidenceItems.tenantId, tenantId)));
+      root = r ?? null;
+    }
+    return { source, root };
+  }
+
+  async checkEvidenceLink(
+    tenantId: number,
+    sourceEvidenceId: number,
+    targetControlId: number,
+  ): Promise<import("./evidence-links").LinkPlan> {
+    const { planEvidenceLink } = await import("./evidence-links");
+    const { source, root } = await this.resolveEvidenceLinkSource(tenantId, sourceEvidenceId);
+    if (!source) return { ok: false, kind: "INVALID", error: "Source evidence not found for this tenant" };
+    const existingOnTarget = await this.getEvidenceForControl(tenantId, targetControlId);
+    return planEvidenceLink(source, root, targetControlId, existingOnTarget);
+  }
+
+  async linkEvidenceToControl(
+    tenantId: number,
+    sourceEvidenceId: number,
+    targetControlId: number,
+    suggestionId: number,
+    userId: number,
+  ): Promise<EvidenceItem> {
+    const { planEvidenceLink } = await import("./evidence-links");
+    const { source, root } = await this.resolveEvidenceLinkSource(tenantId, sourceEvidenceId);
+    if (!source) throw new Error("Source evidence not found for this tenant");
+    const existingOnTarget = await this.getEvidenceForControl(tenantId, targetControlId);
+    const plan = planEvidenceLink(source, root, targetControlId, existingOnTarget);
+    if (!plan.ok) {
+      const err = new Error(plan.error);
+      (err as any).kind = plan.kind;
+      throw err;
+    }
+    const anchor = plan.anchorId === source.id ? source : root!;
+    const [link] = await db
+      .insert(evidenceItems)
+      .values({
+        tenantId,
+        relatedType: "AtomicControl",
+        relatedId: targetControlId,
+        assessmentId: null,
+        filename: anchor.filename,
+        mimeType: anchor.mimeType,
+        size: anchor.size,
+        storagePath: anchor.storagePath,
+        sha256: anchor.sha256,
+        uploadedBy: userId,
+        linkedFromEvidenceId: anchor.id,
+        linkedViaSuggestionId: suggestionId,
+      })
+      .returning();
+    return link;
   }
 
   async lockEvidence(id: number, lockedBy: number, reason: string): Promise<EvidenceItem | undefined> {
@@ -1609,7 +1724,9 @@ export class DatabaseStorage implements IStorage {
 
   async recalculateTenantStorageUsed(tenantId: number): Promise<void> {
     const evidence = await this.getEvidenceByTenant(tenantId);
-    const totalBytes = evidence.reduce((sum, e) => sum + (e.size || 0), 0);
+    // Link rows (linkedFromEvidenceId set) share the original's physical file —
+    // count each stored file once by summing only original rows.
+    const totalBytes = evidence.reduce((sum, e) => sum + (e.linkedFromEvidenceId == null ? (e.size || 0) : 0), 0);
     await db.update(tenants).set({ storageUsedBytes: totalBytes }).where(eq(tenants.id, tenantId));
   }
 
@@ -1925,7 +2042,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAtomicAssessment(id: number): Promise<void> {
-    const relatedEvidence = await db.select({ storagePath: evidenceItems.storagePath }).from(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
+    const relatedEvidence = await db.select().from(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
     const responses = await db.select().from(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
     const controlIds = new Set(responses.map(r => r.atomicControlId));
     const allLinks = await db.select().from(taskAtomicLinks);
@@ -1935,6 +2052,21 @@ export class DatabaseStorage implements IStorage {
       }
     }
     const responseIds = responses.map(r => r.id);
+    // Suggestions to be removed may be referenced by evidence link rows
+    // (FK: evidence_items.linked_via_suggestion_id) — null those pointers first.
+    const doomedSuggestions = await db
+      .select({ id: crossFrameworkSuggestions.id })
+      .from(crossFrameworkSuggestions)
+      .where(
+        or(
+          eq(crossFrameworkSuggestions.targetAtomicAssessmentId, id),
+          responseIds.length > 0 ? inArray(crossFrameworkSuggestions.sourceResponseId, responseIds) : sql`false`,
+        ),
+      );
+    if (doomedSuggestions.length > 0) {
+      const doomedIds = doomedSuggestions.map(s => s.id);
+      await db.update(evidenceItems).set({ linkedViaSuggestionId: null }).where(inArray(evidenceItems.linkedViaSuggestionId, doomedIds));
+    }
     if (responseIds.length > 0) {
       await db.delete(crossFrameworkSuggestions).where(inArray(crossFrameworkSuggestions.sourceResponseId, responseIds));
     }
@@ -1943,10 +2075,35 @@ export class DatabaseStorage implements IStorage {
     // (created when the tenant answered controls in another framework) violates the FK.
     await db.delete(crossFrameworkSuggestions).where(eq(crossFrameworkSuggestions.targetAtomicAssessmentId, id));
     await db.delete(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
+    // Re-anchor any evidence link rows pointing at rows we are about to delete
+    // (promote the oldest link, repoint the rest) so provenance never dangles.
+    for (const e of relatedEvidence) {
+      const links = await db
+        .select({ id: evidenceItems.id, uploadedAt: evidenceItems.uploadedAt })
+        .from(evidenceItems)
+        .where(eq(evidenceItems.linkedFromEvidenceId, e.id));
+      if (links.length > 0) {
+        const { planReanchor } = await import("./evidence-links");
+        const plan = planReanchor(links);
+        if (plan) {
+          await db.update(evidenceItems).set({ linkedFromEvidenceId: null }).where(eq(evidenceItems.id, plan.promoteId));
+          if (plan.repointIds.length > 0) {
+            await db.update(evidenceItems).set({ linkedFromEvidenceId: plan.promoteId }).where(inArray(evidenceItems.id, plan.repointIds));
+          }
+        }
+      }
+    }
     await db.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
     await db.delete(atomicAssessments).where(eq(atomicAssessments.id, id));
+    // Reference-counted physical deletion: another row (e.g. a cross-framework
+    // evidence link) may still reference the same storagePath — keep the file then.
     for (const e of relatedEvidence) {
       if (e.storagePath) {
+        const remaining = await db
+          .select({ id: evidenceItems.id })
+          .from(evidenceItems)
+          .where(eq(evidenceItems.storagePath, e.storagePath));
+        if (remaining.length > 0) continue;
         try { const fp = path.join(process.cwd(), e.storagePath); if (fs.existsSync(fp)) fs.unlinkSync(fp); } catch (err) { console.error(`[Atomic Assessment Cleanup] Failed to delete file: ${e.storagePath}`, err); }
       }
     }
@@ -2307,6 +2464,28 @@ export class DatabaseStorage implements IStorage {
     const assessmentById = new Map(assessments.map((a) => [a.id, a]));
     const walkById = new Map(walks.map((w) => [w.id, w]));
 
+    // Evidence already attached to the source controls (tenant-scoped) — offered
+    // for linking onto the target when the suggestion is accepted (Phase A).
+    const sourceControlIds = Array.from(new Set(rows.map((r) => r.sourceAtomicControlId)));
+    const evidenceRows = sourceControlIds.length
+      ? await db
+          .select()
+          .from(evidenceItems)
+          .where(
+            and(
+              eq(evidenceItems.tenantId, tenantId),
+              eq(evidenceItems.relatedType, "AtomicControl"),
+              inArray(evidenceItems.relatedId, sourceControlIds),
+            ),
+          )
+      : [];
+    const evidenceByControl = new Map<number, Array<{ id: number; filename: string; size: number | null; sha256: string | null }>>();
+    for (const e of evidenceRows) {
+      const list = evidenceByControl.get(e.relatedId) ?? [];
+      list.push({ id: e.id, filename: e.filename, size: e.size, sha256: e.sha256 });
+      evidenceByControl.set(e.relatedId, list);
+    }
+
     return rows.map((r) => {
       const src = controlById.get(r.sourceAtomicControlId);
       const tgt = controlById.get(r.targetAtomicControlId);
@@ -2320,6 +2499,7 @@ export class DatabaseStorage implements IStorage {
         crosswalk: cw
           ? { relationship: cw.relationship, confidence: cw.confidence, rationale: cw.rationale, provenance: cw.provenance }
           : null,
+        sourceEvidence: evidenceByControl.get(r.sourceAtomicControlId) ?? [],
       };
     });
   }

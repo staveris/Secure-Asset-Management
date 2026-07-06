@@ -4,6 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LinkedEvidenceBadge } from "@/components/linked-evidence-badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -560,6 +561,7 @@ function ControlResponseCard({
                   >
                     <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <span className="font-medium truncate flex-1">{ev.filename}</span>
+                    <LinkedEvidenceBadge evidence={ev} />
                     {(ev as any).lockedAt && (
                       <Lock className="w-3 h-3 text-green-500 shrink-0" />
                     )}
@@ -1072,6 +1074,7 @@ function AtomicFocusModeView({
                     <div key={ev.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/40 text-xs">
                       <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <span className="font-medium truncate flex-1">{ev.filename}</span>
+                      <LinkedEvidenceBadge evidence={ev} />
                     </div>
                   ))}
                 </div>

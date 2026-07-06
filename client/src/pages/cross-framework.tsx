@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -31,6 +33,7 @@ interface SuggestionRow {
   targetControl: { controlId: string; shortTitle: string; sourceKey: string } | null;
   targetAssessmentName: string | null;
   crosswalk: { relationship: string; confidence: number; rationale: string | null; provenance: string | null } | null;
+  sourceEvidence: Array<{ id: number; filename: string; size: number | null; sha256: string | null }>;
 }
 
 interface ReviewInfo {
@@ -74,21 +77,47 @@ function SuggestionsInbox() {
   });
   const { data: plan } = usePlan();
   const acceptLocked = plan ? !plan.limits.crossFrameworkAccept : false;
+  // Per-suggestion selection of source evidence to link on accept.
+  // Undefined entry = untouched = all checked by default (spec A.4).
+  const [selectedEvidence, setSelectedEvidence] = useState<Record<number, number[]>>({});
+
+  const getSelected = (s: SuggestionRow): number[] =>
+    selectedEvidence[s.id] ?? (s.sourceEvidence ?? []).map((e) => e.id);
+
+  const toggleEvidence = (s: SuggestionRow, evidenceId: number) => {
+    setSelectedEvidence((prev) => {
+      const current = prev[s.id] ?? (s.sourceEvidence ?? []).map((e) => e.id);
+      const next = current.includes(evidenceId)
+        ? current.filter((x) => x !== evidenceId)
+        : [...current, evidenceId];
+      return { ...prev, [s.id]: next };
+    });
+  };
 
   const decideMutation = useMutation({
-    mutationFn: async ({ id, action }: { id: number; action: "accept" | "reject" }) => {
-      const res = await apiRequest("POST", `/api/cross-framework/suggestions/${id}/${action}`);
+    mutationFn: async ({ id, action, linkEvidenceIds }: { id: number; action: "accept" | "reject"; linkEvidenceIds?: number[] }) => {
+      const body = action === "accept" && linkEvidenceIds && linkEvidenceIds.length > 0 ? { linkEvidenceIds } : undefined;
+      const res = await apiRequest("POST", `/api/cross-framework/suggestions/${id}/${action}`, body);
       return res.json();
     },
     onSuccess: (result, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/cross-framework/suggestions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cross-framework/coverage"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      setSelectedEvidence((prev) => {
+        const { [vars.id]: _, ...rest } = prev;
+        return rest;
+      });
       if (vars.action === "accept") {
+        const linkedCount = result.linkedEvidence?.length ?? 0;
         toast({
           title: result.applied ? "Suggestion applied" : "Suggestion accepted",
-          description: result.applied
-            ? "The target assessment response has been updated."
-            : "The existing answer was stronger, so it was kept unchanged.",
+          description: [
+            result.applied
+              ? "The target assessment response has been updated."
+              : "The existing answer was stronger, so it was kept unchanged.",
+            linkedCount > 0 ? `${linkedCount} evidence file${linkedCount === 1 ? "" : "s"} linked.` : null,
+          ].filter(Boolean).join(" "),
         });
       } else {
         toast({ title: "Suggestion rejected" });
@@ -172,10 +201,35 @@ function SuggestionsInbox() {
             {s.reason && <p className="text-xs text-muted-foreground italic">{s.reason}</p>}
             {s.crosswalk?.rationale && <p className="text-xs text-muted-foreground">{s.crosswalk.rationale}</p>}
 
+            {(s.sourceEvidence?.length ?? 0) > 0 && (
+              <div className="space-y-1 rounded-md border p-2" data-testid={`evidence-picker-${s.id}`}>
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  Also link evidence (references the same file, no copy):
+                </p>
+                {s.sourceEvidence.map((ev) => (
+                  <label
+                    key={ev.id}
+                    className="flex items-center gap-2 text-xs cursor-pointer"
+                    data-testid={`checkbox-link-evidence-${s.id}-${ev.id}`}
+                  >
+                    <Checkbox
+                      checked={getSelected(s).includes(ev.id)}
+                      onCheckedChange={() => toggleEvidence(s, ev.id)}
+                      disabled={acceptLocked || decideMutation.isPending}
+                    />
+                    <span className="truncate flex-1">{ev.filename}</span>
+                    {ev.size != null && (
+                      <span className="text-muted-foreground shrink-0">{(ev.size / 1024).toFixed(0)} KB</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
-                onClick={() => decideMutation.mutate({ id: s.id, action: "accept" })}
+                onClick={() => decideMutation.mutate({ id: s.id, action: "accept", linkEvidenceIds: getSelected(s) })}
                 disabled={decideMutation.isPending || acceptLocked}
                 data-testid={`button-accept-suggestion-${s.id}`}
               >

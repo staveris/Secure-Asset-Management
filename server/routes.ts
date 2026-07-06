@@ -2380,12 +2380,17 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Cannot delete locked evidence. Request an unlock first." });
       }
       const deletedItem = await storage.deleteEvidenceItem(id);
+      // Reference-counted physical deletion: evidence link rows share the same
+      // storagePath — only remove the object when no rows reference it anymore.
       if (deletedItem?.storagePath) {
-        try {
-          const adapter = getAdapterForStoragePath(deletedItem.storagePath);
-          await adapter.delete(deletedItem.storagePath);
-        } catch (fileErr) {
-          console.error(`[Evidence] Failed to delete object from storage: ${deletedItem.storagePath}`, fileErr);
+        const remaining = await storage.countEvidenceRowsForStoragePath(user.tenantId, deletedItem.storagePath);
+        if (remaining === 0) {
+          try {
+            const adapter = getAdapterForStoragePath(deletedItem.storagePath);
+            await adapter.delete(deletedItem.storagePath);
+          } catch (fileErr) {
+            console.error(`[Evidence] Failed to delete object from storage: ${deletedItem.storagePath}`, fileErr);
+          }
         }
       }
       await storage.recalculateTenantStorageUsed(user.tenantId);
@@ -6012,6 +6017,50 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Access denied" });
       }
 
+      // Optional evidence linking (Phase A). Validate everything up front so a
+      // bad request never leaves partial state behind.
+      const acceptBody = z.object({ linkEvidenceIds: z.array(z.number().int().positive()).optional() }).safeParse(req.body ?? {});
+      if (!acceptBody.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: acceptBody.error.flatten() });
+      }
+      const linkEvidenceIds = acceptBody.data.linkEvidenceIds ?? [];
+      if (linkEvidenceIds.length > 0) {
+        // Evidence linking is an evidence-attachment action — same tier wall as upload.
+        if (user.role !== "PLATFORM_ADMIN") {
+          const plan = await storage.getTenantPlan(user.tenantId);
+          if (plan && !tierAllows(plan.effectiveTier, "evidenceUpload")) {
+            return res.status(402).json({
+              error: "upgrade_required",
+              wall: "evidence_upload",
+              message: "Linking evidence is available on the Starter plan and above.",
+            });
+          }
+        }
+        // Every id must be evidence of THIS suggestion's source control (tenant-scoped).
+        const sourceEvidence = await storage.getEvidenceForControl(user.tenantId, suggestion.sourceAtomicControlId);
+        const sourceEvidenceIds = new Set(sourceEvidence.map((e) => e.id));
+        const foreign = linkEvidenceIds.filter((eid) => !sourceEvidenceIds.has(eid));
+        if (foreign.length > 0) {
+          return res.status(400).json({ message: `Evidence ids not attached to the source control: ${foreign.join(", ")}` });
+        }
+      }
+
+      // Preflight every requested link BEFORE any mutation: invalid ids fail the
+      // whole request with 400; only explicit duplicate collisions (artifact
+      // already on the target) are tolerated — and they are reported, not silent.
+      const linkableIds: number[] = [];
+      const skippedDuplicates: Array<{ sourceEvidenceId: number; reason: string }> = [];
+      for (const eid of linkEvidenceIds) {
+        const check = await storage.checkEvidenceLink(user.tenantId, eid, suggestion.targetAtomicControlId);
+        if (check.ok) {
+          linkableIds.push(eid);
+        } else if (check.kind === "DUPLICATE") {
+          skippedDuplicates.push({ sourceEvidenceId: eid, reason: check.error });
+        } else {
+          return res.status(400).json({ message: `Evidence ${eid} cannot be linked: ${check.error}` });
+        }
+      }
+
       // Apply, but never downgrade a stronger existing answer.
       const statusRank: Record<string, number> = { NOT_STARTED: 0, IN_PROGRESS: 1, IMPLEMENTED: 2, VERIFIED: 3 };
       const existingResponses = await storage.getAtomicAssessmentResponses(suggestion.targetAtomicAssessmentId);
@@ -6042,6 +6091,40 @@ export async function registerRoutes(
       const decided = await storage.decideSuggestion(user.tenantId, id, "ACCEPTED", user.id);
       if (!decided) return res.status(409).json({ message: "Suggestion was already decided" });
 
+      // Create evidence link rows (reference the same stored file, never a copy).
+      // Preflight already filtered invalid ids; anything unexpected here must
+      // fail loudly — never silently skip.
+      const linkedEvidence: Array<{ sourceEvidenceId: number; newEvidenceId: number; sha256: string | null }> = [];
+      for (const eid of linkableIds) {
+        try {
+          const link = await storage.linkEvidenceToControl(
+            user.tenantId,
+            eid,
+            suggestion.targetAtomicControlId,
+            id,
+            user.id,
+          );
+          linkedEvidence.push({ sourceEvidenceId: eid, newEvidenceId: link.id, sha256: link.sha256 });
+        } catch (linkErr: any) {
+          if (linkErr?.kind === "DUPLICATE") {
+            // Race with a concurrent attach — same artifact landed on the target
+            // between preflight and insert. Benign; report as skipped.
+            skippedDuplicates.push({ sourceEvidenceId: eid, reason: linkErr.message });
+            continue;
+          }
+          console.error(`[Cross-framework] evidence link ${eid} -> control ${suggestion.targetAtomicControlId} failed:`, linkErr);
+          return res.status(500).json({
+            message: `Suggestion was accepted but linking evidence ${eid} failed: ${linkErr?.message || "unknown error"}`,
+            suggestion: decided,
+            applied,
+            linkedEvidence,
+          });
+        }
+      }
+      if (linkedEvidence.length > 0) {
+        await storage.recalculateTenantStorageUsed(user.tenantId);
+      }
+
       await storage.createAuditLog({
         tenantId: user.tenantId,
         actorUserId: user.id,
@@ -6064,10 +6147,12 @@ export async function registerRoutes(
           reason: suggestion.reason,
           applied,
           notAppliedReason: applied ? null : "Existing answer was stronger; suggestion accepted without overwriting",
+          linkedEvidence,
+          skippedDuplicates,
         },
       });
 
-      res.json({ suggestion: decided, applied });
+      res.json({ suggestion: decided, applied, linkedEvidence, skippedDuplicates });
     } catch (err: any) {
       console.error("[POST /api/cross-framework/suggestions/:id/accept] failed:", err);
       res.status(500).json({ message: err?.message || "Failed to accept suggestion" });

@@ -14,6 +14,7 @@ import {
   real,
   uniqueIndex,
   unique,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -293,6 +294,12 @@ export const evidenceItems = pgTable("evidence_items", {
     .references(() => users.id)
     .notNull(),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  // Evidence propagation (cross-framework Phase A): a "link" row shares the same
+  // storagePath/sha256 as its original and points back to it. Quota counts only
+  // rows where linkedFromEvidenceId IS NULL; the physical file is deleted only
+  // when no rows reference its storagePath.
+  linkedFromEvidenceId: integer("linked_from_evidence_id").references((): AnyPgColumn => evidenceItems.id),
+  linkedViaSuggestionId: integer("linked_via_suggestion_id").references((): AnyPgColumn => crossFrameworkSuggestions.id),
 });
 
 export const evidenceAccessLogs = pgTable("evidence_access_logs", {

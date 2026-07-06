@@ -1,0 +1,320 @@
+0. Context the agent must load before writing any code
+
+Study these files first and mirror their conventions exactly. Do not invent new patterns.
+
+
+shared/schema.ts — evidenceItems (note: linked to atomic controls via relatedType: "AtomicControl", relatedId: <atomicControlId>, tenant-scoped, with storagePath, sha256, lock fields), controlCrosswalks, crossFrameworkSuggestions, enum style.
+server/cross-framework.ts — the pure suggestion engine (planSuggestions, relationship down-ranking, reasons with provenance). Extend, don't rewrite; keep it DB/Express-free.
+server/cross-framework-seed.ts — idempotent edge seeding. Critical detail: on contentHash mismatch it currently updates the row with db.update(controlCrosswalks).set(values) where values is the complete field set — Phase B must ensure review columns are never part of values.
+server/routes.ts — the accept route (POST /api/cross-framework/suggestions/:id/accept: full-access gated, tenant-verified both sides, never-downgrade guard, provenance in notes + audit), the response-save hook at ~line 5068 (storage.enqueueCrossFrameworkSuggestions(...).catch(...) — fire-and-forget, must stay non-fatal), evidence upload/download/delete routes (magic-byte validation, quota check, tenant-scoped delete that unlinks the file from disk), requirePlatformAdmin, requireCrossFramework, audit-log call shape.
+server/storage.ts — enqueueCrossFrameworkSuggestions (dedup/supersede on the unique constraint), getCrosswalksForControl, evidence storage methods, quota computation.
+server/cross-framework.test.ts, server/assessment-delete.test.ts — test conventions, including the describe.skipIf(!process.env.DATABASE_URL) + dynamic-import pattern for DB-backed suites.
+client/src/pages/cross-framework.tsx — the suggestion inbox + coverage matrix + DRAFT badge (driven by getCrosswalkReviewInfo from the seed module — Phase B supersedes this with edge-level data while keeping the response shape backward-compatible).
+client/src/pages/atomic-assessment-detail.tsx — how evidence rows with relatedType === "AtomicControl" are matched to a control (~line 1162); linked evidence must appear here with zero page changes if you follow the row-per-link design below.
+
+
+Non-negotiable engineering guardrails (all phases)
+
+
+Additive only. No modification/renaming/dropping of existing tables, columns, routes, or behavior; existing tenants see zero change until they use the new features.
+Tenant isolation on every new read/write, server-side, derived from the session.
+Compliance-integrity first. Nothing auto-applies: evidence links, edge approvals, and drift resolutions are all explicit human actions, each audit-logged with full provenance.
+Pure logic in pure files with Vitest coverage; DB-backed tests use the skipIf(!DATABASE_URL) + dynamic-import pattern so the default vitest run stays green without a database.
+The response-save hook must remain non-fatal and fast. Any new work added there (Phase C drift checks) lives inside the existing fire-and-forget call path and can never fail or slow the original save.
+Type-safe: no new TS error kinds beyond the documented baseline; all new files TS-clean.
+Stop at each verification gate and report before continuing.
+
+
+
+PHASE A — Evidence Propagation ("one artifact, many attestations")
+
+Goal. When a human accepts a cross-framework suggestion, they can also link the evidence
+already attached to the source control onto the target control — as a reference to the same
+stored file, never a copy. Evidence is the expensive half of compliance; without this,
+"answer once" still means "re-attach proof everywhere."
+
+A.1 Schema (additive)
+
+Add to evidenceItems:
+
+tslinkedFromEvidenceId: integer("linked_from_evidence_id").references((): AnyPgColumn => evidenceItems.id),
+linkedViaSuggestionId: integer("linked_via_suggestion_id").references(() => crossFrameworkSuggestions.id),
+
+Design: a link is a new evidenceItems row pointing at the same storagePath and sha256
+as the original, with relatedType: "AtomicControl" and relatedId = the target control, and
+linkedFromEvidenceId = the original row. This makes linked evidence appear on the target control
+in atomic-assessment-detail.tsx with zero frontend query changes, keeps one physical file,
+and gives a first-class provenance pointer. Run npm run db:push; confirm additive-only.
+
+A.2 Storage-layer correctness (the part that will bite if skipped)
+
+Three existing behaviors assume one row per file. Fix each:
+
+
+Quota: storage-usage computation must count a file's size once — sum only rows where
+linkedFromEvidenceId IS NULL. Locate the existing quota sum and adjust; add a regression test.
+File deletion: the evidence-delete path currently unlinks storagePath from disk. It must
+now delete the physical file only when no other rows reference the same storagePath
+(tenant-scoped count). Deleting a link row never touches the file. Deleting the original
+while links exist: keep the file, and re-anchor — promote the oldest link to be the new
+original (linkedFromEvidenceId = NULL on it, repoint the other links' linkedFromEvidenceId
+to it) so provenance chains never dangle. Same treatment inside deleteAtomicAssessment's
+evidence cleanup (it deletes files by storagePath — apply the same reference-count guard).
+Locking: links lock independently (a locked original does not lock its links, and vice
+versa). Document this in a comment; no code change needed if lock checks are per-row, but verify.
+
+
+New storage methods:
+
+
+getEvidenceForControl(tenantId, atomicControlId) (reuse if an equivalent exists),
+linkEvidenceToControl(tenantId, sourceEvidenceId, targetControlId, suggestionId, userId) —
+validates the source row belongs to the tenant, is not itself a link (follow to the original if
+it is: always link to the root), is not already linked to that control (dedup on
+(tenantId, relatedId, sha256) for relatedType="AtomicControl"), then inserts the link row
+with uploadedBy = userId.
+
+
+A.3 Accept-flow integration
+
+
+GET /api/cross-framework/suggestions enrichment: for each suggestion include
+sourceEvidence: [{ id, filename, size, sha256 }] — evidence rows on the source control
+(tenant-scoped). Empty array when none.
+Extend POST /api/cross-framework/suggestions/:id/accept body (Zod, optional, backward
+compatible): { linkEvidenceIds?: number[] }. After the existing acceptance succeeds, for each
+id call linkEvidenceToControl(...) — each id re-validated as evidence of the source control
+of this suggestion (reject foreign ids with 400; never silently skip). Add to the existing
+audit details: linkedEvidence: [{ sourceEvidenceId, newEvidenceId, sha256 }].
+Evidence linking respects the plan tier: it requires tierAllows(effectiveTier, "evidenceUpload")
+(a FREE tenant accepting a suggestion cannot smuggle evidence attachment through this path) —
+return the standard 402 wall payload if not.
+
+
+A.4 Frontend
+
+
+Suggestion card in cross-framework.tsx: when sourceEvidence is non-empty, show a checkbox
+list ("Also link evidence: ☑ backup-policy.pdf (214 KB)"), all checked by default, submitted
+with accept. Keep the accept flow one click when there's nothing to link.
+Evidence rows that are links show a small "linked" badge with a tooltip naming the source
+control and suggestion id (both pages that render AtomicControl evidence pick this up from the
+new fields — pass them through the existing evidence serialization).
+
+
+A.5 Tests
+
+
+Pure: dedup rule (same sha256 to same control rejected), root-following (linking a link anchors
+to the original). Put the decision logic in a small pure helper so it's unit-testable.
+DB-gated (server/evidence-links.test.ts, mirror assessment-delete.test.ts fixtures): link
+creation via accept; quota counts the file once; deleting the link keeps the file; deleting the
+original with a live link keeps the file and re-anchors; deleting the last reference removes the
+file; foreign evidence id in linkEvidenceIds → 400 and no partial state.
+
+
+✅ Phase A verification gate
+
+
+npm run db:push additive-only; default vitest run green without a DB; DB-gated suite green with one.
+Accept-with-evidence produces a link row visible on the target control in the existing UI, audit
+details include the evidence chain, quota unchanged by links, and all four deletion scenarios
+behave as specified.
+
+
+
+PHASE B — Edge-Level Review Workflow
+
+Goal. Replace the all-or-nothing library reviewStatus: DRAFT with per-edge review: an SME
+approves edges incrementally, approval survives re-seeding unless the edge's content changes, and
+unapproved EQUIVALENT edges propagate at PARTIAL strength until signed off.
+
+B.1 Schema (additive)
+
+tsexport const edgeReviewStatusEnum = pgEnum("edge_review_status", ["DRAFT", "APPROVED"]);
+// on controlCrosswalks:
+reviewStatus: edgeReviewStatusEnum("review_status").notNull().default("DRAFT"),
+reviewedBy: integer("reviewed_by").references(() => users.id),
+reviewedAt: timestamp("reviewed_at"),
+reviewNote: text("review_note"),
+
+B.2 Seed interaction (the correctness crux)
+
+In cross-framework-seed.ts:
+
+
+The values object used for insert/update must not contain the four review columns — a
+re-seed of unchanged-content edges must never touch approvals.
+When an edge's contentHash changes (relationship/confidence/direction/rationale/targets
+changed), the update resets review: set reviewStatus = "DRAFT", null the other three, and
+count it in a new report field approvalsReset, listing the edge labels. An approval is a
+sign-off on specific content; changed content voids it. (Phase C consumes this signal.)
+The pack-version notes string gains edgesApproved=<n>/<total> alongside the existing counts.
+
+
+B.3 Engine change (pure, additive)
+
+
+The crosswalk objects passed into planSuggestions gain reviewStatus?: "DRAFT" | "APPROVED"
+(default "DRAFT" when absent — fail conservative).
+New rule, placed before the existing relationship logic: an EQUIVALENT edge with
+reviewStatus !== "APPROVED" is treated exactly as PARTIAL (advisory-only suggestion, no
+affirmative terminal status, down-ranked confidence), and its reason string must say so:
+"EQUIVALENT mapping pending SME review — treated as partial until approved". Approved
+EQUIVALENT edges keep today's equal-strength behavior. SUPERSET/SUBSET/PARTIAL/RELATED are
+unchanged (they're already conservative).
+Update server/cross-framework.test.ts: existing EQUIVALENT tests now construct approved edges;
+add cases for the unapproved-EQUIVALENT demotion and the reason text.
+
+
+B.4 Review API + UI
+
+
+GET /api/admin/crosswalk-edges (requirePlatformAdmin): paged list with from/to control labels,
+relationship, confidence, reviewStatus, reviewer, filters (status, relationship,
+framework). Include per-edge accepted/rejected suggestion counts (cheap aggregate) — the
+reviewer should see usage while reviewing.
+POST /api/admin/crosswalk-edges/:id/review (requirePlatformAdmin): body
+{ reviewStatus: "APPROVED" | "DRAFT", reviewNote?: string }; stamps reviewedBy/reviewedAt;
+audit-logs REVIEW_CROSSWALK_EDGE with old→new. Bulk variant
+POST /api/admin/crosswalk-edges/review-bulk { ids: number[], reviewStatus, reviewNote? }
+writing one audit row per edge.
+Admin page (platform-admin only, follow existing admin page patterns): table with filters,
+approve/revert actions, bulk-select, and a progress header "182 of 223 mappings reviewed".
+Tenant-facing badge: the three cross-framework GET endpoints currently return the
+library-level review object from getCrosswalkReviewInfo(). Keep the field name and shape
+backward-compatible but derive it from edges:
+{ reviewStatus: approvedCount === total ? "APPROVED" : "DRAFT", reviewNote, approvedCount, totalCount }.
+The amber badge in cross-framework.tsx becomes "Mappings under SME review — 182/223 approved"
+while partial, disappearing at full approval. The per-suggestion card shows a small "reviewed ✓"
+or "pending review" chip based on its own edge.
+Acceptance audit details: crosswalkReviewStatus now reflects the edge's status at
+acceptance time (replacing the library-level value in that field — same key, better data).
+
+
+✅ Phase B verification gate
+
+
+Re-running the seed with an unchanged file leaves approvals untouched (approvalsReset=0);
+editing one edge's confidence in the JSON and re-seeding resets exactly that edge's approval and
+reports it.
+Unapproved EQUIVALENT edge produces a PARTIAL-strength suggestion with the pending-review reason;
+approving the edge and re-answering the source produces the full-strength suggestion.
+Admin review flow works end-to-end with audit rows; tenant badge shows the live count; engine
+suite green including new cases; default vitest run green without a DB.
+
+
+
+PHASE C — Drift Detection on Accepted Propagations
+
+Goal. An accepted suggestion is a live dependency, not history. When its foundation weakens —
+the source answer is downgraded, or the mapping edge it relied on is changed/downgraded —
+the derived target answer gets flagged for human re-review. Nothing is auto-reverted.
+
+C.1 Schema (additive, on crossFrameworkSuggestions)
+
+tsexport const driftReasonEnum = pgEnum("drift_reason", ["SOURCE_DOWNGRADED", "SOURCE_REMOVED", "EDGE_CHANGED"]);
+driftDetectedAt: timestamp("drift_detected_at"),
+driftReason: driftReasonEnum("drift_reason"),
+driftDetail: text("drift_detail"),          // human-readable: what changed, old → new
+driftResolvedAt: timestamp("drift_resolved_at"),
+driftResolvedBy: integer("drift_resolved_by").references(() => users.id),
+
+Status stays ACCEPTED throughout — drift is an annotation on an acceptance, not a state change;
+history is never rewritten. "At risk" ≙ status=ACCEPTED AND driftDetectedAt IS NOT NULL AND driftResolvedAt IS NULL.
+
+C.2 Pure logic — extend server/cross-framework.ts
+
+tsexport function detectSourceDrift(
+  accepted: { suggestedStatus, suggestedMaturity },   // what the acceptance was based on
+  currentSource: { implementationStatus, maturityLevel },
+): { drifted: boolean; reason?: "SOURCE_DOWNGRADED"; detail?: string };
+
+Rule: drift when the source no longer meets the positive-propagation threshold the engine uses for
+enqueueing (reuse the same exported threshold constant — single source of truth), or when the
+source's status/maturity is now strictly weaker than what was suggested at acceptance. Unit-test
+the boundary cases (equal = no drift; one level below = drift; NOT_STARTED = drift with detail).
+
+C.3 Detection wiring (two triggers, both existing choke points)
+
+
+Source answer changes — inside storage.enqueueCrossFrameworkSuggestions (already invoked
+fire-and-forget on every response save, already holding the saved response): after the existing
+enqueue work, load ACCEPTED, unresolved-drift-free suggestions with
+sourceResponseId = savedResponse.id; run detectSourceDrift; stamp
+driftDetectedAt/driftReason/driftDetail on hits. If the source response is deleted
+(assessment deletion path in deleteAtomicAssessment currently removes suggestions by
+sourceResponseId — change that clause for ACCEPTED rows to keep the row, null the
+sourceResponseId, and stamp SOURCE_REMOVED drift instead of deleting; PENDING rows keep
+today's delete behavior). Note: the FK-safety tests in server/assessment-delete.test.ts pin
+deletion of PENDING rows — extend them for the new ACCEPTED-row behavior rather than breaking them.
+Edge changes — in the seed, when B.2 resets an edge's approval (content changed) or an edge
+is deleted from the library, stamp EDGE_CHANGED drift (with the old→new relationship/confidence
+in driftDetail) on all ACCEPTED, unresolved suggestions referencing that crosswalkId. Also
+trigger on an admin reverting an edge to DRAFT via the B.4 review route.
+
+
+Every drift stamping writes an audit log CROSS_FRAMEWORK_DRIFT_DETECTED (tenantId from the
+suggestion row, actor null/system, details with reason + chain).
+
+C.4 Resolution API + UI
+
+
+GET /api/cross-framework/drift (requireAuth + requireCrossFramework): tenant's at-risk rows,
+enriched like the suggestion inbox (source/target labels, drift reason/detail, acceptance date,
+who accepted).
+POST /api/cross-framework/drift/:id/resolve (requireWriteAccess + requireFullAccess): body
+{ resolution: "REAFFIRMED" | "TARGET_UPDATED", note?: string } — stamps
+driftResolvedAt/driftResolvedBy, audit CROSS_FRAMEWORK_DRIFT_RESOLVED with the resolution.
+REAFFIRMED = human looked and stands by the target answer; TARGET_UPDATED = they changed the
+target answer themselves (the UI deep-links to the target control for that). No automatic edits
+to the target response in either case.
+UI: a third tab "At risk" in cross-framework.tsx with a count badge (reuse the sidebar-badge
+pattern from the pending-suggestions badge), cards showing the dependency chain
+(source answer → mapping → target answer) with what changed highlighted, and the two resolution
+actions. The coverage matrix footnotes at-risk counts per framework.
+
+
+✅ Phase C verification gate
+
+
+Downgrading a source answer below threshold flags exactly its accepted dependents (DB-gated
+test); re-saving at the same strength flags nothing; resolution clears the flag with audit.
+Deleting a source assessment converts its ACCEPTED suggestions to SOURCE_REMOVED drift
+(extended deletion tests green, PENDING behavior unchanged).
+Editing an edge in the seed JSON and re-seeding stamps EDGE_CHANGED drift on its accepted
+suggestions and resets its approval (B+C interplay verified together).
+Response-save latency unaffected; a thrown drift check can never fail the save (it lives inside
+the existing .catched call).
+Full suite green with a DB; default run green without.
+
+
+
+Commit sequence
+
+
+feat(evidence): link columns + reference-counted delete/quota semantics + tests
+feat(xfw): accept-with-evidence linking, tier-gated, audited
+feat(xfw): per-edge review schema; seed preserves approvals, resets on content change
+feat(xfw): engine demotes unapproved EQUIVALENT to partial strength + tests
+feat(xfw): admin edge-review API/UI; tenant badge shows approved/total
+feat(xfw): drift schema + pure detectSourceDrift + tests
+feat(xfw): drift wiring (source change, source removal, edge change) + deletion-test extension
+feat(xfw): at-risk inbox, resolution flow, coverage footnotes
+
+
+Each commit leaves the default vitest run green without a database and npm run check free of
+new error kinds.
+
+Definition of done
+
+
+Accepting a suggestion can carry the source control's evidence to the target as audited,
+quota-neutral, reference-counted links — one physical file, correct behavior on every deletion
+order.
+Mapping approvals are per-edge, survive idempotent re-seeds, void automatically on content
+change, and gate EQUIVALENT-strength propagation; the tenant-facing badge reports live
+approved/total counts.
+Every accepted propagation is monitored for both failure modes of its foundation (source
+weakened/removed, edge changed), surfaces as an at-risk item with the full dependency chain, and
+is resolved only by an explicit, audited human decision — nothing auto-reverts, nothing silent.
