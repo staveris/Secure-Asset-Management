@@ -116,6 +116,14 @@ export default function AuthPage() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
+  const [scopeToken] = useState<string | null>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("scopeToken");
+    } catch {
+      return null;
+    }
+  });
+
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
@@ -212,6 +220,7 @@ export default function AuthPage() {
         password: regPassword,
         fullName: regName,
         companyName: regCompany,
+        ...(scopeToken ? { scopeCheckToken: scopeToken } : {}),
       });
       navigate("/onboarding");
     } catch (err: any) {
@@ -535,6 +544,15 @@ export default function AuthPage() {
               </form>
             ) : (
               <form onSubmit={handleRegister} className="space-y-4" data-testid="form-register">
+                {scopeToken && (
+                  <div
+                    className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"
+                    data-testid="banner-scope-handoff"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>We'll pre-load your scope check results into your new workspace.</span>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="reg-name">Full Name</Label>
                   <div className="relative">

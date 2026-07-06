@@ -399,8 +399,8 @@ export default function ScopeReport() {
               </CardHeader>
               <CardContent>
                 <Button asChild data-testid="button-create-workspace">
-                  <Link href="/login">
-                    Get started
+                  <Link href={`/register?scopeToken=${encodeURIComponent(token ?? "")}`}>
+                    Create your workspace — your scoping is already done
                     <ArrowRight className="w-4 h-4 ml-1" />
                   </Link>
                 </Button>

@@ -17,6 +17,7 @@ interface RegisterData {
   password: string;
   fullName: string;
   companyName: string;
+  scopeCheckToken?: string;
 }
 
 interface AuthContextType {

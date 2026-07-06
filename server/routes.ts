@@ -21,6 +21,7 @@ import { getAppBaseUrl } from "./email";
 import {
   publicScopeAnswersSchema,
   scopeReportRequestSchema,
+  answersToProfile,
   buildPublicVerdictPayload,
   computeVerdict,
   computeControlStats,
@@ -526,6 +527,47 @@ export async function registerRoutes(
         entityType: "USER",
         entityId: String(user.id),
       });
+
+      // Phase B: scope-check → registration handoff (never fails registration)
+      if (data.scopeCheckToken) {
+        try {
+          const lead = await storage.getScopeCheckLeadByToken(data.scopeCheckToken);
+          if (lead && !lead.convertedTenantId) {
+            const parsedAnswers = publicScopeAnswersSchema.safeParse(lead.answers);
+            if (parsedAnswers.success) {
+              const answers = parsedAnswers.data;
+              if (answers.sectorGroup !== "NONE" && answers.sector) {
+                await storage.updateTenant(tenant.id, {
+                  sectorGroup: answers.sectorGroup,
+                  sector: answers.sector,
+                  subsector: answers.subsector ?? null,
+                });
+              }
+              const verdict = (lead.verdict ?? {}) as Record<string, any>;
+              await storage.upsertNis2Profile(tenant.id, {
+                ...answersToProfile(answers),
+                nis2ScopeConfirmed: true,
+                computedInScope: typeof verdict.inScope === "boolean" ? verdict.inScope : false,
+                computedEntityClass: verdict.entityClass ?? null,
+                computedReason: typeof verdict.reason === "string" ? verdict.reason : null,
+              });
+              await storage.markScopeCheckLeadConverted(lead.id, tenant.id);
+              // Make the pre-loaded verdict visible with zero extra input.
+              await storage.setFeatureFlag(tenant.id, "NIS2_SCOPING", true);
+              await storage.createAuditLog({
+                tenantId: tenant.id,
+                actorUserId: user.id,
+                action: "REGISTER_FROM_SCOPE_CHECK",
+                entityType: "SCOPE_CHECK_LEAD",
+                entityId: String(lead.id),
+                details: JSON.stringify({ leadId: lead.id, verdictStatus: verdict.status ?? null }),
+              });
+            }
+          }
+        } catch (handoffErr: any) {
+          console.error("Scope-check handoff failed (registration continues):", handoffErr?.message || handoffErr);
+        }
+      }
 
       const emailSent = await sendVerificationEmail(data.email, data.fullName, verificationToken);
 

@@ -1299,6 +1299,7 @@ export const registerSchema = z.object({
     .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
   fullName: z.string().min(2),
   companyName: z.string().min(2),
+  scopeCheckToken: z.string().min(1).max(128).optional(),
 });
 
 export const acceptInviteSchema = z.object({
