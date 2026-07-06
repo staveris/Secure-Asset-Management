@@ -1934,6 +1934,10 @@ export class DatabaseStorage implements IStorage {
         await db.delete(taskAtomicLinks).where(eq(taskAtomicLinks.id, link.id));
       }
     }
+    const responseIds = responses.map(r => r.id);
+    if (responseIds.length > 0) {
+      await db.delete(crossFrameworkSuggestions).where(inArray(crossFrameworkSuggestions.sourceResponseId, responseIds));
+    }
     await db.delete(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
     await db.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
     await db.delete(atomicAssessments).where(eq(atomicAssessments.id, id));
