@@ -1938,6 +1938,10 @@ export class DatabaseStorage implements IStorage {
     if (responseIds.length > 0) {
       await db.delete(crossFrameworkSuggestions).where(inArray(crossFrameworkSuggestions.sourceResponseId, responseIds));
     }
+    // Also remove suggestions that TARGET this assessment (FK: targetAtomicAssessmentId).
+    // Without this, deleting an assessment that has pending suggestions pointed at it
+    // (created when the tenant answered controls in another framework) violates the FK.
+    await db.delete(crossFrameworkSuggestions).where(eq(crossFrameworkSuggestions.targetAtomicAssessmentId, id));
     await db.delete(atomicAssessmentResponses).where(eq(atomicAssessmentResponses.atomicAssessmentId, id));
     await db.delete(evidenceItems).where(and(eq(evidenceItems.relatedType, "atomic_assessment"), eq(evidenceItems.relatedId, id)));
     await db.delete(atomicAssessments).where(eq(atomicAssessments.id, id));

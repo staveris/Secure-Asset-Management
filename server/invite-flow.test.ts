@@ -19,11 +19,18 @@ import { createServer, type Server } from "http";
 import request from "supertest";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { registerRoutes } from "./routes";
-import { storage } from "./storage";
-import { db, pool } from "./db";
 import { auditLogs, inviteTokens, passwordHistory, users, tenants } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
+
+// Requires a database: skips cleanly when DATABASE_URL is not set so the
+// default `vitest run` stays green in sandboxes/CI without a DB. The
+// DB-touching modules are imported dynamically for the same reason — a static
+// import of ./db throws at load time without DATABASE_URL.
+const hasDb = !!process.env.DATABASE_URL;
+let registerRoutes: typeof import("./routes").registerRoutes;
+let storage: typeof import("./storage").storage;
+let db: typeof import("./db").db;
+let pool: typeof import("./db").pool;
 
 const RUN_ID = crypto.randomBytes(6).toString("hex");
 const emailFor = (name: string) => `invite-test-${name}-${RUN_ID}@example.test`;
@@ -66,6 +73,11 @@ async function createInvite(opts: {
 }
 
 beforeAll(async () => {
+  if (!hasDb) return;
+  ({ registerRoutes } = await import("./routes"));
+  ({ storage } = await import("./storage"));
+  ({ db, pool } = await import("./db"));
+
   app = express();
   app.use(express.json());
   server = createServer(app);
@@ -104,6 +116,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
+  if (!hasDb) return;
   try {
     if (tenantId) {
       await db.delete(auditLogs).where(eq(auditLogs.tenantId, tenantId));
@@ -123,7 +136,7 @@ afterAll(async () => {
   }
 }, 60_000);
 
-describe("GET /api/auth/invite/:token (validation)", () => {
+describe.skipIf(!hasDb)("GET /api/auth/invite/:token (validation)", () => {
   it("rejects a malformed/too-short token with 400", async () => {
     const res = await request(app).get("/api/auth/invite/short");
     expect(res.status).toBe(400);
@@ -157,7 +170,7 @@ describe("GET /api/auth/invite/:token (validation)", () => {
   });
 });
 
-describe("POST /api/auth/accept-invite", () => {
+describe.skipIf(!hasDb)("POST /api/auth/accept-invite", () => {
   let acceptToken: string;
   let acceptInviteId: number;
   const acceptEmail = emailFor("accept");
@@ -273,7 +286,7 @@ describe("POST /api/auth/accept-invite", () => {
   });
 });
 
-describe("GET /api/tenant/invites classification", () => {
+describe.skipIf(!hasDb)("GET /api/tenant/invites classification", () => {
   let revokedInviteId: number;
   let pendingInviteId: number;
   let expiredInviteId: number;
