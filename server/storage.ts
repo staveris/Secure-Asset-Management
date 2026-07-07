@@ -354,6 +354,7 @@ export interface IStorage {
   getScopeCheckLeadByToken(reportToken: string): Promise<ScopeCheckLead | undefined>;
   getScopeCheckLeads(): Promise<ScopeCheckLead[]>;
   softDeleteScopeCheckLead(id: number): Promise<void>;
+  softDeleteScopeCheckLeadsByEmail(email: string): Promise<number>;
   markScopeCheckLeadConverted(id: number, tenantId: number): Promise<void>;
 
   createLegalSource(data: InsertLegalSource): Promise<LegalSource>;
@@ -1961,6 +1962,20 @@ export class DatabaseStorage implements IStorage {
       .update(scopeCheckLeads)
       .set({ deletedAt: new Date(), email: "erased" })
       .where(eq(scopeCheckLeads.id, id));
+  }
+
+  async softDeleteScopeCheckLeadsByEmail(email: string): Promise<number> {
+    const rows = await db
+      .update(scopeCheckLeads)
+      .set({ deletedAt: new Date(), email: "erased" })
+      .where(
+        and(
+          sql`lower(${scopeCheckLeads.email}) = lower(${email})`,
+          isNull(scopeCheckLeads.deletedAt),
+        ),
+      )
+      .returning({ id: scopeCheckLeads.id });
+    return rows.length;
   }
 
   async markScopeCheckLeadConverted(id: number, tenantId: number): Promise<void> {

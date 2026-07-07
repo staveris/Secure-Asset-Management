@@ -4211,6 +4211,51 @@ export async function registerRoutes(
     }
   });
 
+  // Delete every submission for one email (the grouped "lead"). Soft-delete +
+  // email scrub keeps it out of the list and honours data minimisation.
+  app.delete("/api/admin/scope-check-leads", requirePlatformAdmin, async (req, res) => {
+    try {
+      const email = String(req.query.email || "").trim();
+      if (!email) return res.status(400).json({ message: "email is required" });
+      const count = await storage.softDeleteScopeCheckLeadsByEmail(email);
+      await storage.createAuditLog({
+        tenantId: null,
+        actorUserId: req.session.userId ?? null,
+        action: "SCOPE_LEAD_DELETE",
+        entityType: "SCOPE_CHECK_LEAD",
+        entityId: email,
+        details: { scope: "group", count },
+      });
+      res.json({ ok: true, count });
+    } catch (err: any) {
+      console.error("[DELETE /api/admin/scope-check-leads] failed:", err?.message);
+      res.status(500).json({ message: "Unable to delete leads" });
+    }
+  });
+
+  // Delete a single submission from a lead's history.
+  app.delete("/api/admin/scope-check-leads/:id", requirePlatformAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ message: "Invalid lead id" });
+      }
+      await storage.softDeleteScopeCheckLead(id);
+      await storage.createAuditLog({
+        tenantId: null,
+        actorUserId: req.session.userId ?? null,
+        action: "SCOPE_LEAD_DELETE",
+        entityType: "SCOPE_CHECK_LEAD",
+        entityId: String(id),
+        details: { scope: "single" },
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[DELETE /api/admin/scope-check-leads/:id] failed:", err?.message);
+      res.status(500).json({ message: "Unable to delete lead" });
+    }
+  });
+
   app.get("/api/admin/email-settings", requirePlatformAdmin, async (req, res) => {
     try {
       const [settings] = await db.select().from(platformSettings).where(eq(platformSettings.key, "email_config"));
