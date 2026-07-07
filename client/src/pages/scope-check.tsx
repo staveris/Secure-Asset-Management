@@ -20,6 +20,7 @@ import {
   Gavel,
   Clock,
   Layers,
+  Info,
 } from "lucide-react";
 import companyLogo from "@assets/Color_logo_with_background_1770546085701.png";
 import {
@@ -216,6 +217,14 @@ export default function ScopeCheck() {
     () => NIS2_SECTORS.filter((s) => s.sectorGroup === form.sectorGroup),
     [form.sectorGroup],
   );
+  const annexISectors = useMemo(
+    () => NIS2_SECTORS.filter((s) => s.sectorGroup === "ANNEX_I").map((s) => s.sector),
+    [],
+  );
+  const annexIISectors = useMemo(
+    () => NIS2_SECTORS.filter((s) => s.sectorGroup === "ANNEX_II").map((s) => s.sector),
+    [],
+  );
 
   const onSectorGroupChange = (v: string) => {
     setForm((f) => ({ ...f, sectorGroup: v as FormState["sectorGroup"], sector: "", subsector: "" }));
@@ -341,9 +350,60 @@ export default function ScopeCheck() {
               <Card data-testid="card-step-sector">
                 <CardHeader>
                   <CardTitle className="text-base">Your sector</CardTitle>
-                  <CardDescription>Select the Annex I / Annex II sector your organisation operates in.</CardDescription>
+                  <CardDescription>
+                    NIS2 lists the sectors it covers in two annexes. Find your industry below, then
+                    pick the matching sector group.
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-5">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="inline-flex items-center rounded-md bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                          ANNEX I
+                        </span>
+                        <span className="text-xs font-medium text-foreground">
+                          Sectors of high criticality
+                        </span>
+                      </div>
+                      <ul className="space-y-1" data-testid="list-annex-i">
+                        {annexISectors.map((s) => (
+                          <li key={s} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                            <span className="mt-1.5 h-1 w-1 rounded-full bg-primary/60 shrink-0" />
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-lg border bg-muted/40 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="inline-flex items-center rounded-md bg-foreground/10 px-1.5 py-0.5 text-[11px] font-semibold text-foreground">
+                          ANNEX II
+                        </span>
+                        <span className="text-xs font-medium text-foreground">
+                          Other critical sectors
+                        </span>
+                      </div>
+                      <ul className="space-y-1" data-testid="list-annex-ii">
+                        {annexIISectors.map((s) => (
+                          <li key={s} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                            <span className="mt-1.5 h-1 w-1 rounded-full bg-foreground/40 shrink-0" />
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                    <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      Both annexes are in scope for NIS2. Annex I sectors are treated as
+                      "essential"; Annex II sectors as "important". The exact class also depends on
+                      your size and a few special cases in the next steps.
+                    </span>
+                  </div>
+
                   <div>
                     <Label className="text-sm">Sector group</Label>
                     <Select value={form.sectorGroup} onValueChange={onSectorGroupChange}>
@@ -351,7 +411,7 @@ export default function ScopeCheck() {
                         <SelectValue placeholder="Select sector group" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ANNEX_I">Annex I — high criticality sectors</SelectItem>
+                        <SelectItem value="ANNEX_I">Annex I — sectors of high criticality</SelectItem>
                         <SelectItem value="ANNEX_II">Annex II — other critical sectors</SelectItem>
                         <SelectItem value="NONE">None of these apply to us</SelectItem>
                       </SelectContent>
