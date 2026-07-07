@@ -305,19 +305,32 @@ export default function ScopeCheck() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-10 space-y-8">
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Free · No account needed · Takes 2 minutes
+      <main className="max-w-3xl mx-auto px-4 py-12 sm:py-16 space-y-10">
+        <div className="relative text-center max-w-2xl mx-auto">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-[-4rem] -translate-x-1/2 h-64 w-[36rem] max-w-full rounded-full bg-primary/10 blur-3xl"
+          />
+          <div className="relative space-y-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3.5 py-1.5 text-xs font-medium text-primary shadow-sm">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+              </span>
+              Free · No account needed · Takes 2 minutes
+            </div>
+            <h1
+              className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-br from-foreground via-foreground to-primary bg-clip-text text-transparent pb-1"
+              data-testid="text-page-title"
+            >
+              Are you in scope for NIS2?
+            </h1>
+            <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto">
+              Answer a few quick questions to get an indicative assessment of whether the NIS2
+              Directive <span className="whitespace-nowrap">(EU&nbsp;2022/2555)</span> applies to
+              your organisation.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" data-testid="text-page-title">
-            Are you in scope for NIS2?
-          </h1>
-          <p className="text-muted-foreground leading-relaxed">
-            Answer a few questions to get an indicative assessment of whether the NIS2 Directive
-            (EU&nbsp;2022/2555) applies to your organisation.
-          </p>
         </div>
 
         {!result ? (
