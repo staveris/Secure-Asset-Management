@@ -4199,6 +4199,18 @@ export async function registerRoutes(
     res.json(logs);
   });
 
+  // Free NIS2 scope-check leads (GDPR-erased rows excluded, report tokens never
+  // exposed). Platform-admin only — this is a cross-tenant sales/lead surface.
+  app.get("/api/admin/scope-check-leads", requirePlatformAdmin, async (_req, res) => {
+    try {
+      const leads = await storage.getScopeCheckLeads();
+      res.json(leads);
+    } catch (err: any) {
+      console.error("[GET /api/admin/scope-check-leads] failed:", err?.message);
+      res.status(500).json({ message: "Unable to load scope-check leads" });
+    }
+  });
+
   app.get("/api/admin/email-settings", requirePlatformAdmin, async (req, res) => {
     try {
       const [settings] = await db.select().from(platformSettings).where(eq(platformSettings.key, "email_config"));

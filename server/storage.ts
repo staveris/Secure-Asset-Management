@@ -352,6 +352,7 @@ export interface IStorage {
 
   createScopeCheckLead(data: InsertScopeCheckLead): Promise<ScopeCheckLead>;
   getScopeCheckLeadByToken(reportToken: string): Promise<ScopeCheckLead | undefined>;
+  getScopeCheckLeads(): Promise<ScopeCheckLead[]>;
   softDeleteScopeCheckLead(id: number): Promise<void>;
   markScopeCheckLeadConverted(id: number, tenantId: number): Promise<void>;
 
@@ -1930,6 +1931,29 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return migrated;
+  }
+
+  async getScopeCheckLeads(): Promise<ScopeCheckLead[]> {
+    // Platform-admin lead list: exclude GDPR-erased rows, newest first. The
+    // report token (a secret capability) is deliberately never selected here.
+    return db
+      .select({
+        id: scopeCheckLeads.id,
+        email: scopeCheckLeads.email,
+        reportToken: sql<string>`''`.as("report_token"),
+        answers: scopeCheckLeads.answers,
+        verdict: scopeCheckLeads.verdict,
+        controlStats: scopeCheckLeads.controlStats,
+        consentText: scopeCheckLeads.consentText,
+        consentMarketing: scopeCheckLeads.consentMarketing,
+        createdAt: scopeCheckLeads.createdAt,
+        convertedTenantId: scopeCheckLeads.convertedTenantId,
+        convertedAt: scopeCheckLeads.convertedAt,
+        deletedAt: scopeCheckLeads.deletedAt,
+      })
+      .from(scopeCheckLeads)
+      .where(isNull(scopeCheckLeads.deletedAt))
+      .orderBy(desc(scopeCheckLeads.createdAt));
   }
 
   async softDeleteScopeCheckLead(id: number): Promise<void> {

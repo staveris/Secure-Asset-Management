@@ -34,6 +34,7 @@ import {
   Shield,
   FileText,
   BarChart3,
+  Sparkles,
   Building2,
   BookOpen,
   ScrollText,
@@ -76,6 +77,7 @@ const tenantMenuItems = [
 
 const adminMenuItems = [
   { title: "Global Analytics", url: "/admin", icon: BarChart3 },
+  { title: "Scope Check Leads", url: "/admin/scope-leads", icon: Sparkles },
   { title: "Tenants", url: "/admin/tenants", icon: Building2 },
   { title: "Storage & Quotas", url: "/admin/storage", icon: HardDrive },
   { title: "Requirements", url: "/admin/requirements", icon: BookOpen },

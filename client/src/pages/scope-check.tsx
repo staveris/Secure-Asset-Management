@@ -100,27 +100,45 @@ function buildAnswers(f: FormState): ScopeCheckAnswers {
 
 function StepIndicator({ current }: { current: number }) {
   return (
-    <div className="flex items-center gap-2" data-testid="step-indicator">
-      {STEPS.map((label, i) => (
-        <div key={label} className="flex items-center gap-2">
-          <div
-            className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-semibold ${
-              i === current
-                ? "bg-primary text-primary-foreground"
-                : i < current
-                  ? "bg-primary/20 text-primary"
-                  : "bg-muted text-muted-foreground"
-            }`}
-            data-testid={`step-dot-${i}`}
-          >
-            {i + 1}
+    <div className="flex items-center" data-testid="step-indicator">
+      {STEPS.map((label, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <div key={label} className="flex items-center flex-1 last:flex-none">
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`flex items-center justify-center h-8 w-8 rounded-full text-xs font-semibold transition-all duration-300 ${
+                  active
+                    ? "bg-primary text-primary-foreground ring-4 ring-primary/15 scale-105"
+                    : done
+                      ? "bg-primary/15 text-primary"
+                      : "bg-muted text-muted-foreground"
+                }`}
+                data-testid={`step-dot-${i}`}
+              >
+                {done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+              </div>
+              <span
+                className={`text-xs hidden sm:inline transition-colors ${
+                  active ? "font-semibold text-foreground" : done ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div className="flex-1 h-0.5 mx-3 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full bg-primary transition-all duration-500 ${
+                    done ? "w-full" : "w-0"
+                  }`}
+                />
+              </div>
+            )}
           </div>
-          <span className={`text-xs hidden sm:inline ${i === current ? "font-medium" : "text-muted-foreground"}`}>
-            {label}
-          </span>
-          {i < STEPS.length - 1 && <div className="w-4 h-px bg-border" />}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -148,9 +166,14 @@ function VerdictBanner({ verdict }: { verdict: ScopeCheckResponse["verdict"] }) 
   }[verdict.status];
   const Icon = config.icon;
   return (
-    <div className={`rounded-md border p-5 flex items-start gap-4 ${config.cls}`} data-testid="banner-verdict">
-      <Icon className={`w-9 h-9 shrink-0 ${config.iconCls}`} />
-      <div className="min-w-0 space-y-2">
+    <div
+      className={`relative overflow-hidden rounded-xl border p-6 flex items-start gap-4 shadow-sm ${config.cls}`}
+      data-testid="banner-verdict"
+    >
+      <div className={`flex items-center justify-center h-14 w-14 rounded-full bg-background/50 shrink-0 ${config.iconCls}`}>
+        <Icon className="w-8 h-8" />
+      </div>
+      <div className="min-w-0 space-y-2 pt-0.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-2xl font-bold tracking-tight" data-testid="text-verdict-status">
             {config.label}
@@ -161,7 +184,7 @@ function VerdictBanner({ verdict }: { verdict: ScopeCheckResponse["verdict"] }) 
             </Badge>
           )}
         </div>
-        <p className="text-sm text-foreground/80" data-testid="text-verdict-reason">
+        <p className="text-sm text-foreground/80 leading-relaxed" data-testid="text-verdict-reason">
           {verdict.reason}
         </p>
       </div>
@@ -267,8 +290,8 @@ export default function ScopeCheck() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
+    <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
+      <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <Link href="/" data-testid="link-home">
             <div className="flex items-center gap-2 cursor-pointer">
@@ -282,14 +305,18 @@ export default function ScopeCheck() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">
-            Free NIS2 Scope Check
+      <main className="max-w-3xl mx-auto px-4 py-10 space-y-8">
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Free · No account needed · Takes 2 minutes
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" data-testid="text-page-title">
+            Are you in scope for NIS2?
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-muted-foreground leading-relaxed">
             Answer a few questions to get an indicative assessment of whether the NIS2 Directive
-            (EU 2022/2555) applies to your organisation.
+            (EU&nbsp;2022/2555) applies to your organisation.
           </p>
         </div>
 
@@ -690,9 +717,11 @@ function SpecialTrigger(props: {
 
 function GatedRow({ icon: Icon, text }: { icon: any; text: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2.5">
-      <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-      <span className="text-sm flex-1">{text}</span>
+    <div className="flex items-center gap-3 rounded-lg border bg-gradient-to-r from-muted/50 to-muted/20 px-3.5 py-3 transition-colors hover:from-muted/70">
+      <div className="flex items-center justify-center h-8 w-8 rounded-md bg-primary/10 text-primary shrink-0">
+        <Icon className="w-4 h-4" />
+      </div>
+      <span className="text-sm flex-1 font-medium">{text}</span>
       <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
     </div>
   );
