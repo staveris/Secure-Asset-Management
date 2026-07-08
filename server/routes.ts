@@ -150,6 +150,103 @@ const uploadIpLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Bounds how many multipart uploads may be buffered into memory at once.
+// This runs *before* Multer, so it caps concurrent in-flight buffering
+// regardless of per-request size, preventing memory exhaustion from
+// parallel/fan-out uploads that each individually pass the per-file cap.
+const MAX_CONCURRENT_UPLOADS_PER_USER = 2;
+const MAX_CONCURRENT_UPLOADS_GLOBAL = 20;
+const activeUploadsByUser = new Map<number, number>();
+let activeUploadsGlobal = 0;
+
+function uploadConcurrencyGuard(req: Request, res: Response, next: NextFunction) {
+  const userId = req.session?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const userCount = activeUploadsByUser.get(userId) ?? 0;
+  if (activeUploadsGlobal >= MAX_CONCURRENT_UPLOADS_GLOBAL || userCount >= MAX_CONCURRENT_UPLOADS_PER_USER) {
+    return res.status(429).json({ message: "Too many concurrent uploads in progress. Please wait for existing uploads to finish and try again." });
+  }
+
+  activeUploadsByUser.set(userId, userCount + 1);
+  activeUploadsGlobal++;
+
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    activeUploadsGlobal = Math.max(0, activeUploadsGlobal - 1);
+    const remaining = (activeUploadsByUser.get(userId) ?? 1) - 1;
+    if (remaining <= 0) {
+      activeUploadsByUser.delete(userId);
+    } else {
+      activeUploadsByUser.set(userId, remaining);
+    }
+  };
+  res.on("finish", release);
+  res.on("close", release);
+
+  next();
+}
+
+// Multipart framing (boundaries, headers, other form fields such as
+// relatedType/relatedId/assessmentId) adds a small amount of overhead on
+// top of the raw file bytes. This buffer keeps the pre-buffering size/quota
+// checks from false-rejecting legitimate requests while still rejecting
+// requests that are clearly oversized before their body is buffered.
+const UPLOAD_PREFLIGHT_OVERHEAD_BYTES = 64 * 1024;
+
+// Rejects unauthorised, plan-gated, or over-quota/over-size uploads using
+// only cheap DB lookups and the client-supplied Content-Length header,
+// *before* Multer buffers the (potentially large) multipart body into
+// memory. This is a defence-in-depth measure: the authoritative checks
+// still run again after buffering below, since Content-Length can be
+// absent (e.g. chunked transfer-encoding) or spoofed.
+async function evidenceUploadPreflight(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = await getAuthUser(req);
+    if (!user || !user.tenantId) {
+      return res.status(400).json({ message: "No tenant" });
+    }
+
+    const tenant = await storage.getTenant(user.tenantId);
+    if (!tenant) {
+      return res.status(400).json({ message: "Tenant not found" });
+    }
+
+    if (user.role !== "PLATFORM_ADMIN") {
+      const plan = await storage.getTenantPlan(user.tenantId);
+      if (plan && !tierAllows(plan.effectiveTier, "evidenceUpload")) {
+        return res.status(402).json({
+          error: "upgrade_required",
+          wall: "evidence_upload",
+          message: "Evidence upload is available on the Starter plan and above.",
+        });
+      }
+    }
+
+    const contentLength = Number(req.headers["content-length"]);
+    if (Number.isFinite(contentLength) && contentLength > 0) {
+      if (contentLength > tenant.maxFileSizeBytes + UPLOAD_PREFLIGHT_OVERHEAD_BYTES) {
+        const maxMB = (tenant.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
+        return res.status(413).json({ message: `File exceeds maximum size of ${maxMB} MB per file` });
+      }
+
+      if (tenant.storageUsedBytes + contentLength > tenant.storageQuotaBytes + UPLOAD_PREFLIGHT_OVERHEAD_BYTES) {
+        const quotaGB = (tenant.storageQuotaBytes / (1024 * 1024 * 1024)).toFixed(1);
+        return res.status(413).json({ message: `Upload would exceed your storage quota of ${quotaGB} GB. Free up space or contact your administrator.` });
+      }
+    }
+
+    next();
+  } catch (err) {
+    console.error("[Evidence] upload preflight check failed:", err);
+    res.status(500).json({ message: "Failed to validate upload" });
+  }
+}
+
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
@@ -2298,7 +2395,7 @@ export async function registerRoutes(
     res.json(enrichedList);
   });
 
-  app.post("/api/evidence/upload", requireAuth, requireWriteAccess, requireFullAccess, uploadIpLimiter, uploadLimiter, upload.single("file"), async (req, res) => {
+  app.post("/api/evidence/upload", requireAuth, requireWriteAccess, requireFullAccess, uploadIpLimiter, uploadLimiter, uploadConcurrencyGuard, evidenceUploadPreflight, upload.single("file"), async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
