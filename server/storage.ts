@@ -561,11 +561,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async incrementFailedLoginAttempts(id: number, maxAttempts: number, lockoutDurationMs: number): Promise<void> {
-    const [user] = await db.select({ failedLoginAttempts: users.failedLoginAttempts }).from(users).where(eq(users.id, id));
-    if (!user) return;
-    const newCount = (user.failedLoginAttempts ?? 0) + 1;
-    const lockedUntil = newCount >= maxAttempts ? new Date(Date.now() + lockoutDurationMs) : null;
-    await db.update(users).set({ failedLoginAttempts: newCount, lockedUntil }).where(eq(users.id, id));
+    // Atomic, single-statement read-modify-write done entirely in SQL so that
+    // concurrent failed-login requests for the same account cannot race each
+    // other and undercount attempts (which would let the lockout threshold be
+    // bypassed via parallel password guesses). Postgres evaluates the SET
+    // expressions per-row using the current row values under the row lock
+    // taken by UPDATE, so the increment is always based on the latest value.
+    const lockoutInterval = sql`make_interval(secs => ${lockoutDurationMs / 1000})`;
+    await db
+      .update(users)
+      .set({
+        failedLoginAttempts: sql`${users.failedLoginAttempts} + 1`,
+        lockedUntil: sql`CASE WHEN ${users.failedLoginAttempts} + 1 >= ${maxAttempts} THEN now() + ${lockoutInterval} ELSE ${users.lockedUntil} END`,
+      })
+      .where(eq(users.id, id));
   }
 
   async resetFailedLoginAttempts(id: number): Promise<void> {

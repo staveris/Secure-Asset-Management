@@ -61,19 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const totpVerifyMutation = useMutation({
     mutationFn: async (code: string) => {
-      const res = await fetch("/api/auth/totp-verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ code }),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`${res.status}: ${text}`);
-      }
+      const res = await apiRequest("POST", "/api/auth/totp-verify", { code });
       return await res.json();
     },
     onSuccess: () => {
+      clearCsrfToken();
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
   });

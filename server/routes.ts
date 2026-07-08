@@ -435,20 +435,26 @@ export async function registerRoutes(
   );
 
   app.get("/api/auth/csrf-token", csrfLimiter, (req, res) => {
-    if (req.session.userId) {
-      if (!req.session.csrfToken) {
-        req.session.csrfToken = crypto.randomBytes(32).toString("hex");
-      }
-      return res.json({ csrfToken: req.session.csrfToken });
+    // Always persist the token on the (possibly anonymous, pre-login) session
+    // so that session-creating public flows (login/register/totp/accept-invite)
+    // can be CSRF-validated before any authentication has happened. This closes
+    // the login-CSRF / session-fixation-by-confusion gap where an attacker forges
+    // a cross-site POST to bind a victim into an attacker-controlled account.
+    if (!req.session.csrfToken) {
+      req.session.csrfToken = crypto.randomBytes(32).toString("hex");
     }
-    res.json({ csrfToken: crypto.randomBytes(32).toString("hex") });
+    res.json({ csrfToken: req.session.csrfToken });
   });
 
   function verifyCsrf(req: Request, res: Response, next: NextFunction) {
     if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
       return next();
     }
-    if (req.path.startsWith("/auth/login") || req.path.startsWith("/auth/register") || req.path.startsWith("/auth/forgot-password") || req.path.startsWith("/auth/reset-password") || req.path.startsWith("/auth/verify-email") || req.path.startsWith("/auth/resend-verification") || req.path.startsWith("/auth/logout") || req.path.startsWith("/auth/totp-verify") || req.path.startsWith("/auth/accept-invite")) {
+    // Only truly token-authenticated (not session/cookie based) or session-less
+    // flows are exempt. Anything that establishes an authenticated session
+    // (login, register, totp-verify, accept-invite) MUST be CSRF-checked, or a
+    // cross-site form can silently log a victim into an attacker's account.
+    if (req.path.startsWith("/auth/forgot-password") || req.path.startsWith("/auth/reset-password") || req.path.startsWith("/auth/verify-email") || req.path.startsWith("/auth/resend-verification") || req.path.startsWith("/auth/logout")) {
       return next();
     }
     // Sessionless public scope-check surface only — do NOT broaden to all /public/ paths.

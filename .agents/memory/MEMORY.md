@@ -7,3 +7,4 @@
 - [Control deep-link keys](control-deep-link-keys.md) — `?control=<PREFIX>-<responseId>` is a cross-file contract (OBJ vs NIS2/CIR/DORA); never let two response tables share a prefix.
 - [GitHub CI & logs](github-ci-and-logs.md) — package-lock can get poisoned with package-firewall.replit.local URLs (breaks external CI); log-download 403s; workflow-file pushes need GITHUB_PAT.
 - [Route integration tests](route-integration-tests.md) — supertest against registerRoutes + real dev DB works; watch in-memory rate limits (5 register POSTs/hr) and clean up + pool.end() in afterAll.
+- [CSRF for session-creating auth flows and atomic lockout counters](csrf-and-lockout-hardening.md) — login/register/totp/accept-invite need CSRF; failed-login counters must be one atomic SQL UPDATE, not read-then-write.

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, XCircle, UserPlus, ShieldCheck } from "lucide-react";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest, clearCsrfToken } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface InviteInfo {
@@ -62,23 +62,14 @@ export default function AcceptInvite() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/accept-invite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ token, fullName, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast({ title: "Could not accept invitation", description: data.message, variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
+      await apiRequest("POST", "/api/auth/accept-invite", { token, fullName, password });
+      clearCsrfToken();
       toast({ title: "Welcome!", description: `Your account has been created in ${invite?.tenantName}.` });
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       navigate("/dashboard");
-    } catch {
-      toast({ title: "Something went wrong", description: "Please try again.", variant: "destructive" });
+    } catch (err: any) {
+      const message = typeof err?.message === "string" ? err.message.replace(/^\d+:\s*/, "") : "";
+      toast({ title: "Could not accept invitation", description: message || "Please try again.", variant: "destructive" });
       setSubmitting(false);
     }
   };
