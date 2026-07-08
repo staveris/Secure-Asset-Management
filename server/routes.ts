@@ -3717,7 +3717,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/storage-info", requireAuth, async (req, res) => {
+  app.get("/api/storage-info", requireAuth, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -4381,7 +4381,7 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/tenant/profile", requireAuth, async (req, res) => {
+  app.patch("/api/tenant/profile", requireAuth, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
@@ -4502,6 +4502,16 @@ export async function registerRoutes(
 
       const { email, role } = req.body;
       if (!email) return res.status(400).json({ message: "Email required" });
+
+      const TENANT_INVITE_ALLOWED_ROLES = new Set([
+        "TENANT_ADMIN",
+        "TENANT_MANAGER",
+        "TENANT_USER",
+        "READONLY_AUDITOR",
+      ]);
+      if (role !== undefined && !TENANT_INVITE_ALLOWED_ROLES.has(role)) {
+        return res.status(400).json({ message: "Invalid role for tenant invite" });
+      }
 
       const tenant = await storage.getTenant(user.tenantId);
       if (tenant) {
@@ -5293,7 +5303,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/tenant/details", requireAuth, async (req, res) => {
+  app.get("/api/tenant/details", requireAuth, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user || !user.tenantId) return res.status(400).json({ message: "No tenant" });
     const tenant = await storage.getTenant(user.tenantId);
@@ -5507,7 +5517,7 @@ export async function registerRoutes(
   });
 
   // PUT /api/dora/profile — upsert wizard answers; auto-computes doraEnabled
-  app.put("/api/dora/profile", requireAuth, requireDoraModule, requireWriteAccess, async (req, res) => {
+  app.put("/api/dora/profile", requireAuth, requireDoraModule, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
     const { db } = await import("./db");
@@ -5829,7 +5839,7 @@ export async function registerRoutes(
   });
 
   // PUT /api/nis2/profile — upsert wizard answers; derives sizeClass and caches the decision
-  app.put("/api/nis2/profile", requireAuth, requireNis2ScopingModule, requireWriteAccess, async (req, res) => {
+  app.put("/api/nis2/profile", requireAuth, requireNis2ScopingModule, requireWriteAccess, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
     const { decideNis2Applicability, deriveSizeClass } = await import("./nis2-applicability");

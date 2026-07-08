@@ -114,16 +114,18 @@ function WithFullAccessId({ component: Component, id }: { component: React.Compo
 }
 
 function WithDoraModule({ component: Component }: { component: React.ComponentType }) {
+  const { hasFullAccess } = useAuth();
   const { data, isLoading } = useDoraEnabled();
   if (isLoading) return null;
-  if (!data?.enabled) return <RestrictedPage />;
+  if (!data?.enabled || !hasFullAccess) return <RestrictedPage />;
   return <Component />;
 }
 
 function WithNis2Scoping({ component: Component }: { component: React.ComponentType }) {
+  const { hasFullAccess } = useAuth();
   const { data, isLoading } = useNis2ScopingEnabled();
   if (isLoading) return null;
-  if (!data?.enabled) return <RestrictedPage />;
+  if (!data?.enabled || !hasFullAccess) return <RestrictedPage />;
   return <Component />;
 }
 
@@ -189,7 +191,7 @@ function TenantRouter() {
       <Route path="/suppliers">{() => <WithFullAccess component={Suppliers} />}</Route>
       <Route path="/risks">{() => <WithFullAccess component={Risks} />}</Route>
       <Route path="/reports">{() => <WithFullAccess component={Reports} />}</Route>
-      <Route path="/onboarding" component={Onboarding} />
+      <Route path="/onboarding">{() => <WithFullAccess component={Onboarding} />}</Route>
       <Route path="/users">{() => <WithFullAccess component={UsersPage} />}</Route>
       <Route path="/settings/plan" component={PlanPage} />
       <Route path="/settings" component={SettingsPage} />
