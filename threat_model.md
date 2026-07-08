@@ -9,6 +9,7 @@ Production-scope assumptions for this repo:
 - Replit terminates TLS for deployed traffic.
 - `artifacts/mockup-sandbox` is dev-only and out of scope unless production reachability is demonstrated.
 - The current deployment is publicly reachable, so public and authenticated routes should be treated as internet-exposed.
+- The current public Replit deployment uses the local evidence-storage provider; the S3 adapter is documented for alternate AWS staging/production deployments and should stay out of scope unless deployment evidence shows it is active.
 
 ## Assets
 
@@ -38,6 +39,7 @@ Production-scope assumptions for this repo:
 - **Surface split:** public auth endpoints under `/api/auth/*`; authenticated tenant endpoints under `/api/*`; privileged platform endpoints under `/api/admin/*` and `requirePlatformAdmin` checks. Shared tenant-visible reporting endpoints such as `/api/dashboard`, `/api/assessment-history`, and `/api/snapshots*` should be reviewed for accidental disclosure of data otherwise gated behind `requireFullAccess`.
 - **Additional scan anchors:** `GET /api/tenant/users` and `GET /api/tenant/details` remain important intra-tenant disclosure checkpoints; `PATCH /api/tenant/users/:id` is a critical restricted-vs-full-access and role-boundary checkpoint; `POST /api/tenant/invite` is a critical tenant-to-platform role-escalation checkpoint because invite roles are attacker-influenced; `PATCH /api/tenant/profile`, `PUT /api/dora/profile`, and `PUT /api/nis2/profile` are critical restricted-vs-full-access write checkpoints because they mutate tenant-wide scoping used by later assessments; `POST /api/evidence/upload` is a primary availability checkpoint because upload processing is attacker-influenced before storage/quota checks; `GET /api/admin/atomic-maps` remains a platform-vs-tenant authorization checkpoint, and evidence unlock routes under `/api/evidence/*unlock*` remain sensitive to restricted-vs-full-access bypasses.
 - **Current scan notes:** the prior production session-secret fallback issue is fixed, and lockout is now implemented in the login path. Future auth reviews should instead focus on CSRF exemptions for session-creating flows and on concurrency safety of per-account defenses such as failed-login counters.
+- **Current scan notes:** client route wrappers make DORA, NIS2 scoping, and cross-framework pages full-access-only surfaces, so corresponding backend APIs should be reviewed as part of the restricted-vs-full-access boundary rather than treated as ordinary assessment endpoints.
 - **Usually dev-only:** `artifacts/mockup-sandbox/**` unless production reachability is shown.
 
 ## Threat Categories
