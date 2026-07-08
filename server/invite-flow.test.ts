@@ -45,6 +45,26 @@ function makeToken() {
 
 const inDays = (d: number) => new Date(Date.now() + d * 24 * 60 * 60 * 1000);
 
+/**
+ * Login and accept-invite are session-creating flows and therefore
+ * CSRF-protected: fetch a token for the given agent's session first.
+ */
+async function csrfFor(a: request.Agent | ReturnType<typeof request>) {
+  const res = await a.get("/api/auth/csrf-token");
+  expect(res.status).toBe(200);
+  return res.body.csrfToken as string;
+}
+
+/** POST /api/auth/accept-invite from a fresh session with a valid CSRF token. */
+async function postAcceptInvite(body: Record<string, unknown>, a?: request.Agent) {
+  const acceptAgent = a ?? request.agent(app);
+  const token = await csrfFor(acceptAgent);
+  return acceptAgent
+    .post("/api/auth/accept-invite")
+    .set("x-csrf-token", token)
+    .send(body);
+}
+
 let app: express.Express;
 let server: Server;
 let agent: request.Agent;
@@ -109,8 +129,10 @@ beforeAll(async () => {
   createdUserIds.push(admin.id);
 
   agent = request.agent(app);
+  const csrfToken = await csrfFor(agent);
   const loginRes = await agent
     .post("/api/auth/login")
+    .set("x-csrf-token", csrfToken)
     .send({ email: admin.email, password: ADMIN_PASSWORD });
   expect(loginRes.status).toBe(200);
 }, 60_000);
@@ -181,11 +203,14 @@ describe.skipIf(!hasDb)("POST /api/auth/accept-invite", () => {
     acceptInviteId = invite.id;
 
     const acceptAgent = request.agent(app);
-    const res = await acceptAgent.post("/api/auth/accept-invite").send({
-      token,
-      password: NEW_USER_PASSWORD,
-      fullName: "Accepted Invitee",
-    });
+    const res = await postAcceptInvite(
+      {
+        token,
+        password: NEW_USER_PASSWORD,
+        fullName: "Accepted Invitee",
+      },
+      acceptAgent,
+    );
     expect(res.status).toBe(200);
     expect(res.body.email).toBe(acceptEmail);
     expect(res.body.role).toBe("TENANT_USER");
@@ -222,7 +247,7 @@ describe.skipIf(!hasDb)("POST /api/auth/accept-invite", () => {
   });
 
   it("rejects reusing the same token with 410 (POST and GET)", async () => {
-    const postRes = await request(app).post("/api/auth/accept-invite").send({
+    const postRes = await postAcceptInvite({
       token: acceptToken,
       password: NEW_USER_PASSWORD,
       fullName: "Second Attempt",
@@ -247,7 +272,7 @@ describe.skipIf(!hasDb)("POST /api/auth/accept-invite", () => {
       email: emailFor("expired-post"),
       expiresAt: inDays(-1),
     });
-    const res = await request(app).post("/api/auth/accept-invite").send({
+    const res = await postAcceptInvite({
       token,
       password: NEW_USER_PASSWORD,
       fullName: "Expired Invitee",
@@ -258,7 +283,7 @@ describe.skipIf(!hasDb)("POST /api/auth/accept-invite", () => {
 
   it("rejects an invite whose email already has an account with 400", async () => {
     const { token } = await createInvite({ email: emailFor("admin") });
-    const res = await request(app).post("/api/auth/accept-invite").send({
+    const res = await postAcceptInvite({
       token,
       password: NEW_USER_PASSWORD,
       fullName: "Duplicate Email",
@@ -272,7 +297,7 @@ describe.skipIf(!hasDb)("POST /api/auth/accept-invite", () => {
     await db.update(tenants).set({ maxUsers: tenantUsers.length }).where(eq(tenants.id, tenantId));
     try {
       const { token } = await createInvite({ email: emailFor("over-limit") });
-      const res = await request(app).post("/api/auth/accept-invite").send({
+      const res = await postAcceptInvite({
         token,
         password: NEW_USER_PASSWORD,
         fullName: "Over Limit",
