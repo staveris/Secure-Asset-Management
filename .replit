@@ -53,3 +53,6 @@ APP_BASE_URL = "https://nis2compliance.toolsoftech.eu"
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[agent]
+integrations = ["github:1.0.0"]
