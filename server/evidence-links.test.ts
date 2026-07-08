@@ -39,6 +39,7 @@ function facts(over: Partial<EvidenceLinkFacts> = {}): EvidenceLinkFacts {
     sha256: "abc123",
     storagePath: "uploads/evidence/a.pdf",
     linkedFromEvidenceId: null,
+    lockedAt: null,
     ...over,
   };
 }
@@ -94,6 +95,18 @@ describe("planEvidenceLink", () => {
   it("rejects evidence without a stored file", () => {
     expect(planEvidenceLink(facts({ sha256: null }), null, 200, []).ok).toBe(false);
     expect(planEvidenceLink(facts({ storagePath: null }), null, 200, []).ok).toBe(false);
+  });
+
+  it("rejects linking locked source evidence", () => {
+    const plan = planEvidenceLink(facts({ lockedAt: new Date() }), null, 200, []);
+    expect(plan).toMatchObject({ ok: false, kind: "LOCKED" });
+  });
+
+  it("rejects linking a link whose root is locked", () => {
+    const source = facts({ id: 2, relatedId: 150, linkedFromEvidenceId: 1 });
+    const root = facts({ lockedAt: new Date() });
+    const plan = planEvidenceLink(source, root, 200, []);
+    expect(plan).toMatchObject({ ok: false, kind: "LOCKED" });
   });
 });
 

@@ -17,11 +17,12 @@ export interface EvidenceLinkFacts {
   sha256: string | null;
   storagePath: string | null;
   linkedFromEvidenceId: number | null;
+  lockedAt: Date | string | null;
 }
 
 export type LinkPlan =
   | { ok: true; anchorId: number }
-  | { ok: false; kind: "DUPLICATE" | "INVALID"; error: string };
+  | { ok: false; kind: "DUPLICATE" | "INVALID" | "LOCKED"; error: string };
 
 /**
  * Decide whether a link row may be created from `source` onto `targetControlId`.
@@ -51,6 +52,13 @@ export function planEvidenceLink(
   }
   if (!anchor.sha256 || !anchor.storagePath) {
     return { ok: false, kind: "INVALID", error: "Evidence has no stored file to link" };
+  }
+  if (source.lockedAt != null || anchor.lockedAt != null) {
+    return {
+      ok: false,
+      kind: "LOCKED",
+      error: "Evidence is locked and cannot be re-attached without an admin-approved unlock",
+    };
   }
   if (anchor.relatedType === "AtomicControl" && anchor.relatedId === targetControlId) {
     return { ok: false, kind: "DUPLICATE", error: "Evidence is already attached to this control" };
