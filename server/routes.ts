@@ -5606,7 +5606,7 @@ export async function registerRoutes(
   }
 
   // GET /api/dora/profile — get this tenant's DORA regulatory profile (defaults if absent)
-  app.get("/api/dora/profile", requireAuth, requireDoraModule, async (req, res) => {
+  app.get("/api/dora/profile", requireAuth, requireDoraModule, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
     const profile = (await loadDoraProfile(user.tenantId)) || emptyDoraProfile(user.tenantId);
@@ -5699,7 +5699,7 @@ export async function registerRoutes(
   });
 
   // GET /api/dora/controls — DORA controls applicable to this tenant
-  app.get("/api/dora/controls", requireAuth, requireDoraModule, async (req, res) => {
+  app.get("/api/dora/controls", requireAuth, requireDoraModule, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
     const { db } = await import("./db");
@@ -5738,7 +5738,7 @@ export async function registerRoutes(
   // POST /api/dora/assessments — create a DORA assessment pre-scoped to the
   // tenant's applicable DORA controls. Returns the new assessment id so the
   // client can navigate to the standard /atomic-assessments/:id UI.
-  app.post("/api/dora/assessments", requireAuth, requireDoraModule, requireWriteAccess, async (req, res) => {
+  app.post("/api/dora/assessments", requireAuth, requireDoraModule, requireWriteAccess, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
@@ -5814,7 +5814,7 @@ export async function registerRoutes(
 
   // GET /api/dora/assessments — list atomic assessments for this tenant that
   // contain DORA controls (so the DORA dashboard can show prior runs).
-  app.get("/api/dora/assessments", requireAuth, requireDoraModule, async (req, res) => {
+  app.get("/api/dora/assessments", requireAuth, requireDoraModule, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
     const { DORA_SOURCE_KEY } = await import("./dora-applicability");
@@ -5851,6 +5851,8 @@ export async function registerRoutes(
   });
 
   // GET /api/dora/module-enabled — whether tenant can see the DORA module at all
+  // Intentionally requireAuth only (no requireFullAccess): returns just a boolean
+  // feature-flag probe used by sidebar/route wrappers for all authenticated users.
   app.get("/api/dora/module-enabled", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user) return res.status(401).json({ message: "Unauthorized" });
@@ -5918,6 +5920,8 @@ export async function registerRoutes(
   }
 
   // GET /api/nis2/module-enabled — whether tenant can see the scoping module at all
+  // Intentionally requireAuth only (no requireFullAccess): returns just a boolean
+  // feature-flag probe used by sidebar/route wrappers for all authenticated users.
   app.get("/api/nis2/module-enabled", requireAuth, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user) return res.status(401).json({ message: "Unauthorized" });
@@ -5928,7 +5932,7 @@ export async function registerRoutes(
   });
 
   // GET /api/nis2/profile — get this tenant's NIS2 regulatory profile (defaults if absent)
-  app.get("/api/nis2/profile", requireAuth, requireNis2ScopingModule, async (req, res) => {
+  app.get("/api/nis2/profile", requireAuth, requireNis2ScopingModule, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
     const profile = (await loadNis2Profile(user.tenantId)) || emptyNis2Profile(user.tenantId);
@@ -6032,7 +6036,7 @@ export async function registerRoutes(
   });
 
   // GET /api/nis2/controls — ALL NIS2 controls annotated with per-control applicability
-  app.get("/api/nis2/controls", requireAuth, requireNis2ScopingModule, async (req, res) => {
+  app.get("/api/nis2/controls", requireAuth, requireNis2ScopingModule, requireFullAccess, async (req, res) => {
     const user = await getAuthUser(req);
     if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
     const { decideNis2Applicability, isControlApplicable } = await import("./nis2-applicability");
@@ -6060,7 +6064,7 @@ export async function registerRoutes(
 
   // POST /api/nis2/scoped-assessments — create an atomic assessment pre-scoped to the
   // tenant's applicable NIS2 controls (shared atomic-assessment workspace, no new table).
-  app.post("/api/nis2/scoped-assessments", requireAuth, requireNis2ScopingModule, requireWriteAccess, async (req, res) => {
+  app.post("/api/nis2/scoped-assessments", requireAuth, requireNis2ScopingModule, requireWriteAccess, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
@@ -6406,8 +6410,10 @@ export async function registerRoutes(
     }
   });
 
-  // GET /api/cross-framework/coverage — read-only coverage matrix across frameworks
-  app.get("/api/cross-framework/coverage", requireAuth, requireCrossFramework, async (req, res) => {
+  // GET /api/cross-framework/coverage — read-only coverage matrix across frameworks.
+  // requireFullAccess: exposes a tenant-wide compliance matrix and is only consumed
+  // by full-access-gated pages (/cross-framework, admin crosswalk review).
+  app.get("/api/cross-framework/coverage", requireAuth, requireCrossFramework, requireFullAccess, async (req, res) => {
     try {
       const user = await getAuthUser(req);
       if (!user?.tenantId) return res.status(403).json({ message: "Tenant required" });
