@@ -15,12 +15,15 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      # npm can crash ("Exit handler never called!") yet still exit 0, leaving an
-      # incomplete node_modules. Verify key binaries exist and retry if needed.
+      # npm 10.8.x can crash ("Exit handler never called!") yet still exit 0,
+      # leaving an incomplete node_modules. Upgrade npm (bug fixed in newer
+      # versions), verify key binaries exist, and retry if needed.
       - name: Install dependencies (verified)
         run: |
+          npm install -g npm@11
+          npm --version
           for i in 1 2 3; do
-            if npm ci && [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/drizzle-kit ] && [ -x node_modules/.bin/tsc ]; then
+            if npm ci --no-audit --no-fund && [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/drizzle-kit ] && [ -x node_modules/.bin/tsc ]; then
               exit 0
             fi
             echo "npm ci left an incomplete node_modules (attempt $i); retrying..."
@@ -59,8 +62,10 @@ jobs:
           cache: npm
       - name: Install dependencies (verified)
         run: |
+          npm install -g npm@11
+          npm --version
           for i in 1 2 3; do
-            if npm ci && [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/drizzle-kit ] && [ -x node_modules/.bin/tsc ]; then
+            if npm ci --no-audit --no-fund && [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/drizzle-kit ] && [ -x node_modules/.bin/tsc ]; then
               exit 0
             fi
             echo "npm ci left an incomplete node_modules (attempt $i); retrying..."
@@ -84,8 +89,10 @@ jobs:
           cache: npm
       - name: Install dependencies (verified)
         run: |
+          npm install -g npm@11
+          npm --version
           for i in 1 2 3; do
-            if npm ci && [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/drizzle-kit ] && [ -x node_modules/.bin/tsc ]; then
+            if npm ci --no-audit --no-fund && [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/drizzle-kit ] && [ -x node_modules/.bin/tsc ]; then
               exit 0
             fi
             echo "npm ci left an incomplete node_modules (attempt $i); retrying..."
