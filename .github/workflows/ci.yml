@@ -15,7 +15,20 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      # npm can crash ("Exit handler never called!") yet still exit 0, leaving an
+      # incomplete node_modules. Verify key binaries exist and retry if needed.
+      - name: Install dependencies (verified)
+        run: |
+          for i in 1 2 3; do
+            if npm ci && [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/drizzle-kit ] && [ -x node_modules/.bin/tsc ]; then
+              exit 0
+            fi
+            echo "npm ci left an incomplete node_modules (attempt $i); retrying..."
+            rm -rf node_modules
+            sleep 5
+          done
+          echo "::error::npm ci failed to produce a complete node_modules after 3 attempts"
+          exit 1
       # DATABASE_URL intentionally unset: DB-gated suites must skip cleanly.
       - run: npx vitest run
 
@@ -44,7 +57,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      - name: Install dependencies (verified)
+        run: |
+          for i in 1 2 3; do
+            if npm ci && [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/drizzle-kit ] && [ -x node_modules/.bin/tsc ]; then
+              exit 0
+            fi
+            echo "npm ci left an incomplete node_modules (attempt $i); retrying..."
+            rm -rf node_modules
+            sleep 5
+          done
+          echo "::error::npm ci failed to produce a complete node_modules after 3 attempts"
+          exit 1
       - name: Push schema
         run: npm run db:push -- --force
       - run: npx vitest run
@@ -58,7 +82,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      - name: Install dependencies (verified)
+        run: |
+          for i in 1 2 3; do
+            if npm ci && [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/drizzle-kit ] && [ -x node_modules/.bin/tsc ]; then
+              exit 0
+            fi
+            echo "npm ci left an incomplete node_modules (attempt $i); retrying..."
+            rm -rf node_modules
+            sleep 5
+          done
+          echo "::error::npm ci failed to produce a complete node_modules after 3 attempts"
+          exit 1
       - name: Count tsc errors vs baseline
         run: |
           set +e
