@@ -288,6 +288,7 @@ declare module "express-session" {
     userId: number;
     csrfToken: string;
     pendingTotpUserId: number;
+    pendingTotpAttempts: number;
   }
 }
 
@@ -970,8 +971,6 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      await storage.resetFailedLoginAttempts(user.id);
-
       const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
       if (tenant && (tenant as any).status === "suspended" && user.role !== "PLATFORM_ADMIN") {
         logSecurityEvent("LOGIN_BLOCKED_SUSPENDED", { email: data.email, ip: clientIp, tenantId: user.tenantId });
@@ -987,10 +986,16 @@ export async function registerRoutes(
       }
 
       if (user.totpEnabled && user.totpSecret) {
+        // Do NOT reset failed-login attempts here: authentication is not complete until
+        // TOTP is verified, so the account-bound failure counter must persist across
+        // repeated password+TOTP cycles to prevent resetting the brute-force budget.
         req.session.pendingTotpUserId = user.id;
+        req.session.pendingTotpAttempts = 0;
         return res.json({ requireTotp: true });
       }
 
+      // No 2FA required: password check is the full authentication, safe to reset here.
+      await storage.resetFailedLoginAttempts(user.id);
       await storage.updateUserLastLogin(user.id);
       await new Promise<void>((resolve, reject) =>
         req.session.regenerate((err) => (err ? reject(err) : resolve()))
@@ -1039,6 +1044,27 @@ export async function registerRoutes(
       if (!user || !user.totpSecret || !user.totpEnabled) {
         return res.status(400).json({ message: "2FA not configured for this account" });
       }
+
+      const clientIpForLockCheck = req.ip || req.headers["x-forwarded-for"] || "unknown";
+      if (user.lockedUntil && user.lockedUntil > new Date()) {
+        const retryAfterMs = user.lockedUntil.getTime() - Date.now();
+        const retryAfterMins = Math.ceil(retryAfterMs / 60000);
+        logSecurityEvent("LOGIN_BLOCKED_LOCKOUT", { email: user.email, ip: clientIpForLockCheck, userId: user.id, totp: true });
+        await storage.createAuditLog({
+          tenantId: user.tenantId,
+          actorUserId: user.id,
+          action: "LOGIN_BLOCKED_LOCKOUT",
+          entityType: "AUTH",
+          entityId: String(user.id),
+          details: { reason: "account_locked", ip: clientIpForLockCheck, retryAfterMins, totp: true },
+        });
+        delete req.session.pendingTotpUserId;
+        delete req.session.pendingTotpAttempts;
+        return res.status(429).json({
+          message: `Account is temporarily locked due to too many failed login attempts. Please try again in ${retryAfterMins} minute(s).`,
+        });
+      }
+
       const totp = new OTPAuth.TOTP({
         issuer: "NIS2 Platform",
         label: user.email,
@@ -1050,9 +1076,27 @@ export async function registerRoutes(
       const delta = totp.validate({ token: code, window: 1 });
       if (delta === null) {
         const clientIp = req.ip || req.headers["x-forwarded-for"] || "unknown";
-        logSecurityEvent("TOTP_FAILED", { email: user.email, ip: clientIp });
+        await storage.incrementFailedLoginAttempts(user.id, MAX_FAILED_ATTEMPTS, LOCKOUT_DURATION_MS);
+        req.session.pendingTotpAttempts = (req.session.pendingTotpAttempts || 0) + 1;
+        logSecurityEvent("TOTP_FAILED", { email: user.email, ip: clientIp, userId: user.id, attempt: req.session.pendingTotpAttempts });
+        await storage.createAuditLog({
+          tenantId: user.tenantId,
+          actorUserId: user.id,
+          action: "TOTP_FAILED",
+          entityType: "AUTH",
+          entityId: String(user.id),
+          details: { ip: clientIp, attempt: req.session.pendingTotpAttempts },
+        });
+        if (req.session.pendingTotpAttempts >= MAX_FAILED_ATTEMPTS) {
+          delete req.session.pendingTotpUserId;
+          delete req.session.pendingTotpAttempts;
+          return res.status(429).json({ message: "Too many failed verification attempts. Please log in again." });
+        }
         return res.status(401).json({ message: "Invalid verification code" });
       }
+
+      await storage.resetFailedLoginAttempts(user.id);
+      delete req.session.pendingTotpAttempts;
       const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
       await storage.updateUserLastLogin(user.id);
       await new Promise<void>((resolve, reject) =>
@@ -4063,7 +4107,7 @@ export async function registerRoutes(
 
       const emailSent = await sendGenericEmail(email, `You're invited to join ${tenantName} - NIS2 Platform`, htmlBody);
 
-      res.json({ invite, inviteLink: `/invite/${token}`, emailSent });
+      res.json({ invite, emailSent });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -4251,7 +4295,7 @@ export async function registerRoutes(
 
       const emailSent = await sendGenericEmail(invite.email, `Reminder: You're invited to join ${tenantName} - NIS2 Platform`, htmlBody);
 
-      res.json({ invite: updated, inviteLink: `/invite/${token}`, emailSent });
+      res.json({ invite: updated, emailSent });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -4666,7 +4710,7 @@ export async function registerRoutes(
 
       const emailSent = await sendGenericEmail(email, `You're invited to join ${tenantName} - NIS2 Platform`, htmlBody);
 
-      res.json({ invite, inviteLink: `/invite/${token}`, emailSent });
+      res.json({ invite, emailSent });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -4743,7 +4787,7 @@ export async function registerRoutes(
 
       const emailSent = await sendGenericEmail(invite.email, `Reminder: You're invited to join ${tenantName} - NIS2 Platform`, htmlBody);
 
-      res.json({ invite: updated, inviteLink: `/invite/${token}`, emailSent });
+      res.json({ invite: updated, emailSent });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
